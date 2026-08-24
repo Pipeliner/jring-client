@@ -19,7 +19,7 @@ from typing import Any
 from . import __version__
 from .bleak_transport import BleakTransport
 from .client import JRingClient
-from .discovery import discover, select_exact
+from .discovery import SelectionCandidate, discover, discover_for_selection, select_exact
 from .errors import UnavailableError
 from .input import (
     InputMapper,
@@ -159,6 +159,49 @@ def _print_discovery(results: list[dict[str, object]]) -> None:
         print(f"- {item['alias']}: {likelihood}, signal {rssi} dBm")
     print("Addresses stay hidden during discovery. Use BlueZ to identify your ring,")
     print("then store its exact address in a mode-0600 file and use --address-file.")
+    print("Or run jring status --select --active-scan for same-process guided selection.")
+
+
+def _choose_candidate(candidates: list[SelectionCandidate]) -> str | None:
+    if not candidates:
+        raise UnavailableError("no nearby Bluetooth devices found; no connection attempted")
+    print(f"Found {len(candidates)} nearby Bluetooth device(s):")
+    for index, candidate in enumerate(candidates, start=1):
+        likelihood = "possible JRing" if candidate.likely_jring else "unidentified"
+        print(
+            f"{index}. {candidate.alias}: {likelihood}, "
+            f"signal {_signal_strength(candidate.rssi)}"
+        )
+    try:
+        answer = input("Choose a device number, or q to cancel: ").strip()
+    except EOFError:
+        answer = "q"
+    if answer.lower() in {"q", "quit", "cancel"}:
+        print("Cancelled; no connection made.")
+        return None
+    if not answer.isdecimal() or not 1 <= int(answer) <= len(candidates):
+        raise ValueError("selection must be exactly one listed device number")
+    selected = candidates[int(answer) - 1]
+    print(f"CONNECTION NOT STARTED — selected {selected.alias}.")
+    try:
+        confirmation = input("Connect to this device for status? [y/N]: ").strip().lower()
+    except EOFError:
+        confirmation = ""
+    if confirmation not in {"y", "yes"}:
+        print("Cancelled; no connection made.")
+        return None
+    print(f"CONNECTION AUTHORIZED — connecting to {selected.alias} for status.")
+    return selected.connection_address()
+
+
+def _signal_strength(rssi: int | None) -> str:
+    if rssi is None:
+        return "unknown"
+    if rssi >= -55:
+        return "strong"
+    if rssi >= -70:
+        return "moderate"
+    return "weak"
 
 
 def _print_readiness(report: ReadinessReport) -> None:
@@ -272,7 +315,14 @@ async def _run(args: argparse.Namespace) -> int:
             _print_discovery(results)
         return 0
     source = "simulator" if args.simulate else "hardware"
-    address = None if args.simulate else _selected_address(args)
+    if getattr(args, "select", False):
+        print("ACTIVE SCAN — sends BLE scan requests; no connection has started.")
+        candidates = await discover_for_selection(timeout=args.timeout)
+        address = _choose_candidate(candidates)
+        if address is None:
+            return ExitCode.OK
+    else:
+        address = None if args.simulate else _selected_address(args)
     transport = FakeTransport.standard_ring() if args.simulate else BleakTransport(address)
     async with JRingClient(transport, timeout=args.timeout) as client:
         if args.command == "status":
@@ -400,6 +450,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     status = sub.add_parser("status", help="read battery, device information, and capabilities")
     _add_runtime_options(status, suppress=True)
+    status.add_argument(
+        "--select", action="store_true",
+        help="interactively select an ephemeral discovery alias in this process",
+    )
+    status.add_argument(
+        "--active-scan", action="store_true",
+        help="authorize BLE scan requests for interactive selection",
+    )
     sync = sub.add_parser("time-sync", help="write standard Bluetooth Current Time")
     _add_runtime_options(sync, suppress=True)
     sync.add_argument(
@@ -532,7 +590,19 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
     address_file = getattr(args, "address_file", None)
     simulate = getattr(args, "simulate", False)
     json_output = getattr(args, "json", False)
+    guided_selection = getattr(args, "select", False)
+    active_scan = getattr(args, "active_scan", False)
     has_hardware = bool(address or address_file)
+    if guided_selection and (simulate or has_hardware):
+        parser.error("--select is mutually exclusive with simulation and address selectors")
+    if guided_selection and not active_scan:
+        parser.error("--select requires --active-scan because it sends BLE scan requests")
+    if args.command == "status" and active_scan and not guided_selection:
+        parser.error("--active-scan on status requires --select")
+    if guided_selection and json_output:
+        parser.error("guided selection is human-only; automation should use --address-file")
+    if guided_selection and not sys.stdin.isatty():
+        parser.error("guided selection requires an interactive terminal; use --address-file")
     if simulate and has_hardware:
         parser.error("--simulate and hardware selection are mutually exclusive")
     if address and address_file:
@@ -562,7 +632,12 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         parser.error("input currently requires --simulate; hardware motion is not verified")
     if args.command == "history" and provided & {"address", "address_file", "timeout"}:
         parser.error("history is simulator-only and does not accept hardware selection or --timeout")
-    if args.command not in {"discover", "doctor", "input", "input-actions"} and not simulate and not has_hardware:
+    if (
+        args.command not in {"discover", "doctor", "input", "input-actions"}
+        and not simulate
+        and not has_hardware
+        and not guided_selection
+    ):
         parser.error("choose --simulate, --address-file, or --address for this command")
     if args.command == "history" and not simulate:
         parser.error("hardware history is not verified; use --simulate")

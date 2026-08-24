@@ -49,6 +49,20 @@ Desired outcomes:
 - Useful partial results from firmware with missing, malformed, or slow optional
   fields, without multiplying the command deadline by the number of fields.
 
+### Select my ring without exposing its address
+
+When I want to inspect a nearby ring, I want to select it by a temporary identity cue
+and confirm the connection in the same command, so its stable Bluetooth address does
+not enter shell history, process listings, logs, or configuration.
+
+Desired outcomes:
+
+- Authorize an active scan separately from the subsequent connection.
+- Compare coarse, privacy-preserving cues under aliases that change every process.
+- Never auto-connect, even when exactly one candidate appears.
+- Cancel or reject an unclear selection without connecting.
+- Keep a mode-0600 address file as the non-interactive automation path.
+
 ### Reuse the ring as a general-purpose input
 
 When a ring gesture or motion event is available, I want to map it to a small,

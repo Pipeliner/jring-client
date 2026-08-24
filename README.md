@@ -45,6 +45,17 @@ The legacy `--address` option remains available, but it exposes the identifier i
 shell history and process listings. Neither discovery result aliases nor addresses are
 persisted by the client, and discovery never auto-selects a device.
 
+For an interactive status check without putting an address in argv or a file, use:
+
+```sh
+jring status --select --active-scan
+```
+
+The scan and connection are separate consent steps. The command shows temporary
+aliases and coarse identity cues, then asks a default-no confirmation before it can
+connect. It never auto-selects a sole result. This guided path is human-only and does
+not support `--json`; scripts should keep using the mode-0600 address file.
+
 Human-readable output is the default. Add `--json` to `status` or `discover` for
 automation. Both task-first options (`jring status --simulate`) and the original
 global-first form (`jring --simulate status`) are supported.

@@ -4,6 +4,7 @@ import os
 import pytest
 
 from jring import cli
+from jring.discovery import DiscoveryObservation, build_selection_candidates
 from jring.protocol import ProtocolError
 from jring.readiness import ReadinessCheck, ReadinessReport
 from jring.transport import FakeTransport
@@ -275,6 +276,137 @@ def test_simulated_discovery_never_scans(monkeypatch, capsys):
     assert raised.value.code == 2
     assert not touched_radio
     assert "does not support simulation" in capsys.readouterr().err
+
+
+def synthetic_selection_candidates():
+    return build_selection_candidates(
+        (
+            DiscoveryObservation("11:22:33:44:55:66", "other", ("180a",), -70),
+            DiscoveryObservation("AA:BB:CC:DD:EE:FF", "JRing", ("1812",), -42),
+        ),
+        salt=b"synthetic-guided-selection",
+    )
+
+
+def enable_interactive_terminal(monkeypatch):
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+
+
+def test_guided_status_selects_only_after_confirmation(monkeypatch, capsys):
+    enable_interactive_terminal(monkeypatch)
+    candidates = synthetic_selection_candidates()
+    selected = candidates[1]
+    connected = []
+
+    async def scan(**_kwargs):
+        return candidates
+
+    def transport(address):
+        connected.append(address)
+        return FakeTransport.standard_ring()
+
+    responses = iter(["2", "y"])
+    monkeypatch.setattr(cli, "discover_for_selection", scan)
+    monkeypatch.setattr(cli, "BleakTransport", transport)
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert cli.main(["status", "--select", "--active-scan"]) == 0
+    output = capsys.readouterr().out
+    assert connected == [selected.connection_address()]
+    assert output.index("ACTIVE SCAN") < output.index("CONNECTION NOT STARTED")
+    assert selected.alias in output
+    assert "AA:BB" not in output
+    assert "11:22" not in output
+
+
+@pytest.mark.parametrize("confirmation", ["", "n", "no"])
+def test_guided_selection_never_autoconnects(monkeypatch, capsys, confirmation):
+    enable_interactive_terminal(monkeypatch)
+    candidates = synthetic_selection_candidates()[:1]
+    connected = False
+
+    async def scan(**_kwargs):
+        return candidates
+
+    def transport(_address):
+        nonlocal connected
+        connected = True
+
+    responses = iter(["1", confirmation])
+    monkeypatch.setattr(cli, "discover_for_selection", scan)
+    monkeypatch.setattr(cli, "BleakTransport", transport)
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert cli.main(["status", "--select", "--active-scan"]) == 0
+    assert not connected
+    assert "Cancelled; no connection made." in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("candidates,response,exit_code", [([], None, 3), (None, "3", 2)])
+def test_guided_selection_zero_or_invalid_results_do_not_connect(
+    monkeypatch, capsys, candidates, response, exit_code
+):
+    enable_interactive_terminal(monkeypatch)
+    found = synthetic_selection_candidates() if candidates is None else candidates
+    connected = False
+
+    async def scan(**_kwargs):
+        return found
+
+    def transport(_address):
+        nonlocal connected
+        connected = True
+
+    monkeypatch.setattr(cli, "discover_for_selection", scan)
+    monkeypatch.setattr(cli, "BleakTransport", transport)
+    if response is not None:
+        monkeypatch.setattr("builtins.input", lambda _prompt: response)
+
+    assert cli.main(["status", "--select", "--active-scan"]) == exit_code
+    assert not connected
+    output = capsys.readouterr()
+    assert "AA:BB" not in output.out + output.err
+
+
+@pytest.mark.parametrize(
+    "argv,message",
+    [
+        (["status", "--select"], "--active-scan"),
+        (["status", "--active-scan"], "--select"),
+        (["status", "--select", "--active-scan", "--simulate"], "mutually exclusive"),
+    ],
+)
+def test_guided_selection_requires_unambiguous_human_consent(argv, message, capsys):
+    with pytest.raises(SystemExit) as raised:
+        cli.main(argv)
+    assert raised.value.code == 2
+    assert message in capsys.readouterr().err
+
+
+def test_guided_selection_rejects_json_with_a_private_envelope(capsys):
+    assert cli.main(["status", "--select", "--active-scan", "--json"]) == 2
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["error"]["code"] == "usage"
+    assert "human-only" in result["error"]["message"]
+    assert "AA:BB" not in captured.out
+    assert captured.err == ""
+
+
+def test_guided_selection_rejects_noninteractive_input_before_scan(monkeypatch, capsys):
+    scanned = False
+
+    async def scan(**_kwargs):
+        nonlocal scanned
+        scanned = True
+
+    monkeypatch.setattr(cli, "discover_for_selection", scan)
+
+    with pytest.raises(SystemExit) as raised:
+        cli.main(["status", "--select", "--active-scan"])
+    assert raised.value.code == 2
+    assert not scanned
+    assert "interactive terminal" in capsys.readouterr().err
 
 
 def test_source_modes_are_exclusive(capsys):

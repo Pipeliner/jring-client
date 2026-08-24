@@ -189,6 +189,23 @@ identifier is absent from argv. Conflicting source selectors fail before transpo
 construction. Expected and unexpected CLI errors redact MAC-like identifiers, long
 payload hex, and BlueZ D-Bus paths and never show a traceback.
 
+### Guided same-process selection
+
+Given a terminal user who runs `jring status --select --active-scan`, the client first
+states that an active scan sends radio requests and has not connected. Results use
+per-process aliases plus only a possible-JRing classification and coarse signal strength.
+Names and addresses never appear.
+
+Choosing a numbered alias does not connect. The client repeats the alias and asks a
+separate default-no question before constructing a transport. A negative answer,
+end-of-input, invalid selection, zero results, or ambiguous input makes no connection.
+One result is never selected automatically.
+
+Guided selection requires an interactive terminal and is same-process. It rejects `--json`, simulation,
+address selectors, and missing `--active-scan`; automation continues to use a
+mode-0600 `--address-file`. Aliases and the private address-to-alias association are
+neither persisted nor exposed by public results or object representations.
+
 ### Non-destructive export
 
 History refuses to replace an existing destination unless `--force` is explicit.
@@ -218,11 +235,12 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Supported Bleak connection contract | `test_bleak_one_x_none_return_is_a_successful_connection` |
 | Option meaning is enforced | `test_non_applicable_global_options_are_rejected`, `test_timeout_must_be_finite_and_bounded` |
 | Private and sanitized selection | `test_address_file_must_be_private`, `test_cli_errors_redact_identifiers` |
+| Guided same-process selection | `test_guided_status_selects_only_after_confirmation`, `test_guided_selection_never_autoconnects`, `test_guided_selection_zero_or_invalid_results_do_not_connect`, `test_aliases_change_between_process_seeds` |
 | Non-destructive export | `test_history_export_requires_force_to_replace` |
 
 ## Deliberate non-goals
 
 The CLI will not auto-connect from scan results, persist addresses, automate pairing,
 guess vendor packets, execute mapped shell commands, upload data, or label measurements as medical conclusions.
-Interactive device selection may be designed later only if it can preserve explicit
-identity confirmation and avoid persistent identifiers in logs.
+Guided selection does not extend to writes or automation; those continue to require
+their existing explicit contracts.

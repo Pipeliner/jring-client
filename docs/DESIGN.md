@@ -45,14 +45,22 @@ which UUID family applies to a particular ring firmware.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`
-loads Bleak lazily. `jring.cli` requires an exact address for hardware access and an
-additional confirmation flag for the only write (standard Current Time service).
+loads Bleak lazily. `jring.cli` requires either same-process confirmed selection or an
+exact address for hardware access, plus an additional confirmation flag for the only
+write (standard Current Time service).
 
 Discovery is an explicitly authorized active BLE scan because the supported Bleak
 backend sends scan requests. It prints redacted aliases, never addresses, and never
 connects. Connection prefers a mode-0600 `--address-file`; legacy `--address` remains
 available with a shell-history/process-list warning. Vendor writes, pairing,
 firmware/DFU, destructive history operations, cloud access, and telemetry are absent.
+
+`status --select --active-scan` retains the scan's private address association only in
+an in-process selection candidate whose representation and public summary omit it.
+Aliases use a new cryptographic salt for each discovery call. A numbered choice is
+followed by a distinct default-no connection confirmation before `BleakTransport` is
+constructed. This interactive path has no JSON mode; non-interactive callers use the
+private address-file contract.
 Diagnostics hash addresses with a per-process salt and omit raw health payloads.
 Readiness uses a bounded, read-only system D-Bus query for BlueZ daemon ownership,
 enumerates only local `hciN` adapter names from sysfs, and reads only each adapter's
@@ -74,7 +82,8 @@ hardware event frames are verified.
 
 - Import and simulator tests work without Bleak or hardware.
 - Parsers reject truncated, oversized, malformed, and bad-checksum simulator data.
-- Discovery cannot connect and connection cannot occur without an explicit address.
+- Discovery alone cannot connect; guided selection requires explicit scan and
+  connection consent, while other hardware access requires an explicit address.
 - Safe standard battery/device-info reads are bounded by timeouts.
 - Time sync is opt-in and requires `--allow-write`; vendor writes are impossible.
 - Live standard heart-rate notifications can be consumed and cancelled cleanly.
