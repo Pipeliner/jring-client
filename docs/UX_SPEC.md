@@ -96,6 +96,12 @@ checks Python, Linux, Bleak, BlueZ, evdev, and `/dev/uinput` readiness without
 scanning, connecting, writing, or using the network. It reports simulator, BLE
 hardware, and desktop-input readiness independently with concrete remedies.
 
+The BLE section separates installed prerequisites from passive operational evidence
+for the system D-Bus, BlueZ daemon, adapter presence, adapter power, and session query
+permission. Each check is `available`, `unavailable`, `denied`, or `uninspected` with a
+reason and remedy. Failure to inspect is never presented as absence or health. Ring
+compatibility remains `not_checked`; `doctor` never proves a ring will connect.
+
 ### Readiness automation
 
 Given missing optional hardware prerequisites, when automation runs
@@ -187,7 +193,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Recoverable setup error | `test_expected_error_is_actionable_without_traceback` |
 | Deliberate write | `test_time_sync_requires_explicit_confirmation` |
 | Predictable export | `test_history_export_rejects_ambiguous_suffix` |
-| Passive setup diagnosis | `test_doctor_explains_hardware_setup_without_failing` |
+| Passive setup diagnosis | `test_doctor_explains_hardware_setup_without_failing`, `test_bluez_layers_remain_distinct`, `test_passive_bluez_probe_uses_only_read_queries` |
 | Readiness automation | `test_doctor_json_can_strictly_require_hardware` |
 | Standard HID visibility | `test_standard_hid_service_is_reported` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |

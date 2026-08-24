@@ -159,6 +159,13 @@ def _print_readiness(report: ReadinessReport) -> None:
     print("JRing setup check")
     print(f"Simulator: {'ready' if report.simulator_ready else 'not ready'}")
     print(f"BLE prerequisites: {'installed' if report.hardware_ready else 'incomplete'}")
+    adapter = (
+        "operational" if report.adapter_operational is True
+        else "incomplete" if report.adapter_operational is False
+        else "not inspected"
+    )
+    print(f"Bluetooth adapter: {adapter}")
+    print(f"Ring compatibility: {report.ring_compatibility.replace('_', ' ')}")
     print(f"Desktop-input prerequisites: {'installed' if report.input_ready else 'incomplete'}")
     for check in report.checks:
         print(f"[{'ok' if check.ok else 'fix'}] {check.detail}")
@@ -171,7 +178,9 @@ async def _run(args: argparse.Namespace) -> int:
     if args.command == "doctor":
         report = diagnose()
         requirement_failed = (
-            args.require_hardware and not report.hardware_ready
+            args.require_hardware and not (
+                report.hardware_ready and report.adapter_operational is True
+            )
         ) or (
             args.require_input and not report.input_ready
         )

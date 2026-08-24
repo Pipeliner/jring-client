@@ -29,6 +29,9 @@ Desired outcomes:
 - Give one concrete remedy for each failed check.
 - Keep a successful simulator path visible even when hardware is not ready.
 - Let automation require hardware readiness explicitly.
+- Distinguish installed prerequisites from the system D-Bus, BlueZ daemon, adapter,
+  adapter power, and session permission states; ring compatibility remains untested
+  until an explicitly selected connection is attempted.
 
 ### Read and export my data safely
 

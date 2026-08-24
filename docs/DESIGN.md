@@ -54,6 +54,11 @@ connects. Connection prefers a mode-0600 `--address-file`; legacy `--address` re
 available with a shell-history/process-list warning. Vendor writes, pairing,
 firmware/DFU, destructive history operations, cloud access, and telemetry are absent.
 Diagnostics hash addresses with a per-process salt and omit raw health payloads.
+Readiness uses a bounded, read-only system D-Bus query for BlueZ daemon ownership,
+enumerates only local `hciN` adapter names from sysfs, and reads only each adapter's
+boolean `Powered` property. It never requests paired-device objects, starts discovery,
+connects, sets power, or edits policy. Unparseable or denied evidence becomes
+`uninspected` or `denied`, never a guessed healthy or absent state.
 
 `jring.input` maps typed logical sensor events to a closed set of named keyboard and
 mouse actions. Preview is the default. Linux `uinput` is loaded lazily and requires an
