@@ -95,7 +95,7 @@ def test_native_distro_smoke_matrix_is_bounded_and_pinned():
     for family, image in (
         ("debian", "debian:13-slim"),
         ("fedora", "fedora:44"),
-        ("enterprise-linux-9", "rockylinux:9.6"),
+        ("enterprise-linux-9", "rockylinux/rockylinux:9.6"),
         ("arch", "archlinux:base"),
         ("opensuse", "opensuse/leap:15.6"),
     ):

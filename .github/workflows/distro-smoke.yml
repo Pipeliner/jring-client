@@ -25,7 +25,7 @@ jobs:
             image: fedora:44
             python_command: python3
           - family: enterprise-linux-9
-            image: rockylinux:9.6
+            image: rockylinux/rockylinux:9.6
             python_command: python3.11
           # Arch is a rolling distribution and does not publish fixed release tags.
           - family: arch
