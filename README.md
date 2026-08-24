@@ -88,6 +88,8 @@ owner-evidence gate.
 For reviewed CI artifacts, checksum verification, isolated `pipx`/`uv tool` install,
 upgrade, and uninstall instructions, see [docs/INSTALL.md](docs/INSTALL.md). The
 repository does not currently publish to a package index or create GitHub releases.
+The tokenless, owner-gated release design and remaining PyPI trust step are documented
+in [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 Run `jring doctor` before touching hardware. It passively checks Python, Linux, Bleak,
 BlueZ, evdev, and `/dev/uinput`, explains exactly what is missing, and reports

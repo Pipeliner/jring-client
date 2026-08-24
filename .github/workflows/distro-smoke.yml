@@ -1,0 +1,97 @@
+name: Native container smoke
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  distro-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - family: debian
+            image: debian:13-slim
+            python_command: python3
+          - family: fedora
+            image: fedora:44
+            python_command: python3
+          - family: enterprise-linux-9
+            image: rockylinux:9.6
+            python_command: python3.11
+          # Arch is a rolling distribution and does not publish fixed release tags.
+          - family: arch
+            image: archlinux:base
+            python_command: python
+          - family: opensuse
+            image: opensuse/leap:15.6
+            python_command: python3.11
+    env:
+      JRING_HARDWARE_TEST: "0"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Install ephemeral native prerequisites
+        shell: sh
+        run: |
+          case "${{ matrix.family }}" in
+            debian)
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                git ca-certificates python3 python3-venv python3-pip python3-dev \
+                build-essential linux-libc-dev bluez
+              ;;
+            fedora)
+              dnf install -y \
+                git ca-certificates python3 python3-pip python3-devel gcc \
+                kernel-headers bluez
+              ;;
+            enterprise-linux-9)
+              dnf install -y \
+                git ca-certificates python3.11 python3.11-pip python3.11-devel \
+                gcc kernel-headers bluez
+              ;;
+            arch)
+              pacman -Syu --noconfirm --needed \
+                git ca-certificates python python-pip base-devel linux-api-headers \
+                bluez bluez-utils
+              ;;
+            opensuse)
+              zypper --non-interactive install --no-recommends \
+                git ca-certificates python311 python311-pip python311-devel gcc make \
+                linux-glibc-devel bluez
+              ;;
+            *)
+              echo "unsupported smoke family" >&2
+              exit 2
+              ;;
+          esac
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Create isolated environment and install all extras
+        shell: sh
+        run: |
+          "${{ matrix.python_command }}" --version
+          "${{ matrix.python_command }}" -m venv /tmp/jring-smoke-venv
+          . /tmp/jring-smoke-venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[ble,input,dev]'
+
+      - name: Run non-hardware tests and passive simulator smoke
+        shell: sh
+        run: |
+          . /tmp/jring-smoke-venv/bin/activate
+          python -m pytest -q
+          jring doctor --json
+          jring status --simulate --json
+          jring capabilities --simulate --json
+          jring input --simulate --map step=key:space
