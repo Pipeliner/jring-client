@@ -78,6 +78,12 @@ Standard HID service `1812` is detected as a capability only; raw HID
 reports are neither parsed nor logged. Simulated `step` is the only motion source until
 hardware event frames are verified.
 
+`JRingClient.capability_inventory` concurrently requests service UUIDs and static GATT
+metadata under one deadline. The transport returns only characteristic properties and
+descriptor UUIDs; no characteristic or descriptor value is read. Known standard HID
+metadata is converted into explicit evidence states, while report contents, OS
+attachment, usability, and hardware motion remain unverified.
+
 ## Acceptance criteria
 
 - Import and simulator tests work without Bleak or hardware.
@@ -92,6 +98,8 @@ hardware event frames are verified.
 - Diagnostics redact addresses and never log payloads by default.
 - Standard HID service presence is reported as observed, with usability unknown and
   without capturing reports.
+- Standard HID metadata inventory never reads or subscribes and preserves independent
+  characteristic states when optional descriptor metadata is missing or malformed.
 - Status collects battery, Device Information, and service inventory concurrently under
   one bounded deadline. Additive per-field states distinguish absence, malformed data,
   timeouts, and a service that was not advertised without exposing raw values.

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .errors import UnavailableError
-from .transport import NotifyCallback
+from .transport import GattCharacteristicMetadata, NotifyCallback
 
 
 class BleakTransport:
@@ -36,3 +36,15 @@ class BleakTransport:
     async def service_uuids(self) -> set[str]:
         services = self._client.services
         return {service.uuid.lower() for service in services}
+
+    async def gatt_characteristics(self) -> tuple[GattCharacteristicMetadata, ...]:
+        return tuple(
+            GattCharacteristicMetadata(
+                service.uuid.lower(),
+                characteristic.uuid.lower(),
+                tuple(sorted(str(value).lower() for value in characteristic.properties)),
+                tuple(sorted(descriptor.uuid.lower() for descriptor in characteristic.descriptors)),
+            )
+            for service in self._client.services
+            for characteristic in service.characteristics
+        )

@@ -116,6 +116,22 @@ status, then the human and JSON outputs report that the standard HID service was
 observed while usability remains unknown. The client does not reinterpret or log raw
 HID reports.
 
+### Read-only non-health capability inventory
+
+Given a selected device or the HID simulator, when a person runs `jring capabilities`,
+then the client enumerates standard GATT metadata only. Human and schema-1 JSON output
+distinguish service `advertised`, characteristic `readable` or `advertised`, missing
+`unsupported`, malformed optional descriptor metadata, `not_verified` usability, and
+`not_checked` OS attachment.
+
+`readable` means the GATT characteristic advertises a read property; it does not mean
+the value was read or understood. Inventory never reads the HID Report Map, captures a
+report, subscribes to HID/vendor/health notifications, starts a measurement, or prints
+addresses, D-Bus paths, descriptor values, report maps, or payloads. A missing or
+malformed Report Reference descriptor does not hide valid HID characteristic states.
+No hardware motion event appears as verified until an accepted issue-#1 fixture proves
+its non-health meaning.
+
 ### Safe step-to-input preview
 
 Given no ring, when a person runs
@@ -239,6 +255,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Passive setup diagnosis | `test_doctor_explains_hardware_setup_without_failing`, `test_bluez_layers_remain_distinct`, `test_passive_bluez_probe_uses_only_read_queries` |
 | Readiness automation | `test_doctor_json_can_strictly_require_hardware` |
 | Standard HID visibility | `test_standard_hid_service_is_reported` |
+| Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_cli_capability_inventory_is_private` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |
 | Accessible action discovery | `test_input_action_inventory_is_complete_and_stable`, `test_input_actions_are_screen_reader_ordered`, `test_mouse_aliases_are_deterministic` |

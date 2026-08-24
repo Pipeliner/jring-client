@@ -239,6 +239,43 @@ def _print_input_actions(inventory: dict[str, list[dict[str, object]]]) -> None:
     print("No hardware gesture or motion event is verified yet.")
 
 
+def _capability_payload(inventory: object) -> dict[str, object]:
+    characteristics = [asdict(item) for item in inventory.characteristics]
+    return {
+        "inventory_state": inventory.inventory_state,
+        "metadata_state": inventory.metadata_state,
+        "standard_hid": {
+            "service_state": inventory.hid_service_state,
+            "characteristics": characteristics,
+            "report_reference_descriptor": {
+                "state": inventory.report_reference_state,
+            },
+            "report_map_contents": "not_read",
+            "usability_state": inventory.usability_state,
+            "os_attachment_state": inventory.os_attachment_state,
+        },
+        "neutral_events": {
+            "state": inventory.neutral_event_state,
+            "events": list(inventory.neutral_events),
+        },
+    }
+
+
+def _print_capability_inventory(payload: dict[str, object], source: str) -> None:
+    print("SIMULATION — no ring contacted" if source == "simulator" else "HARDWARE — explicitly selected ring")
+    hid = payload["standard_hid"]
+    print(f"Inventory metadata: {payload['inventory_state']}")
+    print(f"Standard HID service: {hid['service_state']}")
+    for feature in hid["characteristics"]:
+        label = feature["name"].replace("_", " ").title().replace("Hid", "HID")
+        print(f"{label}: {feature['state']}")
+    print(f"Report Reference descriptor: {hid['report_reference_descriptor']['state']}")
+    print("Report Map contents: not read")
+    print(f"HID usability: {hid['usability_state'].replace('_', ' ')}")
+    print(f"OS attachment: {hid['os_attachment_state'].replace('_', ' ')}")
+    print("Verified hardware events: none (unsupported)")
+
+
 async def _run(args: argparse.Namespace) -> int:
     if args.command == "input-actions":
         inventory = input_action_inventory()
@@ -323,9 +360,22 @@ async def _run(args: argparse.Namespace) -> int:
             return ExitCode.OK
     else:
         address = None if args.simulate else _selected_address(args)
-    transport = FakeTransport.standard_ring() if args.simulate else BleakTransport(address)
+    transport = (
+        FakeTransport.standard_hid_ring()
+        if args.simulate and args.command == "capabilities"
+        else FakeTransport.standard_ring()
+        if args.simulate
+        else BleakTransport(address)
+    )
     async with JRingClient(transport, timeout=args.timeout) as client:
-        if args.command == "status":
+        if args.command == "capabilities":
+            inventory = await client.capability_inventory()
+            payload = _capability_payload(inventory)
+            if args.json:
+                _print_json_success("capabilities", source, payload)
+            else:
+                _print_capability_inventory(payload, source)
+        elif args.command == "status":
             status = await client.status()
             capabilities = {
                 "device_info_service_advertised": status.capabilities.device_info,
@@ -458,6 +508,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--active-scan", action="store_true",
         help="authorize BLE scan requests for interactive selection",
     )
+    capabilities = sub.add_parser(
+        "capabilities", help="inventory standard HID metadata without reading reports"
+    )
+    _add_runtime_options(capabilities, suppress=True)
     sync = sub.add_parser("time-sync", help="write standard Bluetooth Current Time")
     _add_runtime_options(sync, suppress=True)
     sync.add_argument(
@@ -532,6 +586,7 @@ _OPERATIONS = {
     "doctor": "doctor",
     "input-actions": "input_actions",
     "input": "input",
+    "capabilities": "capabilities",
     "discover": "discover",
     "status": "status",
     "time-sync": "time_sync",

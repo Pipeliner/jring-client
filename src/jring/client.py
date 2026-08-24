@@ -9,16 +9,20 @@ from collections.abc import AsyncIterator, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from uuid import UUID
 
 from .protocol import (
     HeartRate, HistoryRecord, ProtocolError, parse_battery, parse_device_text,
     parse_heart_rate,
 )
-from .transport import BleTransport
-from .uuids import (BATTERY_LEVEL, CURRENT_TIME, DEVICE_INFO_SERVICE, FIRMWARE,
-                    HARDWARE, HEART_RATE_MEASUREMENT, HEART_RATE_SERVICE,
-                    HUMAN_INTERFACE_DEVICE_SERVICE, MANUFACTURER, MODEL, SOFTWARE,
-                    VENDOR_UUIDS)
+from .transport import BleTransport, GattCharacteristicMetadata
+from .uuids import (
+    BATTERY_LEVEL, BOOT_KEYBOARD_INPUT, BOOT_KEYBOARD_OUTPUT, BOOT_MOUSE_INPUT,
+    CURRENT_TIME, DEVICE_INFO_SERVICE, FIRMWARE, HARDWARE, HEART_RATE_MEASUREMENT,
+    HEART_RATE_SERVICE, HID_CONTROL_POINT, HID_INFORMATION, HID_PROTOCOL_MODE,
+    HID_REPORT, HID_REPORT_MAP, HUMAN_INTERFACE_DEVICE_SERVICE, MANUFACTURER, MODEL,
+    REPORT_REFERENCE_DESCRIPTOR, SOFTWARE, VENDOR_UUIDS,
+)
 
 
 @dataclass(frozen=True)
@@ -57,6 +61,48 @@ class Status:
     device_info_states: DeviceInfoStates
     capabilities: Capabilities
     capabilities_state: str
+
+
+@dataclass(frozen=True)
+class CapabilityFeature:
+    name: str
+    uuid: str
+    state: str
+
+
+@dataclass(frozen=True)
+class CapabilityInventory:
+    inventory_state: str
+    metadata_state: str
+    hid_service_state: str
+    characteristics: tuple[CapabilityFeature, ...]
+    report_reference_state: str
+    usability_state: str = "not_verified"
+    os_attachment_state: str = "not_checked"
+    neutral_event_state: str = "unsupported"
+    neutral_events: tuple[str, ...] = ()
+
+
+_HID_FEATURES = (
+    ("hid_information", HID_INFORMATION),
+    ("report_map", HID_REPORT_MAP),
+    ("report", HID_REPORT),
+    ("protocol_mode", HID_PROTOCOL_MODE),
+    ("control_point", HID_CONTROL_POINT),
+    ("boot_keyboard_input", BOOT_KEYBOARD_INPUT),
+    ("boot_keyboard_output", BOOT_KEYBOARD_OUTPUT),
+    ("boot_mouse_input", BOOT_MOUSE_INPUT),
+)
+
+
+def _valid_uuid(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        UUID(value)
+    except ValueError:
+        return False
+    return True
 
 
 class JRingClient:
@@ -111,6 +157,97 @@ class JRingClient:
             HEART_RATE_SERVICE in services,
             HUMAN_INTERFACE_DEVICE_SERVICE in services,
             tuple(sorted(services & VENDOR_UUIDS)),
+        )
+
+    async def capability_inventory(self) -> CapabilityInventory:
+        tasks = {
+            "services": asyncio.create_task(self.transport.service_uuids()),
+            "metadata": asyncio.create_task(self.transport.gatt_characteristics()),
+        }
+        _done, pending = await asyncio.wait(tasks.values(), timeout=self.timeout)
+        for task in pending:
+            task.cancel()
+        gathered = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        outcomes = dict(zip(tasks, gathered, strict=True))
+
+        def outcome(name: str) -> tuple[object, str]:
+            task = tasks[name]
+            if task in pending:
+                return (), "timed_out"
+            value = outcomes[name]
+            if isinstance(value, (LookupError, OSError, TimeoutError)):
+                return (), "unavailable"
+            if isinstance(value, BaseException):
+                raise value
+            return value, "available"
+
+        services_value, services_state = outcome("services")
+        metadata_value, metadata_state = outcome("metadata")
+        services = {
+            str(value).lower() for value in services_value
+        } if services_state == "available" else set()
+        metadata = tuple(metadata_value) if metadata_state == "available" else ()
+        hid_records = tuple(
+            record for record in metadata
+            if isinstance(record, GattCharacteristicMetadata)
+            and record.service_uuid.lower() == HUMAN_INTERFACE_DEVICE_SERVICE
+        )
+        if HUMAN_INTERFACE_DEVICE_SERVICE in services or hid_records:
+            service_state = "advertised"
+        elif services_state == "available" or metadata_state == "available":
+            service_state = "unsupported"
+        else:
+            service_state = "timed_out" if "timed_out" in {services_state, metadata_state} else "unavailable"
+
+        records_by_uuid = {record.uuid.lower(): record for record in hid_records}
+        features = []
+        for name, uuid in _HID_FEATURES:
+            record = records_by_uuid.get(uuid)
+            if service_state == "unsupported":
+                state = "unsupported"
+            elif metadata_state != "available":
+                state = metadata_state
+            elif record is None:
+                state = "unsupported"
+            elif not isinstance(record.properties, tuple) or not all(
+                isinstance(value, str) for value in record.properties
+            ):
+                state = "malformed"
+            else:
+                properties = {value.lower() for value in record.properties}
+                state = "readable" if "read" in properties else "advertised"
+            features.append(CapabilityFeature(name, uuid, state))
+
+        report_records = tuple(record for record in hid_records if record.uuid.lower() == HID_REPORT)
+        descriptor_values = tuple(
+            value for record in report_records for value in record.descriptor_uuids
+        )
+        if service_state == "unsupported":
+            descriptor_state = "unsupported"
+        elif metadata_state != "available":
+            descriptor_state = metadata_state
+        elif REPORT_REFERENCE_DESCRIPTOR in {
+            value.lower() for value in descriptor_values if isinstance(value, str)
+        }:
+            descriptor_state = "advertised"
+        elif any(not _valid_uuid(value) for value in descriptor_values):
+            descriptor_state = "malformed"
+        else:
+            descriptor_state = "unsupported"
+
+        states = {services_state, metadata_state}
+        inventory_state = (
+            "available" if states == {"available"}
+            else "partial" if "available" in states
+            else "timed_out" if "timed_out" in states
+            else "unavailable"
+        )
+        return CapabilityInventory(
+            inventory_state=inventory_state,
+            metadata_state=metadata_state,
+            hid_service_state=service_state,
+            characteristics=tuple(features),
+            report_reference_state=descriptor_state,
         )
 
     async def status(self) -> Status:

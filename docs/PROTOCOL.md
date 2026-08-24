@@ -10,7 +10,7 @@ decompiled vendor material.
 | Package | JRing 1.9.84/182, package `com.jaga.ibraceletplus.jyring` | High | Documented |
 | BLE SDK | `com.sxr.sdk.ble.keepfit` service, AIDL client/options/profiles/callbacks | High | Architecture informed only |
 | Standard GATT | Device Info `180a`/`2a23`–`2a2a`,`2a50`; Heart Rate `180d`/`2a37`; CCCD `2902` | High | Device text and HR parsers |
-| Standard HID | HID service `1812` is a standards-based compatibility check, not observed vendor evidence | Low for JRing presence | Detect/report only; no raw reports |
+| Standard HID | HID service `1812` and assigned characteristic/descriptor UUID meanings are standards-based compatibility checks, not observed vendor evidence | Low for JRing presence | Enumerate metadata only; no values or reports |
 | Vendor GATT | `33f3`–`33f6`, `56ff`, `57ff`, `fef5`, `ffe5`, `ffe9` strings | High existence; medium roles | Detect/report only |
 | Battery | SDK methods/callbacks and Android UI actions mention battery | High capability; unknown UUID | Standard `2a19` safe read |
 | Device info | SDK get-device-info operations and standard DIS UUIDs | High | Safe reads |

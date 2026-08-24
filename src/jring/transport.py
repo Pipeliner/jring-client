@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
 
@@ -14,6 +15,14 @@ from .uuids import (
 NotifyCallback = Callable[[bytes], None]
 
 
+@dataclass(frozen=True)
+class GattCharacteristicMetadata:
+    service_uuid: str
+    uuid: str
+    properties: tuple[str, ...]
+    descriptor_uuids: tuple[str, ...]
+
+
 class BleTransport(Protocol):
     async def connect(self) -> None: ...
     async def close(self) -> None: ...
@@ -22,13 +31,22 @@ class BleTransport(Protocol):
     async def subscribe(self, characteristic: str, callback: NotifyCallback) -> None: ...
     async def unsubscribe(self, characteristic: str) -> None: ...
     async def service_uuids(self) -> set[str]: ...
+    async def gatt_characteristics(self) -> tuple[GattCharacteristicMetadata, ...]: ...
 
 
 class FakeTransport:
-    def __init__(self, values: dict[str, bytes], services: set[str], *, read_delay: float = 0):
+    def __init__(
+        self,
+        values: dict[str, bytes],
+        services: set[str],
+        *,
+        read_delay: float = 0,
+        gatt_metadata: tuple[GattCharacteristicMetadata, ...] = (),
+    ):
         self.values = {key.lower(): value for key, value in values.items()}
         self.services = {value.lower() for value in services}
         self.read_delay = read_delay
+        self.gatt_metadata = gatt_metadata
         self.callbacks: dict[str, NotifyCallback] = {}
         self.connected = False
         self.closed = False
@@ -39,6 +57,34 @@ class FakeTransport:
         return cls({BATTERY_LEVEL: b"\x54", MANUFACTURER: b"Simulated", MODEL: b"JR-SIM",
                     FIRMWARE: b"0.0-test"}, {DEVICE_INFO_SERVICE, HEART_RATE_SERVICE},
                    read_delay=read_delay)
+
+    @classmethod
+    def standard_hid_ring(cls) -> "FakeTransport":
+        from .uuids import (
+            HID_INFORMATION,
+            HID_REPORT,
+            HID_REPORT_MAP,
+            HUMAN_INTERFACE_DEVICE_SERVICE,
+            REPORT_REFERENCE_DESCRIPTOR,
+        )
+
+        transport = cls.standard_ring()
+        transport.services.add(HUMAN_INTERFACE_DEVICE_SERVICE)
+        transport.gatt_metadata = (
+            GattCharacteristicMetadata(
+                HUMAN_INTERFACE_DEVICE_SERVICE, HID_INFORMATION, ("read",), ()
+            ),
+            GattCharacteristicMetadata(
+                HUMAN_INTERFACE_DEVICE_SERVICE, HID_REPORT_MAP, ("read",), ()
+            ),
+            GattCharacteristicMetadata(
+                HUMAN_INTERFACE_DEVICE_SERVICE,
+                HID_REPORT,
+                ("notify",),
+                (REPORT_REFERENCE_DESCRIPTOR,),
+            ),
+        )
+        return transport
 
     async def connect(self) -> None:
         self.connected = True
@@ -66,6 +112,9 @@ class FakeTransport:
 
     async def service_uuids(self) -> set[str]:
         return set(self.services)
+
+    async def gatt_characteristics(self) -> tuple[GattCharacteristicMetadata, ...]:
+        return tuple(self.gatt_metadata)
 
     def emit(self, characteristic: str, data: bytes) -> None:
         self.callbacks[characteristic.lower()](data)
