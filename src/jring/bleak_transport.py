@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .errors import UnavailableError
 from .transport import NotifyCallback
 
 
@@ -8,7 +9,7 @@ class BleakTransport:
         try:
             from bleak import BleakClient
         except ImportError as exc:
-            raise RuntimeError("hardware support requires: pip install '.[ble]' ") from exc
+            raise UnavailableError("hardware support requires: pip install '.[ble]'") from exc
         self._client = BleakClient(address, timeout=timeout)
 
     async def connect(self) -> None:

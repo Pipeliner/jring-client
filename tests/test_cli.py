@@ -4,6 +4,7 @@ import os
 import pytest
 
 from jring import cli
+from jring.protocol import ProtocolError
 from jring.readiness import ReadinessCheck, ReadinessReport
 
 
@@ -35,10 +36,49 @@ def test_human_status_is_readable(capsys):
 def test_json_status_is_stable_and_private(capsys):
     assert cli.main(["status", "--simulate", "--json"]) == 0
     result = json.loads(capsys.readouterr().out)
+    assert result["schema_version"] == 1
+    assert result["operation"] == "status"
+    assert result["source"] == "simulator"
+    assert result["ok"] is True
     assert result["battery_percent"] == 84
     assert result["device_info"]["model"] == "JR-SIM"
     assert result["capabilities"]["hid_service_advertised"] is False
     assert "address" not in json.dumps(result).lower()
+
+
+@pytest.mark.parametrize(
+    "argv, operation, source",
+    [
+        (["doctor", "--json"], "doctor", "local"),
+        (["input", "--simulate", "--map", "step=key:space", "--json"],
+         "input", "simulator"),
+        (["time-sync", "--simulate", "--yes", "--json"],
+         "time_sync", "simulator"),
+    ],
+)
+def test_every_json_success_has_the_common_envelope(argv, operation, source, capsys):
+    assert cli.main(argv) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["schema_version"] == 1
+    assert result["operation"] == operation
+    assert result["source"] == source
+    assert result["ok"] is True
+
+
+def test_discovery_json_success_has_the_common_envelope(monkeypatch, capsys):
+    async def no_devices(**_kwargs):
+        return []
+
+    monkeypatch.setattr(cli, "discover", no_devices)
+    assert cli.main(["discover", "--active-scan", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result == {
+        "devices": [],
+        "ok": True,
+        "operation": "discover",
+        "schema_version": 1,
+        "source": "hardware",
+    }
 
 
 def test_global_option_placement_remains_compatible(capsys):
@@ -51,7 +91,7 @@ def test_expected_error_is_actionable_without_traceback(monkeypatch, capsys):
         raise RuntimeError("hardware support requires: pip install '.[ble]'")
 
     monkeypatch.setattr(cli, "_run", fail)
-    assert cli.main(["status", "--simulate"]) == 1
+    assert cli.main(["status", "--simulate"]) == 70
     error = capsys.readouterr().err
     assert error.startswith("jring: error:")
     assert "pip install" in error
@@ -81,8 +121,13 @@ def test_doctor_explains_hardware_setup_without_failing(monkeypatch, capsys):
 def test_doctor_json_can_strictly_require_hardware(monkeypatch, capsys):
     monkeypatch.setattr(cli, "diagnose", not_ready_report)
 
-    assert cli.main(["doctor", "--json", "--require-hardware"]) == 1
+    assert cli.main(["doctor", "--json", "--require-hardware"]) == 3
     result = json.loads(capsys.readouterr().out)
+    assert result["schema_version"] == 1
+    assert result["operation"] == "doctor"
+    assert result["source"] == "local"
+    assert result["ok"] is False
+    assert result["error"]["code"] == "unavailable"
     assert result["simulator_ready"] is True
     assert result["hardware_ready"] is False
     assert result["input_ready"] is False
@@ -92,7 +137,7 @@ def test_doctor_json_can_strictly_require_hardware(monkeypatch, capsys):
 def test_doctor_can_strictly_require_desktop_input(monkeypatch, capsys):
     monkeypatch.setattr(cli, "diagnose", not_ready_report)
 
-    assert cli.main(["doctor", "--require-input"]) == 1
+    assert cli.main(["doctor", "--require-input"]) == 3
     assert "Desktop-input prerequisites: incomplete" in capsys.readouterr().out
 
 
@@ -212,7 +257,7 @@ def test_cli_errors_redact_identifiers(monkeypatch, capsys):
         )
 
     monkeypatch.setattr(cli, "_run", fail)
-    assert cli.main(["status", "--simulate"]) == 1
+    assert cli.main(["status", "--simulate"]) == 70
     error = capsys.readouterr().err
     assert "AA:BB" not in error
     assert "/org/bluez" not in error
@@ -225,12 +270,96 @@ def test_address_file_must_be_private(tmp_path, capsys):
     address_file.write_text("AA:BB:CC:DD:EE:FF\n")
     os.chmod(address_file, 0o644)
 
-    assert cli.main(["status", "--address-file", str(address_file)]) == 1
+    assert cli.main(["status", "--address-file", str(address_file)]) == 6
     assert "mode 0600" in capsys.readouterr().err
 
 
 def test_ignored_json_option_is_rejected(capsys):
-    with pytest.raises(SystemExit) as raised:
-        cli.main(["history", "--simulate", "--json", "--output", "x.jsonl"])
-    assert raised.value.code == 2
-    assert "--json is not supported" in capsys.readouterr().err
+    assert cli.main(["history", "--simulate", "--json", "--output", "x.jsonl"]) == 2
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["error"]["code"] == "usage"
+    assert "--json is not supported" in result["error"]["message"]
+    assert captured.err == ""
+
+
+@pytest.mark.parametrize(
+    "error, exit_code, code, retryable",
+    [
+        (ValueError("bad mapping"), 2, "usage", False),
+        (ModuleNotFoundError("optional dependency missing"), 3, "unavailable", True),
+        (TimeoutError("operation expired"), 4, "timeout", True),
+        (ProtocolError("malformed value"), 5, "protocol_incompatible", False),
+        (PermissionError("access denied"), 6, "permission_denied", False),
+        (RuntimeError("unexpected failure"), 70, "internal", False),
+    ],
+)
+def test_json_failures_have_stable_envelopes_and_exit_codes(
+    monkeypatch, capsys, error, exit_code, code, retryable
+):
+    async def fail(_args):
+        raise error
+
+    monkeypatch.setattr(cli, "_run", fail)
+    assert cli.main(["status", "--simulate", "--json"]) == exit_code
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    expected_message = "unexpected client failure" if code == "internal" else str(error)
+    assert result == {
+        "error": {
+            "code": code,
+            "message": expected_message,
+            "retryable": retryable,
+        },
+        "ok": False,
+        "operation": "status",
+        "schema_version": 1,
+        "source": "simulator",
+    }
+    assert captured.err == ""
+
+
+def test_json_usage_error_has_no_stderr(capsys):
+    assert cli.main(["status", "--simulate", "--json", "--timeout", "nan"]) == 2
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["operation"] == "status"
+    assert result["source"] == "simulator"
+    assert result["ok"] is False
+    assert result["error"]["code"] == "usage"
+    assert "timeout" in result["error"]["message"].lower()
+    assert captured.err == ""
+
+
+def test_json_error_redaction(monkeypatch, capsys):
+    async def fail(_args):
+        raise ProtocolError(
+            "device AA:BB:CC:DD:EE:FF at /org/bluez/hci0/dev_AA_BB failed "
+            "payload deadbeefcafebabe"
+        )
+
+    monkeypatch.setattr(cli, "_run", fail)
+    assert cli.main(["status", "--simulate", "--json"]) == 5
+    captured = capsys.readouterr()
+    serialized = captured.out
+    result = json.loads(serialized)
+    assert result["error"]["code"] == "protocol_incompatible"
+    assert "[redacted device]" in result["error"]["message"]
+    assert "AA:BB" not in serialized
+    assert "/org/bluez" not in serialized
+    assert "deadbeef" not in serialized
+    assert "Traceback" not in serialized
+    assert captured.err == ""
+
+
+def test_json_interruption_is_structured(monkeypatch, capsys):
+    async def interrupt(_args):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli, "_run", interrupt)
+    assert cli.main(["status", "--simulate", "--json"]) == 130
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["error"]["code"] == "interrupted"
+    assert result["error"]["retryable"] is True
+    assert captured.err == ""

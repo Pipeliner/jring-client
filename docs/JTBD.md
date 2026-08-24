@@ -41,6 +41,8 @@ Desired outcomes:
 - Human-readable status by default and stable JSON on request.
 - Explicit device selection and bounded timeouts.
 - Atomic exports with an unambiguous format.
+- Versioned machine-readable successes and failures with stable exit meanings, so
+  automation never needs to scrape English diagnostics.
 
 ### Reuse the ring as a general-purpose input
 

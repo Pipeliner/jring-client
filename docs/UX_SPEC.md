@@ -26,6 +26,8 @@ into guesswork.
    result carries visible, machine-readable provenance.
 10. Accepted options are never ignored. Radio-active scanning and replacement of an
     existing export each require an explicit flag.
+11. JSON automation receives an additive versioned envelope on every accepted JSON
+    path, including failures; stderr stays empty in JSON mode.
 
 ## Acceptance scenarios
 
@@ -38,7 +40,33 @@ information in readable text and the command exits successfully.
 ### Automation
 
 Given the simulator, when a person runs `jring status --simulate --json`, then stdout
-is valid JSON with stable field names and contains no device address.
+is valid JSON with stable field names, includes `schema_version`, `operation`, `source`,
+and `ok`, and contains no device address.
+
+### Automation failures
+
+Given `--json`, when parsing, prerequisites, permissions, timeouts, protocol
+compatibility, or internal execution fail, stdout contains exactly one JSON object and
+stderr is empty. The object includes `schema_version`, `operation`, `source`, `ok:
+false`, and an `error` object with stable `code`, `retryable`, and a sanitized human
+`message`. It never includes a traceback, Bluetooth address, BlueZ path, or raw payload.
+
+Exit meanings are stable within the current CLI major version:
+
+| Exit | Error code | Meaning | Retryable default |
+|---:|---|---|---|
+| 0 | none | Operation completed | no |
+| 2 | `usage` | Arguments or requested mapping are invalid | no |
+| 3 | `unavailable` | A required local dependency, device, or connection is unavailable | yes |
+| 4 | `timeout` | The bounded operation expired | yes |
+| 5 | `protocol_incompatible` | A required service/value is absent, malformed, or unsupported | no |
+| 6 | `permission_denied` | Explicit authorization or local permission is missing | no |
+| 70 | `internal` | An unexpected client failure occurred | no |
+| 130 | `interrupted` | The user interrupted the operation | yes |
+
+Schema 1 additions are backward-compatible: existing success fields remain at their
+current paths. Removing or renaming a field requires a new `schema_version`; English
+messages are explanatory and are not compatibility keys.
 
 ### Flexible option placement
 
@@ -143,6 +171,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 |---|---|
 | First safe success | `test_human_status_is_readable` |
 | Automation | `test_json_status_is_stable_and_private` |
+| Automation failures | `test_json_failures_have_stable_envelopes_and_exit_codes`, `test_json_usage_error_has_no_stderr`, `test_json_error_redaction` |
 | Flexible option placement | `test_global_option_placement_remains_compatible` |
 | Recoverable setup error | `test_expected_error_is_actionable_without_traceback` |
 | Deliberate write | `test_time_sync_requires_explicit_confirmation` |

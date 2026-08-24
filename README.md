@@ -51,6 +51,12 @@ global-first form (`jring --simulate status`) are supported.
 Simulated human output clearly states that no ring was contacted; structured results
 and exports include source and schema provenance.
 
+JSON successes include `schema_version`, `operation`, `source`, and `ok`. JSON failures
+write one redacted envelope to stdout and nothing to stderr. Stable failure exits are
+2 for usage, 3 for unavailable prerequisites/device, 4 for timeout, 5 for protocol
+incompatibility, 6 for permission, 70 for an unexpected internal failure, and 130 for
+interruption. Scripts should branch on the error `code`, not its explanatory message.
+
 Run `jring doctor` before touching hardware. It passively checks Python, Linux, Bleak,
 BlueZ, evdev, and `/dev/uinput`, explains exactly what is missing, and reports
 simulator, BLE-hardware, and desktop-input readiness independently. It does not scan,

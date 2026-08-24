@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from contextlib import redirect_stderr
 import json
 import math
 import os
 import re
 import stat
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from enum import IntEnum
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -17,9 +20,69 @@ from . import __version__
 from .bleak_transport import BleakTransport
 from .client import JRingClient
 from .discovery import discover, select_exact
+from .errors import UnavailableError
 from .input import InputMapper, SensorEvent, create_uinput_sink, parse_binding
+from .protocol import ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import FakeTransport
+
+
+class ExitCode(IntEnum):
+    OK = 0
+    USAGE = 2
+    UNAVAILABLE = 3
+    TIMEOUT = 4
+    PROTOCOL_INCOMPATIBLE = 5
+    PERMISSION_DENIED = 6
+    INTERNAL = 70
+    INTERRUPTED = 130
+
+
+@dataclass(frozen=True)
+class ErrorContract:
+    code: str
+    exit_code: ExitCode
+    retryable: bool
+
+
+_USAGE = ErrorContract("usage", ExitCode.USAGE, False)
+_UNAVAILABLE = ErrorContract("unavailable", ExitCode.UNAVAILABLE, True)
+_TIMEOUT = ErrorContract("timeout", ExitCode.TIMEOUT, True)
+_PROTOCOL = ErrorContract(
+    "protocol_incompatible", ExitCode.PROTOCOL_INCOMPATIBLE, False
+)
+_PERMISSION = ErrorContract("permission_denied", ExitCode.PERMISSION_DENIED, False)
+_INTERNAL = ErrorContract("internal", ExitCode.INTERNAL, False)
+_INTERRUPTED = ErrorContract("interrupted", ExitCode.INTERRUPTED, True)
+
+
+def _json_envelope(
+    *,
+    operation: str,
+    source: str,
+    ok: bool,
+    payload: dict[str, Any] | None = None,
+    error: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    result: dict[str, Any] = dict(payload or {})
+    result.update({
+        "schema_version": 1,
+        "operation": operation,
+        "source": source,
+        "ok": ok,
+    })
+    if error is not None:
+        result["error"] = error
+    return result
+
+
+def _print_json_success(operation: str, source: str, payload: dict[str, Any]) -> None:
+    print(json.dumps(_json_envelope(
+        operation=operation,
+        source=source,
+        ok=True,
+        payload=payload,
+    ), indent=2, sort_keys=True))
 
 
 def _print_status(result: dict[str, Any]) -> None:
@@ -80,16 +143,26 @@ def _print_readiness(report: ReadinessReport) -> None:
 async def _run(args: argparse.Namespace) -> int:
     if args.command == "doctor":
         report = diagnose()
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_readiness(report)
         requirement_failed = (
             args.require_hardware and not report.hardware_ready
         ) or (
             args.require_input and not report.input_ready
         )
-        return int(requirement_failed)
+        if args.json:
+            if requirement_failed:
+                requirement = "hardware" if args.require_hardware else "desktop-input"
+                _print_json_error(
+                    RuntimeError(f"required {requirement} prerequisites are unavailable"),
+                    operation="doctor",
+                    source="local",
+                    contract=_UNAVAILABLE,
+                    payload=report.to_dict(),
+                )
+            else:
+                _print_json_success("doctor", "local", report.to_dict())
+        else:
+            _print_readiness(report)
+        return ExitCode.UNAVAILABLE if requirement_failed else ExitCode.OK
     if args.command == "input":
         binding = parse_binding(args.mapping)
         if not args.simulate:
@@ -103,10 +176,10 @@ async def _run(args: argparse.Namespace) -> int:
             raise ValueError("the simulated step has no input mapping")
         if not args.allow_input:
             if args.json:
-                print(json.dumps({
-                    "schema_version": 1, "source": "simulator", "event": event.kind,
+                _print_json_success("input", "simulator", {
+                    "event": event.kind,
                     "action": action.description, "emitted": False,
-                }, sort_keys=True))
+                })
             else:
                 print("SIMULATION — no ring contacted")
                 print(f"Preview: {event.kind} -> {action.description}")
@@ -118,10 +191,10 @@ async def _run(args: argparse.Namespace) -> int:
         finally:
             sink.close()
         if args.json:
-            print(json.dumps({
-                "schema_version": 1, "source": "simulator", "event": event.kind,
+            _print_json_success("input", "simulator", {
+                "event": event.kind,
                 "action": action.description, "emitted": True,
-            }, sort_keys=True))
+            })
         else:
             print("SIMULATION — no ring contacted")
             print(f"Emitted: {event.kind} -> {action.description}")
@@ -129,9 +202,7 @@ async def _run(args: argparse.Namespace) -> int:
     if args.command == "discover":
         results = await discover(timeout=args.timeout)
         if args.json:
-            print(json.dumps({
-                "schema_version": 1, "source": "hardware", "devices": results,
-            }, indent=2, sort_keys=True))
+            _print_json_success("discover", "hardware", {"devices": results})
         else:
             _print_discovery(results)
         return 0
@@ -157,7 +228,7 @@ async def _run(args: argparse.Namespace) -> int:
                 "capabilities": capabilities,
             }
             if args.json:
-                print(json.dumps(result, indent=2, sort_keys=True))
+                _print_json_success("status", source, result)
             else:
                 _print_status(result)
         elif args.command == "time-sync":
@@ -168,10 +239,7 @@ async def _run(args: argparse.Namespace) -> int:
                 "Ring time synchronized using the standard Bluetooth Current Time service."
             )
             if args.json:
-                print(json.dumps({
-                    "schema_version": 1, "source": source, "operation": "time_sync",
-                    "ok": True,
-                }, sort_keys=True))
+                _print_json_success("time_sync", source, {})
             else:
                 print(message)
         elif args.command == "history":
@@ -286,6 +354,90 @@ def _sanitize_error(error: BaseException) -> str:
     return _LONG_HEX.sub("[redacted data]", message)
 
 
+def _classify_error(error: BaseException) -> ErrorContract:
+    if isinstance(error, PermissionError):
+        return _PERMISSION
+    if isinstance(error, TimeoutError):
+        return _TIMEOUT
+    if isinstance(error, (UnavailableError, ModuleNotFoundError, ImportError, ConnectionError)):
+        return _UNAVAILABLE
+    if isinstance(error, (ProtocolError, LookupError, NotImplementedError)):
+        return _PROTOCOL
+    if isinstance(error, OSError):
+        return _UNAVAILABLE
+    if isinstance(error, ValueError):
+        return _USAGE
+    return _INTERNAL
+
+
+def _print_json_error(
+    error: BaseException,
+    *,
+    operation: str,
+    source: str,
+    contract: ErrorContract | None = None,
+    payload: dict[str, Any] | None = None,
+) -> ErrorContract:
+    selected = contract or _classify_error(error)
+    message = (
+        "unexpected client failure"
+        if selected is _INTERNAL
+        else _sanitize_error(error)
+    )
+    print(json.dumps(_json_envelope(
+        operation=operation,
+        source=source,
+        ok=False,
+        payload=payload,
+        error={
+            "code": selected.code,
+            "message": message,
+            "retryable": selected.retryable,
+        },
+    ), sort_keys=True))
+    return selected
+
+
+_OPERATIONS = {
+    "doctor": "doctor",
+    "input": "input",
+    "discover": "discover",
+    "status": "status",
+    "time-sync": "time_sync",
+    "history": "history",
+}
+
+
+def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
+    operation = next((_OPERATIONS[value] for value in argv if value in _OPERATIONS), "cli")
+    if operation == "doctor":
+        source = "local"
+    elif "--simulate" in argv:
+        source = "simulator"
+    elif operation == "cli":
+        source = "unknown"
+    else:
+        source = "hardware"
+    return operation, source
+
+
+def _source_from_args(args: argparse.Namespace) -> str:
+    if args.command == "doctor":
+        return "local"
+    return "simulator" if getattr(args, "simulate", False) else "hardware"
+
+
+def _argument_error_message(rendered: str) -> str:
+    lines = [line.strip() for line in rendered.splitlines() if line.strip()]
+    if not lines:
+        return "invalid command arguments"
+    message = lines[-1]
+    marker = ": error: "
+    if marker in message:
+        message = message.split(marker, 1)[1]
+    return _sanitize_error(ValueError(message))
+
+
 def _selected_address(args: argparse.Namespace) -> str:
     if args.address:
         return select_exact(args.address)
@@ -299,7 +451,7 @@ def _selected_address(args: argparse.Namespace) -> str:
     return select_exact(lines[0])
 
 
-def main(argv: list[str] | None = None) -> int:
+def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
     parser = build_parser()
     args = parser.parse_args(argv)
     provided = set(vars(args))
@@ -345,14 +497,59 @@ def main(argv: list[str] | None = None) -> int:
     }.items():
         if not hasattr(args, name):
             setattr(args, name, value)
+    return args
+
+
+def main(argv: list[str] | None = None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    json_requested = "--json" in raw_argv
+    if json_requested:
+        rendered_error = StringIO()
+        try:
+            with redirect_stderr(rendered_error):
+                args = _parse_cli_args(raw_argv)
+        except SystemExit as exc:
+            if exc.code == 0:
+                return ExitCode.OK
+            operation, source = _intent_from_argv(raw_argv)
+            contract = _print_json_error(
+                ValueError(_argument_error_message(rendered_error.getvalue())),
+                operation=operation,
+                source=source,
+                contract=_USAGE,
+            )
+            return contract.exit_code
+    else:
+        args = _parse_cli_args(raw_argv)
+
+    operation = _OPERATIONS[args.command]
+    source = _source_from_args(args)
     try:
         return asyncio.run(_run(args))
     except KeyboardInterrupt:
-        print("jring: interrupted", file=sys.stderr)
-        return 130
+        if args.json:
+            contract = _print_json_error(
+                RuntimeError("operation interrupted"),
+                operation=operation,
+                source=source,
+                contract=_INTERRUPTED,
+            )
+        else:
+            print("jring: interrupted", file=sys.stderr)
+            contract = _INTERRUPTED
+        return contract.exit_code
     except Exception as exc:
-        print(f"jring: error: {_sanitize_error(exc)}", file=sys.stderr)
-        return 1
+        contract = _classify_error(exc)
+        if args.json:
+            _print_json_error(
+                exc,
+                operation=operation,
+                source=source,
+                contract=contract,
+            )
+        else:
+            print(f"jring: error: {_sanitize_error(exc)}", file=sys.stderr)
+        return contract.exit_code
 
 
 if __name__ == "__main__":

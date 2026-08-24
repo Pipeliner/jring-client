@@ -1,6 +1,7 @@
 import re
 
 from .diagnostics import Redactor
+from .errors import UnavailableError
 
 
 _ADDRESS = re.compile(r"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
@@ -19,7 +20,7 @@ async def discover(*, timeout: float = 5.0) -> list[dict[str, object]]:
     try:
         from bleak import BleakScanner
     except ImportError as exc:
-        raise RuntimeError("discovery requires: pip install '.[ble]'") from exc
+        raise UnavailableError("discovery requires: pip install '.[ble]'") from exc
     redactor = Redactor()
     found = await BleakScanner.discover(timeout=timeout, return_adv=True)
     results = []

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from .errors import UnavailableError
+
 
 @dataclass(frozen=True)
 class SensorEvent:
@@ -85,12 +87,12 @@ class UInputSink:
         try:
             from evdev import UInput, ecodes
         except ImportError as exc:
-            raise RuntimeError("input injection requires: pip install -e '.[input]'") from exc
+            raise UnavailableError("input injection requires: pip install -e '.[input]'") from exc
         codes = [getattr(ecodes, code) for code, _description in (*_KEYS.values(), *_CLICKS.values())]
         try:
             self._device = UInput({ecodes.EV_KEY: codes}, name="JRing input mapper")
         except OSError as exc:
-            raise RuntimeError(
+            raise PermissionError(
                 "cannot open Linux uinput; ensure /dev/uinput exists and your user has access"
             ) from exc
         self._ecodes = ecodes
