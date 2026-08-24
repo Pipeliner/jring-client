@@ -15,17 +15,17 @@ levels:
 
 The routine test workflow uses a GitHub-hosted Ubuntu runner with Python 3.10 and 3.13.
 A separate bounded native-container workflow installs and tests Debian 13, Fedora 44,
-Rocky Linux 9.6, Arch, and openSUSE Leap 15.6 userspace environments. The repository's
-checks page, rather than this document, records whether a particular workflow run was
-green. No distro row is a real-ring compatibility claim. No owner hardware
-observations have been accepted.
+the current Rocky Linux 9 minor, Arch, and openSUSE Leap 15.6 userspace environments.
+The repository's checks page, rather than this document, records whether a particular
+workflow run was green. No distro row is a real-ring compatibility claim. No owner
+hardware observations have been accepted.
 
 | Linux family | Documented installation path | CI exercised | Owner hardware verified |
 |---|---|---|---|
 | Ubuntu | yes | Ubuntu runner; Python 3.10 and 3.13 | none |
 | Debian | yes | Debian 13 native container smoke | none |
 | Fedora | yes | Fedora 44 native container smoke | none |
-| RHEL / Rocky / Alma 9 | yes; select Python 3.11 | Rocky Linux 9.6 native container smoke | none |
+| RHEL / Rocky / Alma 9 | yes; select Python 3.11 | current Rocky Linux 9 native container smoke | none |
 | Arch | yes | rolling `base` native container smoke | none |
 | openSUSE Leap 15.6 | yes | native container smoke | none |
 | SLES 15 | yes; official Python module required | documentation-only; not CI-exercised | none |

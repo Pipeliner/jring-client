@@ -25,7 +25,8 @@ jobs:
             image: fedora:44
             python_command: python3
           - family: enterprise-linux-9
-            image: rockylinux/rockylinux:9.6
+            # Follow Rocky's supported EL9 minor; retired minor repos are unsuitable CI inputs.
+            image: rockylinux/rockylinux:9
             python_command: python3.11
           # Arch is a rolling distribution and does not publish fixed release tags.
           - family: arch
