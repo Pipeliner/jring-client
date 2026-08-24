@@ -84,6 +84,11 @@ descriptor UUIDs; no characteristic or descriptor value is read. Known standard 
 metadata is converted into explicit evidence states, while report contents, OS
 attachment, usability, and hardware motion remain unverified.
 
+The repository-local compatibility tool validates coarse, versioned reports using the
+same fail-closed sensitive-content checks as evidence manifests. It performs no device
+operation and merges rows deterministically. Synthetic and owner evidence remain
+separate, and no computation promotes `untested` into a compatibility claim.
+
 ## Acceptance criteria
 
 - Import and simulator tests work without Bleak or hardware.

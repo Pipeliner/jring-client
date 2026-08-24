@@ -236,6 +236,19 @@ explicit synthetic provenance, and includes only facts named by coverage. Nothin
 uploaded or written automatically. The contributor manually reviews the output before
 publication and uses the private security channel for sensitive reports.
 
+### Honest compatibility matrix
+
+Given synthetic CI evidence only, when a maintainer builds the matrix, then the row may
+report local prerequisites and simulator checks but every hardware dimension remains
+`untested`; the matrix state is `synthetic_only`, never compatible. Owner hardware
+reports require a separately authorized evidence identifier and private mode-0600 input.
+
+Reports use only coarse model/firmware/environment families and explicit dimension
+states. Validation rejects identifiers, precise timestamps, health/raw fields, unknown
+states, impossible progressions, and duplicate report IDs without echoing unsafe
+values. Deterministic merge output names its synthetic/owner counts and every tested or
+untested dimension; generation and merge print reviewable JSON and never publish it.
+
 ### Non-destructive export
 
 History refuses to replace an existing destination unless `--force` is explicit.
@@ -268,6 +281,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Private and sanitized selection | `test_address_file_must_be_private`, `test_cli_errors_redact_identifiers` |
 | Guided same-process selection | `test_guided_status_selects_only_after_confirmation`, `test_guided_selection_never_autoconnects`, `test_guided_selection_zero_or_invalid_results_do_not_connect`, `test_aliases_change_between_process_seeds` |
 | Privacy-safe evidence | `test_unsafe_evidence_is_rejected_without_echo`, `test_manifest_requires_provenance_consent_coverage_and_redactions`, `test_safe_synthetic_manifest_derives_deterministically`, `test_repository_evidence_scan_rejects_raw_artifacts` |
+| Honest compatibility | `test_compatibility_report_rejects_sensitive_values_without_echo`, `test_untested_dimensions_cannot_claim_compatibility`, `test_synthetic_reports_merge_deterministically`, `test_zero_failure_synthetic_report_names_hardware_as_untested` |
 | Non-destructive export | `test_history_export_requires_force_to_replace` |
 
 ## Deliberate non-goals

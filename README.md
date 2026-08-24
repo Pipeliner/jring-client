@@ -73,6 +73,18 @@ account details, timestamps, health values, and vendor payload dumps do not belo
 GitHub issues or commits. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the local
 fail-closed evidence workflow and [SECURITY.md](SECURITY.md) for private reporting.
 
+Maintainers can generate a hardware-independent compatibility row and deterministically
+merge reviewed reports without publishing them:
+
+```sh
+python3 scripts/compatibility_matrix.py generate-synthetic
+python3 scripts/compatibility_matrix.py merge report-a.json report-b.json
+```
+
+Synthetic success verifies only named local checks; all hardware dimensions remain
+`untested`. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for the schema and the
+owner-evidence gate.
+
 Run `jring doctor` before touching hardware. It passively checks Python, Linux, Bleak,
 BlueZ, evdev, and `/dev/uinput`, explains exactly what is missing, and reports
 simulator, BLE-hardware, and desktop-input readiness independently. It does not scan,

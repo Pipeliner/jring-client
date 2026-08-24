@@ -77,6 +77,20 @@ Desired outcomes:
 - Route sensitive security reports to a verified private channel.
 - Prevent capture files, app archives, and unsafe evidence data from entering Git.
 
+### Understand what environments are actually supported
+
+When I evaluate JRing on my model and Linux setup, I want a versioned compatibility
+matrix that separates synthetic prerequisites from owner-run hardware observations, so
+I can see exactly what is verified, incompatible, and still untested.
+
+Desired outcomes:
+
+- Compare only coarse model, firmware-major, Linux-family, Python-minor, BlueZ-major,
+  and Bleak-major dimensions.
+- Never publish addresses, accounts, timestamps, health data, or raw payloads.
+- Treat untested as untested rather than compatible or successful.
+- Generate and merge reports deterministically for review before publication.
+
 ### Reuse the ring as a general-purpose input
 
 When a ring gesture or motion event is available, I want to map it to a small,

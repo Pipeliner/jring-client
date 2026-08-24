@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "report_id": "synthetic-ci-python310",
+  "source": "synthetic_ci",
+  "evidence_id": null,
+  "device_context": {
+    "model_family": "synthetic-ring",
+    "firmware_major": "synthetic"
+  },
+  "environment": {
+    "linux_family": "synthetic-linux",
+    "python_minor": "3.10",
+    "bluez_major": "synthetic",
+    "bleak_major": "synthetic"
+  },
+  "compatibility_state": "untested",
+  "dimensions": {
+    "prerequisites": "untested",
+    "connection": "untested",
+    "standard_reads": "untested",
+    "hid": "untested",
+    "motion": "untested"
+  },
+  "checks": [
+    "schema",
+    "simulator",
+    "unit_tests"
+  ]
+}
