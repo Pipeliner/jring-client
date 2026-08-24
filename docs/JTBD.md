@@ -58,9 +58,14 @@ tools, or desktop workflows without installing an opaque automation stack.
 Desired outcomes:
 
 - Detect when a ring exposes the standard Bluetooth HID service.
+- Discover the complete local action vocabulary without Bluetooth, optional packages,
+  or an input device.
 - Preview a mapping before it can generate operating-system input.
 - Require explicit authorization for each input-injection run.
 - Allow only named keyboard and mouse actions; never execute shell commands.
+- Describe mouse buttons as primary/secondary alongside left/right labels, and make
+  aliases resolve to exactly the same action.
+- Expose only the kernel input capability selected by the mapping.
 - Exercise the full mapping path with simulated `step` events while hardware motion
   packets remain unverified.
 

@@ -146,8 +146,48 @@ def test_doctor_can_strictly_require_desktop_input(monkeypatch, capsys):
 def test_step_mapping_previews_without_emitting_input(capsys):
     assert cli.main(["input", "--simulate", "--map", "step=click:left"]) == 0
     output = capsys.readouterr().out
-    assert "Preview: step -> left mouse click" in output
+    assert "Preview: step -> primary (left) mouse click" in output
     assert "No input emitted" in output
+
+
+def test_input_actions_are_screen_reader_ordered(capsys):
+    assert cli.main(["input-actions"]) == 0
+    output = capsys.readouterr().out
+    assert output.index("Available simulated events") < output.index("Keyboard actions")
+    assert output.index("Keyboard actions") < output.index("Mouse actions")
+    assert "primary (left)" in output
+    assert "secondary (right)" in output
+    assert "No hardware gesture or motion event is verified yet." in output
+    assert "\x1b" not in output
+
+
+def test_input_actions_json_uses_common_envelope(capsys):
+    assert cli.main(["input-actions", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["schema_version"] == 1
+    assert result["operation"] == "input_actions"
+    assert result["source"] == "local"
+    assert result["ok"] is True
+    assert result["hardware_events"] == []
+    assert [item["name"] for item in result["actions"][-3:]] == [
+        "primary", "secondary", "middle",
+    ]
+
+
+def test_unsupported_mapping_fails_before_opening_a_sink(monkeypatch, capsys):
+    opened = False
+
+    def open_sink(_actions):
+        nonlocal opened
+        opened = True
+
+    monkeypatch.setattr(cli, "create_uinput_sink", open_sink)
+
+    assert cli.main([
+        "input", "--simulate", "--map", "step=key:KEY_F13", "--allow-input",
+    ]) == 2
+    assert not opened
+    assert "unsupported input action" in capsys.readouterr().err
 
 
 def test_input_injection_requires_opt_in(monkeypatch, capsys):
@@ -163,12 +203,19 @@ def test_input_injection_requires_opt_in(monkeypatch, capsys):
             self.closed = True
 
     sink = Sink()
-    monkeypatch.setattr(cli, "create_uinput_sink", lambda: sink)
+    selected = []
+
+    def create_sink(actions):
+        selected.extend(actions)
+        return sink
+
+    monkeypatch.setattr(cli, "create_uinput_sink", create_sink)
 
     assert cli.main([
         "input", "--simulate", "--map", "step=key:space", "--allow-input"
     ]) == 0
     assert [action.description for action in sink.actions] == ["Space key"]
+    assert selected == sink.actions
     assert sink.closed
     assert "Emitted: step -> Space key" in capsys.readouterr().out
 
@@ -198,6 +245,7 @@ def test_hardware_motion_input_fails_before_opening_a_sink(monkeypatch, capsys):
         (["--simulate", "doctor"], "--simulate"),
         (["--timeout", "1", "doctor"], "--timeout"),
         (["--timeout", "1", "input", "--simulate", "--map", "step=key:space"], "--timeout"),
+        (["--simulate", "input-actions"], "--simulate"),
     ],
 )
 def test_non_applicable_global_options_are_rejected(argv, option, capsys):

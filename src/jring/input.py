@@ -29,7 +29,7 @@ class InputSink(Protocol):
     def emit(self, action: InputAction) -> None: ...
 
 
-_EVENTS = frozenset({"step"})
+_EVENTS = ("step",)
 _KEYS = {
     "space": ("KEY_SPACE", "Space key"),
     "enter": ("KEY_ENTER", "Enter key"),
@@ -42,10 +42,56 @@ _KEYS = {
     "page-down": ("KEY_PAGEDOWN", "Page Down key"),
 }
 _CLICKS = {
-    "left": ("BTN_LEFT", "left mouse click"),
-    "right": ("BTN_RIGHT", "right mouse click"),
+    "primary": ("BTN_LEFT", "primary (left) mouse click"),
+    "secondary": ("BTN_RIGHT", "secondary (right) mouse click"),
     "middle": ("BTN_MIDDLE", "middle mouse click"),
 }
+_CLICK_ALIASES = {
+    "primary": "primary",
+    "left": "primary",
+    "secondary": "secondary",
+    "right": "secondary",
+    "middle": "middle",
+}
+
+
+def input_action_inventory() -> dict[str, list[dict[str, object]]]:
+    """Return the stable, local vocabulary accepted by :func:`parse_binding`."""
+    actions: list[dict[str, object]] = [
+        {
+            "kind": "key",
+            "name": name,
+            "labels": [name],
+            "description": description,
+        }
+        for name, (_code, description) in _KEYS.items()
+    ]
+    click_labels = {
+        "primary": ["primary", "left"],
+        "secondary": ["secondary", "right"],
+        "middle": ["middle"],
+    }
+    actions.extend(
+        {
+            "kind": "click",
+            "name": name,
+            "labels": click_labels[name],
+            "description": description,
+        }
+        for name, (_code, description) in _CLICKS.items()
+    )
+    return {
+        "events": [
+            {
+                "name": name,
+                "availability": "simulator_only",
+                "hardware_verified": False,
+            }
+            for name in _EVENTS
+        ],
+        "actions": actions,
+        "hardware_events": [],
+    }
 
 
 def parse_binding(specification: str) -> InputBinding:
@@ -56,11 +102,22 @@ def parse_binding(specification: str) -> InputBinding:
         raise ValueError("input mapping must look like step=key:space or step=click:left") from exc
     if event_kind not in _EVENTS:
         raise ValueError(f"unsupported sensor event: {event_kind}")
-    choices = _KEYS if action_kind == "key" else _CLICKS if action_kind == "click" else None
-    if choices is None or value not in choices:
+    if action_kind == "key":
+        choices = _KEYS
+        canonical_value = value
+    elif action_kind == "click":
+        choices = _CLICKS
+        canonical_value = _CLICK_ALIASES.get(value, value)
+    else:
+        choices = None
+        canonical_value = value
+    if choices is None or canonical_value not in choices:
         raise ValueError(f"unsupported input action: {action_specification}")
-    code, description = choices[value]
-    return InputBinding(event_kind, InputAction(action_kind, value, code, description))
+    code, description = choices[canonical_value]
+    return InputBinding(
+        event_kind,
+        InputAction(action_kind, canonical_value, code, description),
+    )
 
 
 class InputMapper:
@@ -82,13 +139,21 @@ class InputMapper:
         return True
 
 
+def _supported_action(action: InputAction) -> bool:
+    choices = _KEYS if action.kind == "key" else _CLICKS if action.kind == "click" else {}
+    definition = choices.get(action.value)
+    return definition is not None and definition == (action.code, action.description)
+
+
 class UInputSink:
-    def __init__(self):
+    def __init__(self, actions: tuple[InputAction, ...]):
+        if not actions or any(not _supported_action(action) for action in actions):
+            raise ValueError("unsupported input action for uinput sink")
         try:
             from evdev import UInput, ecodes
         except ImportError as exc:
             raise UnavailableError("input injection requires: pip install -e '.[input]'") from exc
-        codes = [getattr(ecodes, code) for code, _description in (*_KEYS.values(), *_CLICKS.values())]
+        codes = list(dict.fromkeys(getattr(ecodes, action.code) for action in actions))
         try:
             self._device = UInput({ecodes.EV_KEY: codes}, name="JRing input mapper")
         except OSError as exc:
@@ -108,5 +173,5 @@ class UInputSink:
         self._device.close()
 
 
-def create_uinput_sink() -> UInputSink:
-    return UInputSink()
+def create_uinput_sink(actions: tuple[InputAction, ...]) -> UInputSink:
+    return UInputSink(actions)

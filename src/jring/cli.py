@@ -21,7 +21,13 @@ from .bleak_transport import BleakTransport
 from .client import JRingClient
 from .discovery import discover, select_exact
 from .errors import UnavailableError
-from .input import InputMapper, SensorEvent, create_uinput_sink, parse_binding
+from .input import (
+    InputMapper,
+    SensorEvent,
+    create_uinput_sink,
+    input_action_inventory,
+    parse_binding,
+)
 from .protocol import ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import FakeTransport
@@ -174,7 +180,30 @@ def _print_readiness(report: ReadinessReport) -> None:
     print(f"Next: {report.next_step}")
 
 
+def _print_input_actions(inventory: dict[str, list[dict[str, object]]]) -> None:
+    print("Available simulated events")
+    for event in inventory["events"]:
+        print(f"- {event['name']} (simulator only)")
+    print("Keyboard actions")
+    for action in inventory["actions"]:
+        if action["kind"] == "key":
+            print(f"- {action['name']}: {action['description']}")
+    print("Mouse actions")
+    for action in inventory["actions"]:
+        if action["kind"] == "click":
+            labels = ", ".join(action["labels"])
+            print(f"- {labels}: {action['description']}")
+    print("No hardware gesture or motion event is verified yet.")
+
+
 async def _run(args: argparse.Namespace) -> int:
+    if args.command == "input-actions":
+        inventory = input_action_inventory()
+        if args.json:
+            _print_json_success("input_actions", "local", inventory)
+        else:
+            _print_input_actions(inventory)
+        return ExitCode.OK
     if args.command == "doctor":
         report = diagnose()
         requirement_failed = (
@@ -221,7 +250,7 @@ async def _run(args: argparse.Namespace) -> int:
                 print(f"Preview: {event.kind} -> {action.description}")
                 print("No input emitted. Add --allow-input to authorize this one simulated event.")
             return 0
-        sink = create_uinput_sink()
+        sink = create_uinput_sink((action,))
         try:
             mapper.dispatch(event, sink)
         finally:
@@ -334,6 +363,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--require-input", action="store_true",
         help="exit nonzero when desktop-input prerequisites are missing",
     )
+    input_actions = sub.add_parser(
+        "input-actions", help="list local simulator events and allowlisted input actions"
+    )
+    _add_json_option(input_actions)
     input_command = sub.add_parser(
         "input", help="simulator-only preview or emission; live ring events are unavailable"
     )
@@ -439,6 +472,7 @@ def _print_json_error(
 
 _OPERATIONS = {
     "doctor": "doctor",
+    "input-actions": "input_actions",
     "input": "input",
     "discover": "discover",
     "status": "status",
@@ -449,7 +483,7 @@ _OPERATIONS = {
 
 def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
     operation = next((_OPERATIONS[value] for value in argv if value in _OPERATIONS), "cli")
-    if operation == "doctor":
+    if operation in {"doctor", "input_actions"}:
         source = "local"
     elif "--simulate" in argv:
         source = "simulator"
@@ -461,7 +495,7 @@ def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
 
 
 def _source_from_args(args: argparse.Namespace) -> str:
-    if args.command == "doctor":
+    if args.command in {"doctor", "input-actions"}:
         return "local"
     return "simulator" if getattr(args, "simulate", False) else "hardware"
 
@@ -508,6 +542,11 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         if ignored:
             option = sorted(ignored)[0].replace("_", "-")
             parser.error(f"--{option} is not supported by doctor")
+    if args.command == "input-actions":
+        ignored = provided & {"address", "address_file", "simulate", "timeout"}
+        if ignored:
+            option = sorted(ignored)[0].replace("_", "-")
+            parser.error(f"--{option} is not supported by input-actions")
     if args.command == "discover":
         if simulate:
             parser.error("discover does not support simulation; it is a radio-active operation")
@@ -523,7 +562,7 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         parser.error("input currently requires --simulate; hardware motion is not verified")
     if args.command == "history" and provided & {"address", "address_file", "timeout"}:
         parser.error("history is simulator-only and does not accept hardware selection or --timeout")
-    if args.command not in {"discover", "doctor", "input"} and not simulate and not has_hardware:
+    if args.command not in {"discover", "doctor", "input", "input-actions"} and not simulate and not has_hardware:
         parser.error("choose --simulate, --address-file, or --address for this command")
     if args.command == "history" and not simulate:
         parser.error("hardware history is not verified; use --simulate")

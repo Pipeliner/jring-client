@@ -63,7 +63,10 @@ connects, sets power, or edits policy. Unparseable or denied evidence becomes
 `jring.input` maps typed logical sensor events to a closed set of named keyboard and
 mouse actions. Preview is the default. Linux `uinput` is loaded lazily and requires an
 explicit CLI authorization flag. Shell commands and arbitrary codes are not part of
-the model. Standard HID service `1812` is detected as a capability only; raw HID
+the model. A local action inventory is generated from the same definitions used by
+the parser. Primary/left and secondary/right are aliases of identical actions. A
+created `uinput` device advertises only the code selected by its validated mapping.
+Standard HID service `1812` is detected as a capability only; raw HID
 reports are neither parsed nor logged. Simulated `step` is the only motion source until
 hardware event frames are verified.
 
@@ -85,4 +88,6 @@ hardware event frames are verified.
   timeouts, and a service that was not advertised without exposing raw values.
 - Sensor-to-input mappings preview by default and reject arbitrary actions.
 - Input injection is explicit, bounded to one simulated event, and closes `uinput`.
+- Input actions are locally discoverable, accessible in terminology and ordering, and
+  restrict the kernel device to selected capabilities.
 - Unit, simulated integration, and CLI tests pass without a ring; hardware tests skip.

@@ -122,6 +122,18 @@ Given no ring, when a person runs
 `jring input --simulate --map step=click:left`, then the client exercises a simulated
 step, describes the mouse click it would emit, and produces no operating-system input.
 
+### Discoverable and accessible input vocabulary
+
+Given no ring and no optional input package, when a person runs `jring input-actions`,
+then keyboard and mouse actions appear in a stable screen-reader order using plain
+text. Primary and secondary mouse actions also show their left and right labels. The
+output says that `step` is simulated and that no hardware gesture has been verified,
+so it does not imply that stepping is the only future interaction.
+
+Given `--json`, the same command returns the complete closed allowlist in a schema-1
+success envelope. `primary`/`left` and `secondary`/`right` are deterministic aliases;
+using either label exposes only that selected kernel button capability.
+
 ### Deliberate input injection
 
 Given a valid simulated mapping, when a person adds `--allow-input`, then exactly one
@@ -198,6 +210,8 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Standard HID visibility | `test_standard_hid_service_is_reported` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |
+| Accessible action discovery | `test_input_action_inventory_is_complete_and_stable`, `test_input_actions_are_screen_reader_ordered`, `test_mouse_aliases_are_deterministic` |
+| Least-privilege input device | `test_uinput_exposes_only_selected_capabilities`, `test_unsupported_action_fails_before_uinput_import` |
 | Radio intent is explicit | `test_discovery_requires_explicit_active_scan`, `test_simulated_discovery_never_scans` |
 | Source intent and provenance | `test_source_modes_are_exclusive`, `test_simulated_status_has_provenance` |
 | Honest partial status | `test_missing_battery_still_reports_hid`, `test_status_reports_each_optional_field_state`, `test_status_uses_one_deadline_for_all_optional_fields`, `test_cli_exposes_partial_status_states` |

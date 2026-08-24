@@ -71,9 +71,16 @@ The simulator can exercise a non-health `step` event as an allowlisted keyboard 
 mouse click. Preview is the default and never emits operating-system input:
 
 ```sh
+jring input-actions
+jring input-actions --json
 jring input --simulate --map step=key:space
-jring input --simulate --map step=click:left
+jring input --simulate --map step=click:primary
 ```
+
+`input-actions` is entirely local and lists the complete action vocabulary without
+Bluetooth, `evdev`, or `/dev/uinput`. Its plain-text order is suitable for screen
+readers. It labels the mouse actions as primary (left), secondary (right), and middle,
+and states that `step` is currently a simulator event—not a required physical gesture.
 
 To deliberately inject one simulated event through Linux `uinput`, install the input
 extra and add the confirmation flag:
@@ -84,7 +91,9 @@ jring input --simulate --map step=key:space --allow-input
 ```
 
 Named keys are `space`, `enter`, `escape`, the four arrows, `page-up`, and
-`page-down`; mouse clicks are `left`, `right`, and `middle`. Arbitrary key codes and
+`page-down`; mouse clicks are `primary` (`left`), `secondary` (`right`), and `middle`.
+Each alias selects the same action, and the temporary Linux input device advertises
+only the selected key or button. Arbitrary key codes and
 shell commands are rejected. Status can report that a standard Bluetooth HID service
 was advertised, but service presence alone does not prove that HID reports work or an
 operating-system input device exists.
