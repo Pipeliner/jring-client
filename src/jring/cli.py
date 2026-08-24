@@ -3,6 +3,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
+import os
+import re
+import stat
 import sys
 from dataclasses import asdict
 from datetime import datetime
@@ -21,12 +25,28 @@ from .transport import FakeTransport
 def _print_status(result: dict[str, Any]) -> None:
     info = result["device_info"]
     capabilities = result["capabilities"]
-    print(f"Battery: {result['battery_percent']}%")
+    if result["source"] == "simulator":
+        print("SIMULATION — no ring contacted")
+    else:
+        print("HARDWARE — explicitly selected ring")
+    battery = (
+        f"{result['battery_percent']}%" if result["battery_available"]
+        else "unavailable (optional characteristic not exposed)"
+    )
+    print(f"Battery: {battery}")
     print(f"Model: {info['model'] or 'not reported'}")
     print(f"Manufacturer: {info['manufacturer'] or 'not reported'}")
     print(f"Firmware: {info['firmware'] or 'not reported'}")
-    print(f"Heart rate: {'available' if capabilities['heart_rate'] else 'not available'}")
-    print(f"Standard HID: {'available' if capabilities['hid'] else 'not available'}")
+    heart_rate = (
+        "advertised (not tested)" if capabilities["heart_rate_service_advertised"]
+        else "not advertised"
+    )
+    hid = (
+        "advertised (usability unknown)" if capabilities["hid_service_advertised"]
+        else "not advertised"
+    )
+    print(f"Heart-rate service: {heart_rate}")
+    print(f"Standard HID service: {hid}")
     vendor_count = len(capabilities["vendor_services_seen"])
     print(f"Vendor services: {vendor_count} detected; writes disabled")
 
@@ -42,18 +62,18 @@ def _print_discovery(results: list[dict[str, object]]) -> None:
         rssi = item["rssi"] if item["rssi"] is not None else "unknown"
         print(f"- {item['alias']}: {likelihood}, signal {rssi} dBm")
     print("Addresses stay hidden during discovery. Use BlueZ to identify your ring,")
-    print("then pass its exact address to a hardware command with --address.")
+    print("then store its exact address in a mode-0600 file and use --address-file.")
 
 
 def _print_readiness(report: ReadinessReport) -> None:
     print("JRing setup check")
+    print(f"Simulator: {'ready' if report.simulator_ready else 'not ready'}")
+    print(f"BLE prerequisites: {'installed' if report.hardware_ready else 'incomplete'}")
+    print(f"Desktop-input prerequisites: {'installed' if report.input_ready else 'incomplete'}")
     for check in report.checks:
         print(f"[{'ok' if check.ok else 'fix'}] {check.detail}")
         if check.remedy:
             print(f"      Remedy: {check.remedy}")
-    print(f"Simulator: {'ready' if report.simulator_ready else 'not ready'}")
-    print(f"Hardware: {'ready' if report.hardware_ready else 'not ready'}")
-    print(f"Desktop input: {'ready' if report.input_ready else 'not ready'}")
     print(f"Next: {report.next_step}")
 
 
@@ -82,50 +102,102 @@ async def _run(args: argparse.Namespace) -> int:
         if action is None:
             raise ValueError("the simulated step has no input mapping")
         if not args.allow_input:
-            print(f"Preview: {event.kind} -> {action.description}")
-            print("No input emitted. Add --allow-input to authorize this one simulated event.")
+            if args.json:
+                print(json.dumps({
+                    "schema_version": 1, "source": "simulator", "event": event.kind,
+                    "action": action.description, "emitted": False,
+                }, sort_keys=True))
+            else:
+                print("SIMULATION — no ring contacted")
+                print(f"Preview: {event.kind} -> {action.description}")
+                print("No input emitted. Add --allow-input to authorize this one simulated event.")
             return 0
         sink = create_uinput_sink()
         try:
             mapper.dispatch(event, sink)
         finally:
             sink.close()
-        print(f"Emitted: {event.kind} -> {action.description}")
+        if args.json:
+            print(json.dumps({
+                "schema_version": 1, "source": "simulator", "event": event.kind,
+                "action": action.description, "emitted": True,
+            }, sort_keys=True))
+        else:
+            print("SIMULATION — no ring contacted")
+            print(f"Emitted: {event.kind} -> {action.description}")
         return 0
     if args.command == "discover":
         results = await discover(timeout=args.timeout)
         if args.json:
-            print(json.dumps(results, indent=2, sort_keys=True))
+            print(json.dumps({
+                "schema_version": 1, "source": "hardware", "devices": results,
+            }, indent=2, sort_keys=True))
         else:
             _print_discovery(results)
         return 0
-    transport = FakeTransport.standard_ring() if args.simulate else BleakTransport(select_exact(args.address))
+    source = "simulator" if args.simulate else "hardware"
+    address = None if args.simulate else _selected_address(args)
+    transport = FakeTransport.standard_ring() if args.simulate else BleakTransport(address)
     async with JRingClient(transport, timeout=args.timeout) as client:
         if args.command == "status":
-            result = {"battery_percent": await client.battery(),
-                      "device_info": asdict(await client.device_info()),
-                      "capabilities": asdict(await client.capabilities())}
+            status = await client.status()
+            capabilities = {
+                "device_info_service_advertised": status.capabilities.device_info,
+                "heart_rate_service_advertised": status.capabilities.heart_rate,
+                "hid_service_advertised": status.capabilities.hid,
+                "vendor_services_seen": status.capabilities.vendor_services_seen,
+                "vendor_writes": status.capabilities.vendor_writes,
+            }
+            result = {
+                "schema_version": 1,
+                "source": source,
+                "battery_percent": status.battery_percent,
+                "battery_available": status.battery_available,
+                "device_info": asdict(status.device_info),
+                "capabilities": capabilities,
+            }
             if args.json:
                 print(json.dumps(result, indent=2, sort_keys=True))
             else:
                 _print_status(result)
         elif args.command == "time-sync":
             await client.sync_time(datetime.now().astimezone(), allow_write=args.allow_write)
-            print("Ring time synchronized using the standard Bluetooth Current Time service.")
+            message = (
+                "Simulated time write completed; no ring contacted."
+                if args.simulate else
+                "Ring time synchronized using the standard Bluetooth Current Time service."
+            )
+            if args.json:
+                print(json.dumps({
+                    "schema_version": 1, "source": source, "operation": "time_sync",
+                    "ok": True,
+                }, sort_keys=True))
+            else:
+                print(message)
         elif args.command == "history":
             records = await client.history()
-            client.export_history(records, args.output)
-            print(f"Exported {len(records)} record(s) to {args.output}.")
+            client.export_history(records, args.output, source=source, force=args.force)
+            adjective = "simulated " if args.simulate else ""
+            print(f"Exported {len(records)} {adjective}record(s) to {args.output}.")
     return 0
+
+
+def _timeout(value: str) -> float:
+    timeout = float(value)
+    if not math.isfinite(timeout) or not 0 < timeout <= 30:
+        raise argparse.ArgumentTypeError("timeout must be finite and between 0 and 30 seconds")
+    return timeout
 
 
 def _add_runtime_options(parser: argparse.ArgumentParser, *, suppress: bool = False) -> None:
     default: object = argparse.SUPPRESS if suppress else None
     parser.add_argument("--address", default=default, help="exact selected ring Bluetooth address")
+    parser.add_argument("--address-file", type=Path, default=default,
+                        help="mode-0600 file containing the selected ring address")
     parser.add_argument("--simulate", action="store_true",
                         default=argparse.SUPPRESS if suppress else False,
                         help="use an offline simulated ring")
-    parser.add_argument("--timeout", type=float,
+    parser.add_argument("--timeout", type=_timeout,
                         default=argparse.SUPPRESS if suppress else 8.0,
                         help="Bluetooth operation timeout in seconds (default: 8)")
     parser.add_argument("--json", action="store_true",
@@ -141,7 +213,7 @@ def _add_json_option(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="jring", description="Privacy-first JRing Linux client")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    _add_runtime_options(parser)
+    _add_runtime_options(parser, suppress=True)
     sub = parser.add_subparsers(dest="command", required=True)
     doctor = sub.add_parser(
         "doctor", help="passively check local simulator and hardware prerequisites"
@@ -156,9 +228,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="exit nonzero when desktop-input prerequisites are missing",
     )
     input_command = sub.add_parser(
-        "input", help="preview or emit an allowlisted action from a sensor event"
+        "input", help="simulator-only preview or emission; live ring events are unavailable"
     )
-    _add_runtime_options(input_command, suppress=True)
+    input_command.add_argument("--simulate", action="store_true", default=argparse.SUPPRESS,
+                               help="required: use one offline simulated step event")
+    _add_json_option(input_command)
+    input_command.add_argument("--address", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
+    input_command.add_argument("--address-file", type=Path, default=argparse.SUPPRESS,
+                               help=argparse.SUPPRESS)
+    input_command.add_argument("--timeout", type=_timeout, default=argparse.SUPPRESS,
+                               help=argparse.SUPPRESS)
     input_command.add_argument(
         "--map", dest="mapping", required=True,
         help="mapping such as step=key:space or step=click:left",
@@ -168,9 +247,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="authorize one simulated event through Linux uinput",
     )
     discovery = sub.add_parser(
-        "discover", help="passively scan and print redacted candidates; never connects"
+        "discover", help="actively scan with explicit consent; redacts addresses and never connects"
     )
-    _add_runtime_options(discovery, suppress=True)
+    discovery.add_argument("--simulate", action="store_true", default=argparse.SUPPRESS,
+                           help="unsupported: discovery requires a real radio scan")
+    discovery.add_argument("--timeout", type=_timeout, default=argparse.SUPPRESS,
+                           help="scan timeout in seconds (default: 8)")
+    _add_json_option(discovery)
+    discovery.add_argument(
+        "--active-scan", action="store_true",
+        help="authorize BLE scan requests; does not connect",
+    )
     status = sub.add_parser("status", help="read battery, device information, and capabilities")
     _add_runtime_options(status, suppress=True)
     sync = sub.add_parser("time-sync", help="write standard Bluetooth Current Time")
@@ -180,24 +267,91 @@ def build_parser() -> argparse.ArgumentParser:
         help="confirm this one standard Bluetooth time write",
     )
     history = sub.add_parser("history", help="export history (simulator only until verified)")
-    _add_runtime_options(history, suppress=True)
+    history.add_argument("--simulate", action="store_true", default=argparse.SUPPRESS,
+                         help="required: use offline simulated history")
+    _add_json_option(history)
     history.add_argument("--output", type=Path, required=True)
+    history.add_argument("--force", action="store_true", help="replace an existing export")
     return parser
+
+
+_MAC = re.compile(r"(?i)(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}")
+_BLUEZ_PATH = re.compile(r"/org/bluez(?:/[A-Za-z0-9_]+)+")
+_LONG_HEX = re.compile(r"(?i)\b[0-9a-f]{16,}\b")
+
+
+def _sanitize_error(error: BaseException) -> str:
+    message = _MAC.sub("[redacted device]", str(error))
+    message = _BLUEZ_PATH.sub("[redacted Bluetooth path]", message)
+    return _LONG_HEX.sub("[redacted data]", message)
+
+
+def _selected_address(args: argparse.Namespace) -> str:
+    if args.address:
+        return select_exact(args.address)
+    path = args.address_file
+    details = path.stat()
+    if not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid() or details.st_mode & 0o077:
+        raise PermissionError("address file must be a regular file owned by this user with mode 0600")
+    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if len(lines) != 1:
+        raise ValueError("address file must contain exactly one Bluetooth address")
+    return select_exact(lines[0])
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.command not in {"discover", "doctor"} and not args.simulate and not args.address:
-        parser.error("hardware commands require --address")
+    provided = set(vars(args))
+    address = getattr(args, "address", None)
+    address_file = getattr(args, "address_file", None)
+    simulate = getattr(args, "simulate", False)
+    json_output = getattr(args, "json", False)
+    has_hardware = bool(address or address_file)
+    if simulate and has_hardware:
+        parser.error("--simulate and hardware selection are mutually exclusive")
+    if address and address_file:
+        parser.error("--address and --address-file are mutually exclusive")
+    if args.command == "doctor":
+        ignored = provided & {"address", "address_file", "simulate", "timeout"}
+        if ignored:
+            option = sorted(ignored)[0].replace("_", "-")
+            parser.error(f"--{option} is not supported by doctor")
+    if args.command == "discover":
+        if simulate:
+            parser.error("discover does not support simulation; it is a radio-active operation")
+        if has_hardware:
+            parser.error("discover does not accept device selection")
+        if not args.active_scan:
+            parser.error("discover requires --active-scan because it sends BLE scan requests")
+    if args.command == "history" and json_output:
+        parser.error("--json is not supported by history; choose a .jsonl output path")
+    if args.command == "input" and provided & {"address", "address_file", "timeout"}:
+        parser.error("input does not accept hardware selection or --timeout; use --simulate")
+    if args.command == "input" and not simulate:
+        parser.error("input currently requires --simulate; hardware motion is not verified")
+    if args.command == "history" and provided & {"address", "address_file", "timeout"}:
+        parser.error("history is simulator-only and does not accept hardware selection or --timeout")
+    if args.command not in {"discover", "doctor", "input"} and not simulate and not has_hardware:
+        parser.error("choose --simulate, --address-file, or --address for this command")
+    if args.command == "history" and not simulate:
+        parser.error("hardware history is not verified; use --simulate")
+    for name, value in {
+        "address": address,
+        "address_file": address_file,
+        "simulate": simulate,
+        "timeout": getattr(args, "timeout", 8.0),
+        "json": json_output,
+    }.items():
+        if not hasattr(args, name):
+            setattr(args, name, value)
     try:
         return asyncio.run(_run(args))
     except KeyboardInterrupt:
         print("jring: interrupted", file=sys.stderr)
         return 130
-    except (ConnectionError, LookupError, NotImplementedError, OSError, PermissionError,
-            RuntimeError, TimeoutError, ValueError) as exc:
-        print(f"jring: error: {exc}", file=sys.stderr)
+    except Exception as exc:
+        print(f"jring: error: {_sanitize_error(exc)}", file=sys.stderr)
         return 1
 
 

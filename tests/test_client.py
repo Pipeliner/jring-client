@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import pytest
 
@@ -61,6 +62,21 @@ def test_history_export_rejects_ambiguous_suffix(tmp_path):
         JRingClient.export_history(transport.records, tmp_path / "history.txt")
 
 
+def test_history_export_requires_force_to_replace(tmp_path):
+    destination = tmp_path / "history.jsonl"
+    destination.write_text("keep me\n")
+    records = FakeTransport.standard_ring().records
+
+    with pytest.raises(FileExistsError):
+        JRingClient.export_history(records, destination, source="simulator")
+    assert destination.read_text() == "keep me\n"
+
+    JRingClient.export_history(records, destination, source="simulator", force=True)
+    row = json.loads(destination.read_text())
+    assert row["source"] == "simulator"
+    assert row["synthetic"] is True
+
+
 def test_timeout_fails_closed():
     transport = FakeTransport.standard_ring(read_delay=0.1)
 
@@ -80,5 +96,20 @@ def test_standard_hid_service_is_reported():
         async with JRingClient(transport) as client:
             capabilities = await client.capabilities()
             assert capabilities.hid
+
+    run(scenario())
+
+
+def test_missing_battery_still_reports_hid():
+    transport = FakeTransport.standard_ring()
+    transport.values.pop("00002a19-0000-1000-8000-00805f9b34fb")
+    transport.services.add(HUMAN_INTERFACE_DEVICE_SERVICE)
+
+    async def scenario():
+        async with JRingClient(transport) as client:
+            status = await client.status()
+            assert status.battery_percent is None
+            assert not status.battery_available
+            assert status.capabilities.hid
 
     run(scenario())

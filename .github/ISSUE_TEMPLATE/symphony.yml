@@ -1,0 +1,56 @@
+name: Symphony implementation candidate
+description: Define bounded future work with JTBD, SDD, and RED-first TDD evidence
+title: ""
+labels:
+  - symphony
+  - jtbd
+  - sdd
+  - tdd
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The `symphony` label means eligible for fail-closed review; it does not authorize hardware access, sensitive evidence, input injection, publication, or an owner decision.
+  - type: textarea
+    id: job
+    attributes:
+      label: Job to be done
+      description: Name the user, situation, desired outcome, and why it matters.
+      placeholder: When …, I want …, so I can …
+    validations:
+      required: true
+  - type: textarea
+    id: sdd
+    attributes:
+      label: SDD behavior and safety contract
+      description: Specify observable behavior, privacy boundaries, failure behavior, and non-goals.
+    validations:
+      required: true
+  - type: textarea
+    id: tdd
+    attributes:
+      label: RED-first TDD evidence
+      description: List the tests that must fail before implementation and pass afterward.
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Allowed artifacts
+      description: Give the exact files or narrow repository roots this issue may change.
+    validations:
+      required: true
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Dependencies and block conditions
+      description: State evidence, owner decisions, or predecessor issues required before work can proceed.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Safety acknowledgement
+      options:
+        - label: This issue does not authorize real hardware/radio access, raw sensitive evidence, `/dev/uinput`, vendor writes, external contact, or publication unless the owner separately and explicitly grants that authority.
+          required: true

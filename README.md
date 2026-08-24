@@ -7,9 +7,12 @@ from the owner's selected ring establish the protocol exactly.
 
 ## Install and run
 
-Use a virtual environment. For simulation, the base project is sufficient:
+From a clone, create an isolated environment. `python3` is used for bootstrapping on
+Linux distributions that do not provide a `python` command:
 
 ```sh
+python3 -m venv .venv
+. .venv/bin/activate
 python -m pip install -e .
 jring doctor
 jring status --simulate
@@ -17,23 +20,36 @@ jring history --simulate --output history.jsonl
 jring input --simulate --map step=click:left
 ```
 
-For hardware, install the optional Bleak dependency, then select the ring by its exact
-address. The CLI never connects to a discovery result automatically.
+For hardware, install the optional Bleak dependency. Discovery is an active radio scan:
+`--active-scan` explicitly acknowledges that BLE scan requests are transmitted. It
+redacts addresses and never connects.
 
 ```sh
 python -m pip install -e '.[ble]'
-jring discover
-jring status --address AA:BB:CC:DD:EE:FF
-jring time-sync --address AA:BB:CC:DD:EE:FF --yes
+jring discover --active-scan
 ```
 
-`discover` passively lists per-run aliases, coarse name matches, RSSI, and advertised
-service UUIDs. It neither reveals addresses nor selects/connects a device. Use BlueZ
-tools locally to obtain and explicitly pass the intended ring address.
+Use BlueZ locally to identify your ring, then put its exact address on one line in a
+private file. The client rejects files accessible by another user:
+
+```sh
+mkdir -p ~/.config/jring
+chmod 700 ~/.config/jring
+# Add the exact address with your editor, then:
+chmod 600 ~/.config/jring/address
+jring status --address-file ~/.config/jring/address
+jring time-sync --address-file ~/.config/jring/address --yes
+```
+
+The legacy `--address` option remains available, but it exposes the identifier in
+shell history and process listings. Neither discovery result aliases nor addresses are
+persisted by the client, and discovery never auto-selects a device.
 
 Human-readable output is the default. Add `--json` to `status` or `discover` for
 automation. Both task-first options (`jring status --simulate`) and the original
 global-first form (`jring --simulate status`) are supported.
+Simulated human output clearly states that no ring was contacted; structured results
+and exports include source and schema provenance.
 
 Run `jring doctor` before touching hardware. It passively checks Python, Linux, Bleak,
 BlueZ, evdev, and `/dev/uinput`, explains exactly what is missing, and reports
@@ -63,8 +79,9 @@ jring input --simulate --map step=key:space --allow-input
 
 Named keys are `space`, `enter`, `escape`, the four arrows, `page-up`, and
 `page-down`; mouse clicks are `left`, `right`, and `middle`. Arbitrary key codes and
-shell commands are rejected. The status command also reports whether the device
-advertises the standard Bluetooth HID service.
+shell commands are rejected. Status can report that a standard Bluetooth HID service
+was advertised, but service presence alone does not prove that HID reports work or an
+operating-system input device exists.
 
 Hardware JRing motion events are not enabled yet: the vendor event frames are not
 verified. This boundary prevents a guessed packet or misclassified health payload from
@@ -72,7 +89,8 @@ generating desktop input.
 
 `time-sync` is the sole hardware write and targets the standard Bluetooth Current Time
 characteristic. Some rings may not expose it; failure is safe. History export accepts
-`.csv` or `.jsonl`. Hardware history deliberately reports
+`.csv` or `.jsonl` and refuses to replace an existing file unless `--force` is given.
+Hardware history deliberately reports
 "not verified" rather than guessing a vendor command.
 
 ## Least-privilege BlueZ setup
@@ -91,8 +109,8 @@ it. This client does not automate trust or pairing. Disable Bluetooth when not i
 
 BLE advertisements expose proximity and may expose a stable address. Health readings
 and exported history are sensitive. Discovery output must use per-process aliases;
-diagnostics omit raw payloads and addresses. Exports remain local, are atomically
-replaced, and should be stored on encrypted media with restrictive permissions.
+diagnostics omit raw payloads and addresses. Exports remain local, are written
+atomically with restrictive permissions, and should be stored on encrypted media.
 
 The client assumes the local user, Python environment, BlueZ, and kernel are trusted.
 It defends against malformed/truncated BLE values, accidental selection, unbounded
@@ -108,7 +126,7 @@ contact/notification upload, or telemetry is implemented.
 Run all repository tests with:
 
 ```sh
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[ble,dev]'
 python -m pytest
 ```
 
@@ -117,3 +135,7 @@ The optional hardware test is skipped unless both `JRING_HARDWARE_TEST=1` and an
 ring was available during development. See [DESIGN.md](docs/DESIGN.md) for evidence,
 confidence levels, architecture, acceptance criteria, and exact gaps. Human-facing
 behavior and its test map live in [UX_SPEC.md](docs/UX_SPEC.md).
+The cross-persona [adversarial UX review](docs/ADVERSARIAL_UX_REVIEW.md) records the
+v0.5 trust repairs and the gates that remain before live sensor-to-input bridging.
+All deferred work, including non-health HID/sensor functionality, is owned by the
+[JTBD/SDD/TDD roadmap](docs/ROADMAP.md) and its linked GitHub issues.

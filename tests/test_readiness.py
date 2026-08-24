@@ -31,7 +31,7 @@ def test_complete_linux_setup_is_hardware_ready():
     assert report.simulator_ready
     assert report.hardware_ready
     assert report.input_ready
-    assert report.next_step == "jring discover"
+    assert report.next_step == "jring discover --active-scan"
     assert all(check.ok for check in report.checks)
 
 

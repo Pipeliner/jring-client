@@ -109,7 +109,7 @@ def diagnose(
     hardware_ready = python_ok and linux_ok and bleak_ok and bluez_ok
     input_ready = python_ok and linux_ok and evdev_ok and uinput_ok
     if hardware_ready:
-        next_step = "jring discover"
+        next_step = "jring discover --active-scan"
     elif simulator_ready:
         next_step = "jring status --simulate"
     else:

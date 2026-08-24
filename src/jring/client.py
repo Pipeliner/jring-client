@@ -10,7 +10,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from .protocol import HeartRate, HistoryRecord, parse_battery, parse_device_text, parse_heart_rate
+from .protocol import (
+    HeartRate, HistoryRecord, ProtocolError, parse_battery, parse_device_text,
+    parse_heart_rate,
+)
 from .transport import BleTransport
 from .uuids import (BATTERY_LEVEL, CURRENT_TIME, DEVICE_INFO_SERVICE, FIRMWARE,
                     HARDWARE, HEART_RATE_MEASUREMENT, HEART_RATE_SERVICE,
@@ -34,6 +37,14 @@ class Capabilities:
     hid: bool
     vendor_services_seen: tuple[str, ...]
     vendor_writes: bool = False
+
+
+@dataclass(frozen=True)
+class Status:
+    battery_percent: int | None
+    battery_available: bool
+    device_info: DeviceInfo
+    capabilities: Capabilities
 
 
 class JRingClient:
@@ -70,7 +81,7 @@ class JRingClient:
         async def optional(uuid: str) -> str | None:
             try:
                 return parse_device_text(await self._read(uuid))
-            except LookupError:
+            except (LookupError, ProtocolError, TimeoutError):
                 return None
         values = []
         for uuid in (MANUFACTURER, MODEL, FIRMWARE, HARDWARE, SOFTWARE):
@@ -78,13 +89,31 @@ class JRingClient:
         return DeviceInfo(*values)
 
     async def capabilities(self) -> Capabilities:
-        services = {item.lower() for item in await self.transport.service_uuids()}
+        try:
+            discovered = await asyncio.wait_for(self.transport.service_uuids(), self.timeout)
+        except asyncio.TimeoutError as exc:
+            raise TimeoutError("BLE service discovery timed out") from exc
+        services = {item.lower() for item in discovered}
         return Capabilities(
             DEVICE_INFO_SERVICE in services,
             HEART_RATE_SERVICE in services,
             HUMAN_INTERFACE_DEVICE_SERVICE in services,
             tuple(sorted(services & VENDOR_UUIDS)),
         )
+
+    async def status(self) -> Status:
+        try:
+            battery = await self.battery()
+            battery_available = True
+        except (LookupError, ProtocolError, TimeoutError):
+            battery = None
+            battery_available = False
+        try:
+            device_info = await self.device_info()
+        except (LookupError, ProtocolError, TimeoutError):
+            device_info = DeviceInfo()
+        capabilities = await self.capabilities()
+        return Status(battery, battery_available, device_info, capabilities)
 
     async def heart_rate_events(self) -> AsyncIterator[HeartRate]:
         queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=32)
@@ -117,23 +146,44 @@ class JRingClient:
         return list(records)
 
     @staticmethod
-    def export_history(records: Iterable[HistoryRecord], destination: Path) -> None:
+    def export_history(
+        records: Iterable[HistoryRecord],
+        destination: Path,
+        *,
+        source: str = "hardware",
+        force: bool = False,
+    ) -> None:
         destination = Path(destination)
+        if source not in {"hardware", "simulator"}:
+            raise ValueError("history source must be hardware or simulator")
         suffix = destination.suffix.lower()
         if suffix not in {".csv", ".jsonl"}:
             raise ValueError("history output must end in .csv or .jsonl")
+        if destination.exists() and not force:
+            raise FileExistsError(f"history output already exists: {destination}; use --force")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        rows = [record.to_dict() for record in records]
+        rows = []
+        for record in records:
+            row = record.to_dict()
+            row.update({"schema_version": 1, "source": source, "synthetic": source == "simulator"})
+            rows.append(row)
         fd, temporary = tempfile.mkstemp(prefix=".jring-", dir=destination.parent, text=True)
         try:
             with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
                 if suffix == ".csv":
-                    writer = csv.DictWriter(handle, fieldnames=("timestamp", "kind", "value"))
+                    writer = csv.DictWriter(
+                        handle,
+                        fieldnames=(
+                            "schema_version", "source", "synthetic", "timestamp", "kind", "value"
+                        ),
+                    )
                     writer.writeheader(); writer.writerows(rows)
                 else:
                     for row in rows:
                         handle.write(json.dumps(row, sort_keys=True) + "\n")
                 handle.flush(); os.fsync(handle.fileno())
+            if destination.exists() and not force:
+                raise FileExistsError(f"history output already exists: {destination}; use --force")
             os.replace(temporary, destination)
         except BaseException:
             try: os.unlink(temporary)

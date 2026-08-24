@@ -13,7 +13,7 @@ def select_exact(address: str | None) -> str:
 
 
 async def discover(*, timeout: float = 5.0) -> list[dict[str, object]]:
-    """Passive scan returning redacted, non-selectable summaries."""
+    """Active radio scan returning redacted, non-selectable summaries."""
     if not 0 < timeout <= 30:
         raise ValueError("discovery timeout must be between 0 and 30 seconds")
     try:

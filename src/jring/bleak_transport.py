@@ -12,7 +12,8 @@ class BleakTransport:
         self._client = BleakClient(address, timeout=timeout)
 
     async def connect(self) -> None:
-        if not await self._client.connect():
+        await self._client.connect()
+        if not self._client.is_connected:
             raise ConnectionError("BLE connection failed")
 
     async def close(self) -> None:

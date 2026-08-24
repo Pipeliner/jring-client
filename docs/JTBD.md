@@ -1,6 +1,6 @@
 # JRing jobs to be done
 
-Status: prioritized for v0.3
+Status: reprioritized after adversarial review for v0.5
 
 ## Core jobs
 
@@ -13,7 +13,8 @@ decide whether I trust it.
 Desired outcomes:
 
 - Reach a useful simulated result without Bluetooth or an account.
-- See that discovery is passive, identifiers are redacted, and vendor writes are off.
+- See which operations are offline, which activate the radio, how identifiers are
+  redacted, and that vendor writes are off.
 - Never need to reveal a device address merely to check whether the software runs.
 
 ### Make this computer ready
@@ -58,12 +59,19 @@ Desired outcomes:
 
 ## Opportunity ordering
 
-1. Setup readiness: delivered in v0.3 without expanding protocol scope.
-2. Safe sensor-to-input mapping: high general-use value with a simulator-first path.
-3. Partial status when optional characteristics are absent: useful across ring models.
-4. Guided explicit device selection: valuable, but requires careful privacy design.
-5. Vendor history/live metrics: valuable but blocked on owner-authorized evidence.
+1. Trust repair: radio-active operations, simulation, provenance, and accepted options
+   must always match what the client actually does.
+2. Real-hardware baseline: supported Bleak connections and partial status across ring
+   variants must work before adding protocol surface.
+3. Safe sensor-to-input mapping: retain a simulator-first path and design live input
+   around debounce, rate limits, disarming, and guaranteed cleanup.
+4. Guided private device selection: replace sensitive argv identifiers with ephemeral
+   aliases while keeping identity confirmation explicit.
+5. Vendor history/live metrics: blocked on owner-authorized evidence.
 
-The v0.4 slice adds standard HID detection and a simulator-first `jring input` path.
-Actual JRing motion events stay blocked until owner-authorized evidence establishes
-their protocol.
+The v0.5 slice repairs adversarially identified trust failures: simulated operations
+cannot touch radios, active scans require explicit authorization, outputs retain
+provenance, optional data cannot hide capabilities, errors redact identifiers, and
+destructive export replacement is explicit. Actual JRing motion events stay blocked
+until owner-authorized evidence establishes their protocol and the live-input safety
+state machine is specified.

@@ -48,8 +48,10 @@ standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.ble
 loads Bleak lazily. `jring.cli` requires an exact address for hardware access and an
 additional confirmation flag for the only write (standard Current Time service).
 
-Discovery is passive and filtered. It prints redacted aliases, never addresses.
-Connection requires `--address`; discovery never auto-selects. Vendor writes, pairing,
+Discovery is an explicitly authorized active BLE scan because the supported Bleak
+backend sends scan requests. It prints redacted aliases, never addresses, and never
+connects. Connection prefers a mode-0600 `--address-file`; legacy `--address` remains
+available with a shell-history/process-list warning. Vendor writes, pairing,
 firmware/DFU, destructive history operations, cloud access, and telemetry are absent.
 Diagnostics hash addresses with a per-process salt and omit raw health payloads.
 
@@ -71,7 +73,8 @@ hardware event frames are verified.
 - Simulated history can be paginated and exported as JSONL/CSV with atomic replace.
 - Reconnect attempts are bounded, cancellable, and use capped exponential backoff.
 - Diagnostics redact addresses and never log payloads by default.
-- Standard HID presence is reported without capturing reports.
+- Standard HID service presence is reported as observed, with usability unknown and
+  without capturing reports.
 - Sensor-to-input mappings preview by default and reject arbitrary actions.
 - Input injection is explicit, bounded to one simulated event, and closes `uinput`.
 - Unit, simulated integration, and CLI tests pass without a ring; hardware tests skip.
