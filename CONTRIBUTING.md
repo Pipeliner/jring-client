@@ -27,3 +27,9 @@ material, stop and follow [SECURITY.md](SECURITY.md) instead of opening a public
 
 Vendor writes remain disabled. Evidence contribution never authorizes scanning,
 connecting, subscribing, input injection, or packet emission.
+
+## License
+
+Project source, including accepted contributions, is distributed under the
+[MIT License](LICENSE). This repository does not add a separate contributor license
+agreement.

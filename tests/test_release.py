@@ -18,20 +18,35 @@ from scripts.release_artifacts import (
 ROOT = Path(__file__).parents[1]
 
 
-def make_artifacts(directory, version="0.5.0", extra_member=None):
+def make_artifacts(
+    directory,
+    version="0.5.0",
+    extra_member=None,
+    license_expression="MIT",
+    include_license=True,
+):
     wheel = directory / f"jring_client-{version}-py3-none-any.whl"
     with zipfile.ZipFile(wheel, "w") as archive:
         archive.writestr("jring/__init__.py", "")
         archive.writestr(
             f"jring_client-{version}.dist-info/METADATA",
-            f"Name: jring-client\nVersion: {version}\n",
+            (
+                f"Name: jring-client\nVersion: {version}\n"
+                f"License-Expression: {license_expression}\n"
+            ),
         )
+        if include_license:
+            archive.writestr(
+                f"jring_client-{version}.dist-info/licenses/LICENSE", "MIT License"
+            )
         if extra_member:
             archive.writestr(extra_member, "unsafe")
     source_root = directory / f"jring_client-{version}"
     (source_root / "scripts").mkdir(parents=True)
     for name in ("README.md", "SECURITY.md", "CONTRIBUTING.md"):
         (source_root / name).write_text(name)
+    if include_license:
+        (source_root / "LICENSE").write_text("MIT License")
     (source_root / "scripts" / "evidence_tool.py").write_text("")
     egg_info = source_root / "src" / "jring_client.egg-info"
     egg_info.mkdir(parents=True)
@@ -42,8 +57,13 @@ def make_artifacts(directory, version="0.5.0", extra_member=None):
         "scripts/evidence_tool.py",
         "src/jring_client.egg-info/SOURCES.txt",
     }
+    if include_license:
+        declared.add("LICENSE")
     (egg_info / "SOURCES.txt").write_text("\n".join(sorted(declared)) + "\n")
-    (source_root / "PKG-INFO").write_text(f"Name: jring-client\nVersion: {version}\n")
+    (source_root / "PKG-INFO").write_text(
+        f"Name: jring-client\nVersion: {version}\n"
+        f"License-Expression: {license_expression}\n"
+    )
     sdist = directory / f"jring_client-{version}.tar.gz"
     with tarfile.open(sdist, "w:gz") as archive:
         archive.add(source_root, arcname=source_root.name)
@@ -66,6 +86,18 @@ def test_artifact_inspection_and_checksums_are_deterministic(tmp_path):
 def test_artifact_inspection_rejects_secret_or_undeclared_members(tmp_path):
     make_artifacts(tmp_path, extra_member="jring/.env")
     with pytest.raises(ReleaseError, match="forbidden"):
+        inspect_artifacts(tmp_path, __version__)
+
+
+def test_artifact_inspection_rejects_inconsistent_license(tmp_path):
+    make_artifacts(tmp_path, license_expression="Apache-2.0")
+    with pytest.raises(ReleaseError, match="license"):
+        inspect_artifacts(tmp_path, __version__)
+
+
+def test_artifact_inspection_rejects_missing_license_file(tmp_path):
+    make_artifacts(tmp_path, include_license=False)
+    with pytest.raises(ReleaseError, match="license file"):
         inspect_artifacts(tmp_path, __version__)
 
 

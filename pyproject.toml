@@ -8,6 +8,8 @@ version = "0.5.0"
 description = "Privacy-first Linux client for explicitly selected JRing BLE devices"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = []
 
 [project.optional-dependencies]

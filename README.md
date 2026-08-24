@@ -193,3 +193,7 @@ The cross-persona [adversarial UX review](docs/ADVERSARIAL_UX_REVIEW.md) records
 v0.5 trust repairs and the gates that remain before live sensor-to-input bridging.
 All deferred work, including non-health HID/sensor functionality, is owned by the
 [JTBD/SDD/TDD roadmap](docs/ROADMAP.md) and its linked GitHub issues.
+
+## License
+
+JRing Client is distributed under the [MIT License](LICENSE).

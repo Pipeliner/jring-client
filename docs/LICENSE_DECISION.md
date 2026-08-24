@@ -1,6 +1,6 @@
 # License decision brief
 
-Status: **owner decision required**. This document does not license JRing Client.
+Status: **selected and implemented**. JRing Client uses the MIT License.
 
 ## Job to be done
 
@@ -11,16 +11,15 @@ licenses.
 
 ## Observed project facts
 
-- The repository is public, but it has no `LICENSE` file and `pyproject.toml` has no
-  project license expression. Public visibility alone is not a license grant.
+- The repository was public without a license grant before this decision. It now has
+  canonical MIT text in `LICENSE` and `pyproject.toml` declares the `MIT` SPDX
+  expression.
 - The base package declares no runtime dependencies. Optional direct dependencies in
   the current lock are Bleak 1.1.1 (MIT), evdev 1.9.3 (BSD-3-Clause), and pytest 9.1.1
   (MIT). Release tooling pins build 1.5.0 and setuptools 84.0.0, both MIT.
-- That inventory covers declared direct and release-tool metadata only. It does not
-  audit transitive packages, repository history, copied snippets, generated artifacts,
-  trademarks, patents, or the identity and consent of every copyright holder.
-- No compatibility conclusion is made here. Complete the broader inspection after the
-  owner chooses a candidate and before publishing licensed artifacts.
+- The completed metadata inspection covers every package in `uv.lock`, plus the pinned
+  release tools. It does not establish the ownership of repository history, copied
+  snippets, trademarks, patents, or every contributor's authority to license work.
 
 Metadata sources inspected on 2026-08-24:
 
@@ -50,27 +49,35 @@ employment, or prior-contribution questions.
 
 ## Owner decision record
 
-Choose exactly one option, or name another license explicitly:
+- SPDX identifier: **MIT**
+- Copyright notice: **Copyright (c) 2026 JRing Client contributors**
+- Decision made by: **repository owner**
+- Decision date: **2026-08-24**
 
-- SPDX identifier: **UNDECIDED**
-- Copyright holder/name for notices, if applicable: **UNDECIDED**
-- Decision made by: **UNDECIDED**
-- Decision date: **UNDECIDED**
+## Compatibility inspection
 
-Useful decision rule: choose MIT for the shortest permissive grant, Apache-2.0 for a
-permissive grant with explicit patent terms, or MPL-2.0 for file-level reciprocity.
-No option is selected by this brief.
+The exact locked dependency and release-tool metadata was inspected on 2026-08-24:
 
-## Implementation contract after the decision
+- MIT: Bleak, dbus-fast, iniconfig, pluggy, the locked PyObjC packages, pytest,
+  tomli, all locked WinRT packages, build, and setuptools.
+- BSD-family: evdev (`BSD-3-Clause`), Pygments (`BSD-2-Clause`), and colorama
+  (PyPI's BSD classifier; no SPDX expression in its metadata).
+- Apache/BSD: async-timeout (Apache 2 metadata) and packaging
+  (`Apache-2.0 OR BSD-2-Clause`).
+- Other permissive metadata: typing-extensions (`PSF-2.0`) and exceptiongroup
+  (PyPI's MIT classifier; no SPDX expression in its metadata).
 
-1. Add the unmodified canonical license text and any required notice material.
-2. Add the exact SPDX expression to `pyproject.toml`; make the README and contribution
-   guidance agree without inventing extra contributor terms.
-3. Audit direct and transitive dependencies, copied material, and built distributions
-   against the selected terms; document the inspection scope and unresolved questions.
-4. Add tests that fail when the license file, package metadata, README notice, or built
-   artifact metadata disagree.
-5. Build and inspect both wheel and source distribution before committing and pushing.
+The base installation has no runtime dependencies. Optional packages are referenced as
+dependencies rather than copied into JRing distributions, and release tools are not
+shipped. No reciprocal/copyleft license was found in the inspected metadata. On that
+scope, no conflict with distributing JRing itself under MIT was identified. This is a
+metadata and packaging review, not a legal opinion or a substitute for reviewing the
+dependencies' full license texts when redistributing them.
 
-Until the owner fills in the decision record, issue #12 remains blocked and no license
-text or package license metadata should be added.
+## Implementation verification
+
+1. `LICENSE`, package metadata, README, and contribution guidance all identify MIT.
+2. Repository tests fail when those declarations disagree or when artifact metadata or
+   source contents omit the license.
+3. Both wheel and source distribution are built and inspected before the change is
+   committed and pushed.

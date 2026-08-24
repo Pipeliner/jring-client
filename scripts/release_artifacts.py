@@ -41,11 +41,12 @@ def _safe_members(names: list[str]) -> None:
             raise ReleaseError("artifact contains a forbidden member")
 
 
-def _metadata_version(content: str) -> str:
+def _metadata_field(content: str, field: str) -> str:
+    prefix = f"{field}: "
     for line in content.splitlines():
-        if line.startswith("Version: "):
-            return line.removeprefix("Version: ").strip()
-    raise ReleaseError("artifact metadata version is missing")
+        if line.startswith(prefix):
+            return line.removeprefix(prefix).strip()
+    raise ReleaseError(f"artifact metadata {field.lower()} is missing")
 
 
 def inspect_artifacts(directory: Path, version: str) -> list[Path]:
@@ -67,8 +68,15 @@ def inspect_artifacts(directory: Path, version: str) -> list[Path]:
         if len(metadata_names) != 1:
             raise ReleaseError("wheel metadata is ambiguous")
         metadata = archive.read(metadata_names[0]).decode("utf-8")
-        if _metadata_version(metadata) != version:
+        if _metadata_field(metadata, "Version") != version:
             raise ReleaseError("wheel version does not match project version")
+        if _metadata_field(metadata, "License-Expression") != "MIT":
+            raise ReleaseError("wheel license does not match project license")
+        license_names = [
+            name for name in names if name.endswith(".dist-info/licenses/LICENSE")
+        ]
+        if len(license_names) != 1:
+            raise ReleaseError("wheel license file is missing or ambiguous")
         if any(not (name.startswith("jring/") or ".dist-info/" in name) for name in names):
             raise ReleaseError("wheel contains an undeclared top-level member")
 
@@ -85,10 +93,16 @@ def inspect_artifacts(directory: Path, version: str) -> list[Path]:
         if len(pkg_info) != 1:
             raise ReleaseError("source metadata is ambiguous")
         handle = archive.extractfile(pkg_info[0])
-        if handle is None or _metadata_version(handle.read().decode("utf-8")) != version:
+        if handle is None:
+            raise ReleaseError("source metadata is unreadable")
+        source_metadata = handle.read().decode("utf-8")
+        if _metadata_field(source_metadata, "Version") != version:
             raise ReleaseError("source version does not match project version")
+        if _metadata_field(source_metadata, "License-Expression") != "MIT":
+            raise ReleaseError("source license does not match project license")
         required = {
             f"jring_client-{version}/README.md",
+            f"jring_client-{version}/LICENSE",
             f"jring_client-{version}/SECURITY.md",
             f"jring_client-{version}/CONTRIBUTING.md",
             f"jring_client-{version}/scripts/evidence_tool.py",
