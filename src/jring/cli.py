@@ -87,31 +87,58 @@ def _print_json_success(operation: str, source: str, payload: dict[str, Any]) ->
 
 def _print_status(result: dict[str, Any]) -> None:
     info = result["device_info"]
+    info_states = result["device_info_states"]
     capabilities = result["capabilities"]
     if result["source"] == "simulator":
         print("SIMULATION — no ring contacted")
     else:
         print("HARDWARE — explicitly selected ring")
+    battery_state = result["battery_state"]
     battery = (
-        f"{result['battery_percent']}%" if result["battery_available"]
-        else "unavailable (optional characteristic not exposed)"
+        f"{result['battery_percent']}% (available)" if result["battery_available"]
+        else _absent_value(battery_state)
     )
     print(f"Battery: {battery}")
-    print(f"Model: {info['model'] or 'not reported'}")
-    print(f"Manufacturer: {info['manufacturer'] or 'not reported'}")
-    print(f"Firmware: {info['firmware'] or 'not reported'}")
-    heart_rate = (
-        "advertised (not tested)" if capabilities["heart_rate_service_advertised"]
-        else "not advertised"
-    )
-    hid = (
-        "advertised (usability unknown)" if capabilities["hid_service_advertised"]
-        else "not advertised"
-    )
+    for label, name in (
+        ("Model", "model"),
+        ("Manufacturer", "manufacturer"),
+        ("Firmware", "firmware"),
+        ("Hardware", "hardware"),
+        ("Software", "software"),
+    ):
+        state = info_states[name]
+        value = f"{info[name]} (available)" if state == "available" else _absent_value(state)
+        print(f"{label}: {value}")
+    inventory_state = capabilities["inventory_state"]
+    if inventory_state == "available":
+        heart_rate = (
+            "advertised (not tested)" if capabilities["heart_rate_service_advertised"]
+            else "not advertised"
+        )
+        hid = (
+            "advertised (usability unknown)" if capabilities["hid_service_advertised"]
+            else "not advertised"
+        )
+    else:
+        heart_rate = f"unknown ({inventory_state})"
+        hid = f"unknown ({inventory_state})"
     print(f"Heart-rate service: {heart_rate}")
     print(f"Standard HID service: {hid}")
     vendor_count = len(capabilities["vendor_services_seen"])
-    print(f"Vendor services: {vendor_count} detected; writes disabled")
+    vendor = (
+        f"{vendor_count} detected" if inventory_state == "available"
+        else f"unknown ({inventory_state})"
+    )
+    print(f"Vendor services: {vendor}; writes disabled")
+
+
+def _absent_value(state: str) -> str:
+    return {
+        "unavailable": "unavailable",
+        "malformed": "unavailable (malformed value)",
+        "timed_out": "unavailable (timed out)",
+        "not_advertised": "not advertised",
+    }.get(state, f"unavailable ({state})")
 
 
 def _print_discovery(results: list[dict[str, object]]) -> None:
@@ -218,13 +245,16 @@ async def _run(args: argparse.Namespace) -> int:
                 "hid_service_advertised": status.capabilities.hid,
                 "vendor_services_seen": status.capabilities.vendor_services_seen,
                 "vendor_writes": status.capabilities.vendor_writes,
+                "inventory_state": status.capabilities_state,
             }
             result = {
                 "schema_version": 1,
                 "source": source,
                 "battery_percent": status.battery_percent,
                 "battery_available": status.battery_available,
+                "battery_state": status.battery_state,
                 "device_info": asdict(status.device_info),
+                "device_info_states": asdict(status.device_info_states),
                 "capabilities": capabilities,
             }
             if args.json:

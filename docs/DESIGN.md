@@ -75,6 +75,9 @@ hardware event frames are verified.
 - Diagnostics redact addresses and never log payloads by default.
 - Standard HID service presence is reported as observed, with usability unknown and
   without capturing reports.
+- Status collects battery, Device Information, and service inventory concurrently under
+  one bounded deadline. Additive per-field states distinguish absence, malformed data,
+  timeouts, and a service that was not advertised without exposing raw values.
 - Sensor-to-input mappings preview by default and reject arbitrary actions.
 - Input injection is explicit, bounded to one simulated event, and closes `uinput`.
 - Unit, simulated integration, and CLI tests pass without a ring; hardware tests skip.

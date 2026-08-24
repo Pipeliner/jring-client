@@ -31,6 +31,15 @@ class DeviceInfo:
 
 
 @dataclass(frozen=True)
+class DeviceInfoStates:
+    manufacturer: str
+    model: str
+    firmware: str
+    hardware: str
+    software: str
+
+
+@dataclass(frozen=True)
 class Capabilities:
     device_info: bool
     heart_rate: bool
@@ -43,8 +52,11 @@ class Capabilities:
 class Status:
     battery_percent: int | None
     battery_available: bool
+    battery_state: str
     device_info: DeviceInfo
+    device_info_states: DeviceInfoStates
     capabilities: Capabilities
+    capabilities_state: str
 
 
 class JRingClient:
@@ -102,18 +114,75 @@ class JRingClient:
         )
 
     async def status(self) -> Status:
-        try:
-            battery = await self.battery()
-            battery_available = True
-        except (LookupError, ProtocolError, TimeoutError):
-            battery = None
-            battery_available = False
-        try:
-            device_info = await self.device_info()
-        except (LookupError, ProtocolError, TimeoutError):
-            device_info = DeviceInfo()
-        capabilities = await self.capabilities()
-        return Status(battery, battery_available, device_info, capabilities)
+        names_and_uuids = (
+            ("manufacturer", MANUFACTURER),
+            ("model", MODEL),
+            ("firmware", FIRMWARE),
+            ("hardware", HARDWARE),
+            ("software", SOFTWARE),
+        )
+
+        async def device_text(uuid: str) -> str:
+            return parse_device_text(await self._read(uuid))
+
+        tasks = {
+            "battery": asyncio.create_task(self.battery()),
+            "capabilities": asyncio.create_task(self.capabilities()),
+            **{
+                name: asyncio.create_task(device_text(uuid))
+                for name, uuid in names_and_uuids
+            },
+        }
+        _done, pending = await asyncio.wait(tasks.values(), timeout=self.timeout)
+        for task in pending:
+            task.cancel()
+        gathered = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        outcomes = dict(zip(tasks, gathered, strict=True))
+        pending_names = {name for name, task in tasks.items() if task in pending}
+
+        def optional(name: str) -> tuple[object | None, str]:
+            if name in pending_names:
+                return None, "timed_out"
+            outcome = outcomes[name]
+            if isinstance(outcome, (LookupError, OSError)):
+                return None, "unavailable"
+            if isinstance(outcome, ProtocolError):
+                return None, "malformed"
+            if isinstance(outcome, TimeoutError):
+                return None, "timed_out"
+            if isinstance(outcome, BaseException):
+                raise outcome
+            return outcome, "available"
+
+        battery_value, battery_state = optional("battery")
+        capabilities_value, capabilities_state = optional("capabilities")
+        if capabilities_state == "available":
+            capabilities = capabilities_value
+            if not isinstance(capabilities, Capabilities):
+                raise TypeError("invalid capabilities result")
+        else:
+            capabilities = Capabilities(False, False, False, ())
+
+        values: dict[str, str | None] = {}
+        states: dict[str, str] = {}
+        for name, _uuid in names_and_uuids:
+            value, state = optional(name)
+            values[name] = value if isinstance(value, str) else None
+            states[name] = state
+
+        if capabilities_state == "available" and not capabilities.device_info:
+            values = {name: None for name, _uuid in names_and_uuids}
+            states = {name: "not_advertised" for name, _uuid in names_and_uuids}
+
+        return Status(
+            battery_percent=battery_value if isinstance(battery_value, int) else None,
+            battery_available=battery_state == "available",
+            battery_state=battery_state,
+            device_info=DeviceInfo(**values),
+            device_info_states=DeviceInfoStates(**states),
+            capabilities=capabilities,
+            capabilities_state=capabilities_state,
+        )
 
     async def heart_rate_events(self) -> AsyncIterator[HeartRate]:
         queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=32)

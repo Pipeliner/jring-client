@@ -43,6 +43,8 @@ Desired outcomes:
 - Atomic exports with an unambiguous format.
 - Versioned machine-readable successes and failures with stable exit meanings, so
   automation never needs to scrape English diagnostics.
+- Useful partial results from firmware with missing, malformed, or slow optional
+  fields, without multiplying the command deadline by the number of fields.
 
 ### Reuse the ring as a general-purpose input
 

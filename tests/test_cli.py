@@ -6,6 +6,8 @@ import pytest
 from jring import cli
 from jring.protocol import ProtocolError
 from jring.readiness import ReadinessCheck, ReadinessReport
+from jring.transport import FakeTransport
+from jring.uuids import FIRMWARE
 
 
 def not_ready_report():
@@ -239,6 +241,38 @@ def test_simulated_status_has_provenance(capsys):
     result = json.loads(capsys.readouterr().out)
     assert result["schema_version"] == 1
     assert result["source"] == "simulator"
+
+
+def test_cli_exposes_partial_status_states(capsys):
+    assert cli.main(["status", "--simulate", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["battery_state"] == "available"
+    assert result["device_info_states"] == {
+        "firmware": "available",
+        "hardware": "unavailable",
+        "manufacturer": "available",
+        "model": "available",
+        "software": "unavailable",
+    }
+    assert result["capabilities"]["inventory_state"] == "available"
+
+    assert cli.main(["status", "--simulate"]) == 0
+    output = capsys.readouterr().out
+    assert "Model: JR-SIM (available)" in output
+    assert "Hardware: unavailable" in output
+
+
+def test_malformed_device_information_never_echoes_raw_value(monkeypatch, capsys):
+    transport = FakeTransport.standard_ring()
+    transport.values[FIRMWARE] = b"\xffprivate-raw-value"
+    monkeypatch.setattr(cli.FakeTransport, "standard_ring", lambda: transport)
+
+    assert cli.main(["status", "--simulate", "--json"]) == 0
+    serialized = capsys.readouterr().out
+    result = json.loads(serialized)
+    assert result["device_info"]["firmware"] is None
+    assert result["device_info_states"]["firmware"] == "malformed"
+    assert "private-raw-value" not in serialized
 
 
 @pytest.mark.parametrize("timeout", ["0", "-1", "nan", "inf", "31"])

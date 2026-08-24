@@ -141,6 +141,17 @@ Given a ring without the optional Battery characteristic, status still reports d
 information and advertised services. Human wording says a service was advertised and
 not tested; JSON marks battery availability independently.
 
+Given optional Device Information reads that are mixed valid, unavailable, malformed,
+and slow, status finishes within one field-collection deadline and preserves every
+completed independent result. Each field reports exactly one of `available`,
+`unavailable`, `malformed`, `timed_out`, or `not_advertised`. Service-inventory failure
+is also explicit and never turns an unknown HID/heart-rate state into `not advertised`.
+
+Schema 1 retains the existing `device_info`, `battery_percent`, `battery_available`,
+and capability booleans. It additively exposes `device_info_states`, `battery_state`,
+and capability `inventory_state`; automation may adopt these without losing the old
+value paths.
+
 ### Supported Bleak connection contract
 
 Given a supported Bleak 1.x client whose successful `connect()` completes with no
@@ -183,7 +194,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |
 | Radio intent is explicit | `test_discovery_requires_explicit_active_scan`, `test_simulated_discovery_never_scans` |
 | Source intent and provenance | `test_source_modes_are_exclusive`, `test_simulated_status_has_provenance` |
-| Honest partial status | `test_missing_battery_still_reports_hid` |
+| Honest partial status | `test_missing_battery_still_reports_hid`, `test_status_reports_each_optional_field_state`, `test_status_uses_one_deadline_for_all_optional_fields`, `test_cli_exposes_partial_status_states` |
 | Supported Bleak connection contract | `test_bleak_one_x_none_return_is_a_successful_connection` |
 | Option meaning is enforced | `test_non_applicable_global_options_are_rejected`, `test_timeout_must_be_finite_and_bounded` |
 | Private and sanitized selection | `test_address_file_must_be_private`, `test_cli_errors_redact_identifiers` |
