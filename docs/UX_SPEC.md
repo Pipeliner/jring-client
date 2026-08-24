@@ -243,6 +243,11 @@ explicit synthetic provenance, and includes only facts named by coverage. Nothin
 uploaded or written automatically. The contributor manually reviews the output before
 publication and uses the private security channel for sensitive reports.
 
+An owner-authorized manifest is private input, not a commit-ready public artifact.
+Local validation requires mode 0600; repository scanning rejects it at any mode. The
+scan inspects every repository file and rejects disguised capture, archive, Android,
+native, decompiler, and smali material without echoing a filename or rejected content.
+
 ### Honest compatibility matrix
 
 Given synthetic CI evidence only, when a maintainer builds the matrix, then the row may

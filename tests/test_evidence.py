@@ -142,6 +142,54 @@ def test_repository_scan_rejects_health_data_in_text(tmp_path):
     assert raised.value.code == "unsafe_content"
 
 
+@pytest.mark.parametrize(
+    "name,content",
+    [
+        (
+            "notes.md",
+            "/* " + "JADX INFO: loaded from: classes2.dex */\npublic class Copy {}\n",
+        ),
+        (
+            "helper.py",
+            "package com.sxr.sdk.ble." + "keepfit;\npublic class Copy {}\n",
+        ),
+        (
+            "SOURCE",
+            "." + "class public Lcom/vendor/Copy;\n." + "super Ljava/lang/Object;\n",
+        ),
+    ],
+)
+def test_repository_scan_rejects_decompiler_output_in_every_text_type(
+    tmp_path, name, content
+):
+    (tmp_path / name).write_text(content)
+
+    with pytest.raises(EvidenceError) as raised:
+        scan_repository(tmp_path)
+    assert raised.value.code == "forbidden_artifact"
+    assert name not in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "name,content",
+    [
+        ("classes.bin", b"dex\n035\x00" + b"x" * 16),
+        ("native.bin", b"\x7fELF" + b"x" * 16),
+        ("bundle.bin", b"\x1f\x8b\x08" + b"x" * 16),
+        ("archive.bin", b"Rar!\x1a\x07\x00" + b"x" * 16),
+    ],
+)
+def test_repository_scan_rejects_disguised_vendor_binary_classes(
+    tmp_path, name, content
+):
+    (tmp_path / name).write_bytes(content)
+
+    with pytest.raises(EvidenceError) as raised:
+        scan_repository(tmp_path)
+    assert raised.value.code == "forbidden_artifact"
+    assert name not in str(raised.value)
+
+
 def test_owner_evidence_file_requires_private_permissions(tmp_path):
     manifest = safe_manifest()
     manifest["provenance"] = {
@@ -156,6 +204,29 @@ def test_owner_evidence_file_requires_private_permissions(tmp_path):
     path.chmod(0o644)
 
     assert main(["validate", str(path)]) == 2
+
+
+def test_owner_evidence_is_never_commit_eligible_even_with_private_permissions(tmp_path):
+    evidence = tmp_path / "tests" / "fixtures" / "evidence"
+    evidence.mkdir(parents=True)
+    manifest = safe_manifest()
+    manifest["provenance"] = {
+        "source": "owner_authorized",
+        "collection_method": "manual_gatt_inventory",
+        "original_retained": False,
+    }
+    manifest["confidence"] = "low"
+    manifest["device_context"] = {
+        "model_family": "jring-family",
+        "firmware_major": "v1",
+    }
+    path = evidence / "owner-manifest.json"
+    path.write_text(json.dumps(manifest))
+    path.chmod(0o600)
+
+    with pytest.raises(EvidenceError) as raised:
+        scan_repository(tmp_path)
+    assert raised.value.code == "private_evidence"
 
 
 def test_repository_scan_fails_closed_for_missing_root(tmp_path):

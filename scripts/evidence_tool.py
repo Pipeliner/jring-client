@@ -16,6 +16,7 @@ from typing import Any
 
 
 _MAX_MANIFEST_BYTES = 64 * 1024
+_MAX_REPOSITORY_FILE_BYTES = 16 * 1024 * 1024
 _MAC = re.compile(r"(?i)(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}")
 _BLUEZ_PATH = re.compile(r"/org/bluez(?:/[A-Za-z0-9_]+)+")
 _EMAIL = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
@@ -91,6 +92,21 @@ _FORBIDDEN_NAMES = (".pcap", ".pcapng", ".btsnoop", ".hcidump")
 _FORBIDDEN_SUFFIXES = {".har", ".apk", ".xapk"}
 _DATA_SUFFIXES = {".csv", ".json", ".jsonl", ".log", ".txt", ".yaml", ".yml"}
 _IGNORED_DIRECTORIES = {".git", ".venv", ".pytest_cache", "build", "dist", "__pycache__"}
+_FORBIDDEN_MAGIC_PREFIXES = (
+    b"dex\n",
+    b"\x7fELF",
+    b"\x1f\x8b",
+    b"BZh",
+    b"Rar!\x1a\x07",
+    b"7z\xbc\xaf\x27\x1c",
+    b"\x28\xb5\x2f\xfd",
+)
+_DECOMPILER_MARKERS = (
+    b"/* " + b"JADX INFO:",
+    b"." + b"class public L",
+    b"." + b"super Ljava/",
+)
+_VENDOR_JAVA_PACKAGE = b"package com.sxr.sdk.ble." + b"keepfit;"
 
 
 class EvidenceError(ValueError):
@@ -315,8 +331,13 @@ def _validate_repository_files(paths: list[Path]) -> list[Path]:
         if path.suffix.lower() in _FORBIDDEN_SUFFIXES:
             _reject("forbidden_artifact", "repository file")
         try:
-            with path.open("rb") as handle:
-                header = handle.read(8)
+            details = path.lstat()
+            if not stat.S_ISREG(details.st_mode):
+                _reject("forbidden_artifact", "repository file")
+            if details.st_size > _MAX_REPOSITORY_FILE_BYTES:
+                _reject("forbidden_artifact", "repository file")
+            content = path.read_bytes()
+            header = content[:8]
             if header[:4] in {
                 b"\xa1\xb2\xc3\xd4",
                 b"\xd4\xc3\xb2\xa1",
@@ -325,13 +346,14 @@ def _validate_repository_files(paths: list[Path]) -> list[Path]:
                 b"\x0a\x0d\x0d\x0a",
             } or header == b"btsnoop\x00":
                 _reject("forbidden_artifact", "repository file")
+            if any(header.startswith(prefix) for prefix in _FORBIDDEN_MAGIC_PREFIXES):
+                _reject("forbidden_artifact", "repository file")
+            if any(marker in content for marker in _DECOMPILER_MARKERS):
+                _reject("forbidden_artifact", "repository file")
+            if _VENDOR_JAVA_PACKAGE in content and b"public class " in content:
+                _reject("forbidden_artifact", "repository file")
             if header.startswith(b"PK") and zipfile.is_zipfile(path):
-                with zipfile.ZipFile(path) as archive:
-                    members = archive.namelist()
-                if "AndroidManifest.xml" in members or any(
-                    member.lower().endswith(".apk") for member in members
-                ):
-                    _reject("forbidden_artifact", "repository file")
+                _reject("forbidden_artifact", "repository file")
         except EvidenceError:
             raise
         except (OSError, zipfile.BadZipFile) as exc:
@@ -375,7 +397,10 @@ def scan_repository(root: Path) -> None:
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             raise EvidenceError("invalid_manifest", "repository evidence") from exc
         if path.name.endswith("-manifest.json"):
-            manifests[path] = validate_manifest(payload)
+            manifest = validate_manifest(payload)
+            if manifest["provenance"]["source"] == "owner_authorized":
+                _reject("private_evidence", "repository evidence")
+            manifests[path] = manifest
         else:
             _scan_sensitive(payload)
             fixtures[path] = payload

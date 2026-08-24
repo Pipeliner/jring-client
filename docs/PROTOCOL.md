@@ -79,9 +79,19 @@ value. `derive` writes a deterministic minimal fixture to stdout only after the 
 manifest passes. Review that output manually before publication; the tool deliberately
 does not attempt to redact unsafe input automatically.
 
+An `owner_authorized` schema-1 manifest is a private local ledger. Mode 0600 is
+required for local validation and the repository scanner rejects it even with those
+permissions; only a separately reviewed synthetic/public-derived fixture is eligible
+for Git. The current schema cannot yet express packet layouts or authorize writes.
+Issue #17 tracks a typed v2 public-claim schema with operation-specific fields,
+synthetic vectors, maturity, and review gates.
+
 Each fixture covers one operation and includes only declared facts needed by a test.
-The repository scan checks tracked, staged, and non-ignored new files; ignored private
-working material is neither opened nor treated as publishable evidence.
+The repository scan checks every tracked, staged, and non-ignored new regular file,
+regardless of extension. It rejects capture signatures, APK/XAPK/ZIP archives,
+compressed archives, DEX, ELF/native binaries, and recognizable JADX/smali/vendor Java
+output, including content disguised as Markdown, Python, or an extensionless file.
+Ignored private working material is neither opened nor treated as publishable evidence.
 Repeated owner-authorized observations may eventually establish opcodes, lengths,
 endianness, checksum coverage, sequence/session state, acknowledgements, pagination,
 and terminal markers. Until separately reviewed evidence proves those meanings,
