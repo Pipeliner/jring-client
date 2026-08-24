@@ -53,6 +53,13 @@ Connection requires `--address`; discovery never auto-selects. Vendor writes, pa
 firmware/DFU, destructive history operations, cloud access, and telemetry are absent.
 Diagnostics hash addresses with a per-process salt and omit raw health payloads.
 
+`jring.input` maps typed logical sensor events to a closed set of named keyboard and
+mouse actions. Preview is the default. Linux `uinput` is loaded lazily and requires an
+explicit CLI authorization flag. Shell commands and arbitrary codes are not part of
+the model. Standard HID service `1812` is detected as a capability only; raw HID
+reports are neither parsed nor logged. Simulated `step` is the only motion source until
+hardware event frames are verified.
+
 ## Acceptance criteria
 
 - Import and simulator tests work without Bleak or hardware.
@@ -64,4 +71,7 @@ Diagnostics hash addresses with a per-process salt and omit raw health payloads.
 - Simulated history can be paginated and exported as JSONL/CSV with atomic replace.
 - Reconnect attempts are bounded, cancellable, and use capped exponential backoff.
 - Diagnostics redact addresses and never log payloads by default.
+- Standard HID presence is reported without capturing reports.
+- Sensor-to-input mappings preview by default and reject arbitrary actions.
+- Input injection is explicit, bounded to one simulated event, and closes `uinput`.
 - Unit, simulated integration, and CLI tests pass without a ring; hardware tests skip.

@@ -13,8 +13,9 @@ from pathlib import Path
 from .protocol import HeartRate, HistoryRecord, parse_battery, parse_device_text, parse_heart_rate
 from .transport import BleTransport
 from .uuids import (BATTERY_LEVEL, CURRENT_TIME, DEVICE_INFO_SERVICE, FIRMWARE,
-                    HARDWARE, HEART_RATE_MEASUREMENT, HEART_RATE_SERVICE, MANUFACTURER,
-                    MODEL, SOFTWARE, VENDOR_UUIDS)
+                    HARDWARE, HEART_RATE_MEASUREMENT, HEART_RATE_SERVICE,
+                    HUMAN_INTERFACE_DEVICE_SERVICE, MANUFACTURER, MODEL, SOFTWARE,
+                    VENDOR_UUIDS)
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class DeviceInfo:
 class Capabilities:
     device_info: bool
     heart_rate: bool
+    hid: bool
     vendor_services_seen: tuple[str, ...]
     vendor_writes: bool = False
 
@@ -77,8 +79,12 @@ class JRingClient:
 
     async def capabilities(self) -> Capabilities:
         services = {item.lower() for item in await self.transport.service_uuids()}
-        return Capabilities(DEVICE_INFO_SERVICE in services, HEART_RATE_SERVICE in services,
-                            tuple(sorted(services & VENDOR_UUIDS)))
+        return Capabilities(
+            DEVICE_INFO_SERVICE in services,
+            HEART_RATE_SERVICE in services,
+            HUMAN_INTERFACE_DEVICE_SERVICE in services,
+            tuple(sorted(services & VENDOR_UUIDS)),
+        )
 
     async def heart_rate_events(self) -> AsyncIterator[HeartRate]:
         queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=32)

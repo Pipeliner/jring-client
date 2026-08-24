@@ -11,8 +11,10 @@ Use a virtual environment. For simulation, the base project is sufficient:
 
 ```sh
 python -m pip install -e .
+jring doctor
 jring status --simulate
 jring history --simulate --output history.jsonl
+jring input --simulate --map step=click:left
 ```
 
 For hardware, install the optional Bleak dependency, then select the ring by its exact
@@ -32,6 +34,41 @@ tools locally to obtain and explicitly pass the intended ring address.
 Human-readable output is the default. Add `--json` to `status` or `discover` for
 automation. Both task-first options (`jring status --simulate`) and the original
 global-first form (`jring --simulate status`) are supported.
+
+Run `jring doctor` before touching hardware. It passively checks Python, Linux, Bleak,
+BlueZ, evdev, and `/dev/uinput`, explains exactly what is missing, and reports
+simulator, BLE-hardware, and desktop-input readiness independently. It does not scan,
+connect, write, or use the network. Automation can use
+`jring doctor --json --require-hardware` when missing BLE prerequisites should produce
+a nonzero exit status. Use `--require-input` to require evdev and writable `uinput`
+instead.
+
+## Use a sensor event as desktop input
+
+The simulator can exercise a non-health `step` event as an allowlisted keyboard key or
+mouse click. Preview is the default and never emits operating-system input:
+
+```sh
+jring input --simulate --map step=key:space
+jring input --simulate --map step=click:left
+```
+
+To deliberately inject one simulated event through Linux `uinput`, install the input
+extra and add the confirmation flag:
+
+```sh
+python -m pip install -e '.[input]'
+jring input --simulate --map step=key:space --allow-input
+```
+
+Named keys are `space`, `enter`, `escape`, the four arrows, `page-up`, and
+`page-down`; mouse clicks are `left`, `right`, and `middle`. Arbitrary key codes and
+shell commands are rejected. The status command also reports whether the device
+advertises the standard Bluetooth HID service.
+
+Hardware JRing motion events are not enabled yet: the vendor event frames are not
+verified. This boundary prevents a guessed packet or misclassified health payload from
+generating desktop input.
 
 `time-sync` is the sole hardware write and targets the standard Bluetooth Current Time
 characteristic. Some rings may not expose it; failure is safe. History export accepts

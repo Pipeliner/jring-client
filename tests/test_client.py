@@ -4,6 +4,7 @@ import pytest
 
 from jring.client import JRingClient
 from jring.transport import FakeTransport
+from jring.uuids import HUMAN_INTERFACE_DEVICE_SERVICE
 
 
 def run(coro):
@@ -67,5 +68,17 @@ def test_timeout_fails_closed():
         async with JRingClient(transport, timeout=0.001) as client:
             with pytest.raises(TimeoutError):
                 await client.battery()
+
+    run(scenario())
+
+
+def test_standard_hid_service_is_reported():
+    transport = FakeTransport.standard_ring()
+    transport.services.add(HUMAN_INTERFACE_DEVICE_SERVICE)
+
+    async def scenario():
+        async with JRingClient(transport) as client:
+            capabilities = await client.capabilities()
+            assert capabilities.hid
 
     run(scenario())

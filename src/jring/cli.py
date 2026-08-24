@@ -13,6 +13,8 @@ from . import __version__
 from .bleak_transport import BleakTransport
 from .client import JRingClient
 from .discovery import discover, select_exact
+from .input import InputMapper, SensorEvent, create_uinput_sink, parse_binding
+from .readiness import ReadinessReport, diagnose
 from .transport import FakeTransport
 
 
@@ -24,6 +26,7 @@ def _print_status(result: dict[str, Any]) -> None:
     print(f"Manufacturer: {info['manufacturer'] or 'not reported'}")
     print(f"Firmware: {info['firmware'] or 'not reported'}")
     print(f"Heart rate: {'available' if capabilities['heart_rate'] else 'not available'}")
+    print(f"Standard HID: {'available' if capabilities['hid'] else 'not available'}")
     vendor_count = len(capabilities["vendor_services_seen"])
     print(f"Vendor services: {vendor_count} detected; writes disabled")
 
@@ -42,7 +45,53 @@ def _print_discovery(results: list[dict[str, object]]) -> None:
     print("then pass its exact address to a hardware command with --address.")
 
 
+def _print_readiness(report: ReadinessReport) -> None:
+    print("JRing setup check")
+    for check in report.checks:
+        print(f"[{'ok' if check.ok else 'fix'}] {check.detail}")
+        if check.remedy:
+            print(f"      Remedy: {check.remedy}")
+    print(f"Simulator: {'ready' if report.simulator_ready else 'not ready'}")
+    print(f"Hardware: {'ready' if report.hardware_ready else 'not ready'}")
+    print(f"Desktop input: {'ready' if report.input_ready else 'not ready'}")
+    print(f"Next: {report.next_step}")
+
+
 async def _run(args: argparse.Namespace) -> int:
+    if args.command == "doctor":
+        report = diagnose()
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_readiness(report)
+        requirement_failed = (
+            args.require_hardware and not report.hardware_ready
+        ) or (
+            args.require_input and not report.input_ready
+        )
+        return int(requirement_failed)
+    if args.command == "input":
+        binding = parse_binding(args.mapping)
+        if not args.simulate:
+            raise NotImplementedError(
+                "hardware motion-event protocol is not verified; use --simulate"
+            )
+        event = SensorEvent("step")
+        mapper = InputMapper((binding,))
+        action = mapper.action_for(event)
+        if action is None:
+            raise ValueError("the simulated step has no input mapping")
+        if not args.allow_input:
+            print(f"Preview: {event.kind} -> {action.description}")
+            print("No input emitted. Add --allow-input to authorize this one simulated event.")
+            return 0
+        sink = create_uinput_sink()
+        try:
+            mapper.dispatch(event, sink)
+        finally:
+            sink.close()
+        print(f"Emitted: {event.kind} -> {action.description}")
+        return 0
     if args.command == "discover":
         results = await discover(timeout=args.timeout)
         if args.json:
@@ -84,11 +133,40 @@ def _add_runtime_options(parser: argparse.ArgumentParser, *, suppress: bool = Fa
                         help="print structured JSON where supported")
 
 
+def _add_json_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--json", action="store_true", default=argparse.SUPPRESS,
+                        help="print structured JSON")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="jring", description="Privacy-first JRing Linux client")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     _add_runtime_options(parser)
     sub = parser.add_subparsers(dest="command", required=True)
+    doctor = sub.add_parser(
+        "doctor", help="passively check local simulator and hardware prerequisites"
+    )
+    _add_json_option(doctor)
+    doctor.add_argument(
+        "--require-hardware", action="store_true",
+        help="exit nonzero when optional hardware prerequisites are missing",
+    )
+    doctor.add_argument(
+        "--require-input", action="store_true",
+        help="exit nonzero when desktop-input prerequisites are missing",
+    )
+    input_command = sub.add_parser(
+        "input", help="preview or emit an allowlisted action from a sensor event"
+    )
+    _add_runtime_options(input_command, suppress=True)
+    input_command.add_argument(
+        "--map", dest="mapping", required=True,
+        help="mapping such as step=key:space or step=click:left",
+    )
+    input_command.add_argument(
+        "--allow-input", action="store_true",
+        help="authorize one simulated event through Linux uinput",
+    )
     discovery = sub.add_parser(
         "discover", help="passively scan and print redacted candidates; never connects"
     )
@@ -110,7 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.command != "discover" and not args.simulate and not args.address:
+    if args.command not in {"discover", "doctor"} and not args.simulate and not args.address:
         parser.error("hardware commands require --address")
     try:
         return asyncio.run(_run(args))
