@@ -26,12 +26,19 @@ owner.
 - [#8 Partial Device Information states under one deadline](https://github.com/Pipeliner/jring-client/issues/8)
 - [#9 Versioned JSON errors and stable exit codes](https://github.com/Pipeliner/jring-client/issues/9)
 
+## Installation portability
+
+- [#13 Portable installation across major Linux distro families](https://github.com/Pipeliner/jring-client/issues/13)
+
 ## Distribution and governance
 
 - [#10 Reproducible signed end-user release flow](https://github.com/Pipeliner/jring-client/issues/10)
 - [#12 Explicit project license](https://github.com/Pipeliner/jring-client/issues/12)
+- [#14 Gated PyPI Trusted Publishing](https://github.com/Pipeliner/jring-client/issues/14)
+- [#15 Tested package discovery keywords and project URLs](https://github.com/Pipeliner/jring-client/issues/15)
 
 Dependencies remain explicit: evidence handling precedes hardware event decoding;
-verified neutral events precede live input; and an owner license decision precedes
-adding license text. Issues may refine or split their scope, but newly discovered work
-must become another tracked issue instead of surviving only as a TODO or review note.
+verified neutral events precede live input; and tested package metadata and owner-controlled
+release gates precede publication. Issues may refine or split their scope, but newly
+discovered work must become another tracked issue instead of surviving only as a TODO
+or review note.
