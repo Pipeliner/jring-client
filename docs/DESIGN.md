@@ -1,0 +1,67 @@
+# JRing Linux client design
+
+## Scope and evidence
+
+This client is original code informed by static inspection of the user-supplied JRing
+1.9.84 XAPK. No vendor binary or decompiled source is stored here.
+
+**Verified (high confidence):** the supplied archive SHA-256 is
+`45c7f062c75d9b934d8db82d0b7d0d8dd7f40cc394bd3e625b51ae38fb4ba34f`.
+It contains one base APK, 17 language splits, one density split, and one arm64 split.
+The package is `com.jaga.ibraceletplus.jyring`, version 1.9.84 (182), min SDK 21,
+target SDK 35. Static DEX strings identify `com.sxr.sdk.ble.keepfit`, its AIDL
+service/callback models, BLE discovery/connect/read/write/notify operations, and
+operations for battery, device information, time, heart rate, oxygen, temperature,
+blood pressure, ECG, activity/sleep/sport history, and capability queries.
+
+**Verified (high confidence):** UUID strings include Device Information service
+`180a` and characteristics `2a23` through `2a2a` and `2a50`; Heart Rate service
+`180d`, measurement `2a37`; CCCD `2902`; and vendor families `33f3`–`33f6`,
+`56ff`, `57ff`, `fef5`, `ffe5`, and `ffe9` (all Bluetooth-base UUIDs).
+
+**Verified (medium confidence):** the manifest requests Bluetooth scan/connect,
+location, network, notification, phone/contact/call, media, camera, storage, and
+foreground-service permissions. These describe the Android app, not permissions
+required by this client. The arm64 split contains one native library. The base has
+three DEX files and local web/font/audio assets.
+
+**Hypothesis (medium):** `33f3` is a vendor service and adjacent UUIDs are its
+transport characteristics. Adjacency and SDK patterns support this, but roles are
+not proven. The client only reports these capabilities; it does not write them.
+
+**Hypothesis (low):** vendor frames use an application checksum and session command
+queue. Static strings mention CRC/XOR, command responses, authorization and session
+timeouts, but do not establish an unambiguous frame format. Consequently no guessed
+frame is sent to hardware. The simulator uses a documented, client-owned envelope
+solely to test reassembly, event parsing, and history export.
+
+**Unknown:** exact pairing/authentication exchange, vendor opcodes, byte ordering,
+checksum coverage, live vendor payloads, history pagination/acknowledgement, and
+which UUID family applies to a particular ring firmware.
+
+## Architecture and safety
+
+`jring.protocol` contains strict typed parsers and the simulator-only envelope.
+`jring.transport` defines a small async BLE interface and a fake implementation.
+`jring.client` owns timeouts, bounded reconnect backoff, capability detection,
+standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`
+loads Bleak lazily. `jring.cli` requires an exact address for hardware access and an
+additional confirmation flag for the only write (standard Current Time service).
+
+Discovery is passive and filtered. It prints redacted aliases, never addresses.
+Connection requires `--address`; discovery never auto-selects. Vendor writes, pairing,
+firmware/DFU, destructive history operations, cloud access, and telemetry are absent.
+Diagnostics hash addresses with a per-process salt and omit raw health payloads.
+
+## Acceptance criteria
+
+- Import and simulator tests work without Bleak or hardware.
+- Parsers reject truncated, oversized, malformed, and bad-checksum simulator data.
+- Discovery cannot connect and connection cannot occur without an explicit address.
+- Safe standard battery/device-info reads are bounded by timeouts.
+- Time sync is opt-in and requires `--allow-write`; vendor writes are impossible.
+- Live standard heart-rate notifications can be consumed and cancelled cleanly.
+- Simulated history can be paginated and exported as JSONL/CSV with atomic replace.
+- Reconnect attempts are bounded, cancellable, and use capped exponential backoff.
+- Diagnostics redact addresses and never log payloads by default.
+- Unit, simulated integration, and CLI tests pass without a ring; hardware tests skip.

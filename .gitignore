@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local Bluetooth captures, exports, and private device data
+.env
+.env.*
+!.env.example
+captures/
+exports/
+*.pcap*
+*.har
+
+.DS_Store
+.idea/
+.vscode/

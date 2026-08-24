@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jring-client"
+version = "0.2.0"
+description = "Privacy-first Linux client for explicitly selected JRing BLE devices"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+ble = ["bleak>=0.22,<2"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+jring = "jring.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
