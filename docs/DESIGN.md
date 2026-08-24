@@ -89,6 +89,13 @@ same fail-closed sensitive-content checks as evidence manifests. It performs no 
 operation and merges rows deterministically. Synthetic and owner evidence remain
 separate, and no computation promotes `untested` into a compatibility claim.
 
+Release preparation uses an isolated workflow with immutable action SHAs and exact
+Python build-tool versions. Wheels must already be reproducible; source archives are
+normalized to sorted members, the commit epoch, numeric ownership, and a deterministic
+gzip header before two builds are compared. Inspection and clean install smoke tests
+precede checksums, provenance attestation, and temporary CI artifact upload. There is
+no publishing step or repository-contents write permission.
+
 ## Acceptance criteria
 
 - Import and simulator tests work without Bleak or hardware.

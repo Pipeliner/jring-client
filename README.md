@@ -85,6 +85,10 @@ Synthetic success verifies only named local checks; all hardware dimensions rema
 `untested`. See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for the schema and the
 owner-evidence gate.
 
+For reviewed CI artifacts, checksum verification, isolated `pipx`/`uv tool` install,
+upgrade, and uninstall instructions, see [docs/INSTALL.md](docs/INSTALL.md). The
+repository does not currently publish to a package index or create GitHub releases.
+
 Run `jring doctor` before touching hardware. It passively checks Python, Linux, Bleak,
 BlueZ, evdev, and `/dev/uinput`, explains exactly what is missing, and reports
 simulator, BLE-hardware, and desktop-input readiness independently. It does not scan,

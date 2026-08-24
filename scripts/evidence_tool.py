@@ -108,23 +108,32 @@ def _normalized_field(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
 
 
-def _scan_sensitive(value: object, *, in_redactions: bool = False) -> None:
+def _scan_sensitive(
+    value: object, *, in_redactions: bool = False, allow_long_hex: bool = False
+) -> None:
     if isinstance(value, dict):
         for key, child in value.items():
             normalized = _normalized_field(key)
             if not in_redactions and normalized in _UNSAFE_FIELDS:
                 _reject("unsafe_content", "sensitive field")
-            _scan_sensitive(child, in_redactions=in_redactions or key == "redactions")
+            _scan_sensitive(
+                child,
+                in_redactions=in_redactions or key == "redactions",
+                allow_long_hex=allow_long_hex,
+            )
         return
     if isinstance(value, list):
         for child in value:
-            _scan_sensitive(child, in_redactions=in_redactions)
+            _scan_sensitive(
+                child, in_redactions=in_redactions, allow_long_hex=allow_long_hex
+            )
         return
-    if isinstance(value, str) and any(
-        pattern.search(value)
-        for pattern in (_MAC, _BLUEZ_PATH, _EMAIL, _PRECISE_TIME, _LONG_HEX)
-    ):
-        _reject("unsafe_content", "sensitive value")
+    if isinstance(value, str):
+        patterns = (_MAC, _BLUEZ_PATH, _EMAIL, _PRECISE_TIME)
+        if any(pattern.search(value) for pattern in patterns) or (
+            not allow_long_hex and _LONG_HEX.search(value)
+        ):
+            _reject("unsafe_content", "sensitive value")
 
 
 def _mapping(value: object, field: str) -> dict[str, Any]:
@@ -356,7 +365,8 @@ def scan_repository(root: Path) -> None:
                     except json.JSONDecodeError as exc:
                         raise EvidenceError("unsafe_content", "repository data") from exc
                 else:
-                    _scan_sensitive(content)
+                    workflow = ".github" in path.parts and "workflows" in path.parts
+                    _scan_sensitive(content, allow_long_hex=workflow)
                     if _UNSAFE_TEXT_FIELD.search(content):
                         _reject("unsafe_content", "repository data")
             continue

@@ -91,6 +91,19 @@ Desired outcomes:
 - Treat untested as untested rather than compatible or successful.
 - Generate and merge reports deterministically for review before publication.
 
+### Install a verified end-user artifact
+
+When I install JRing without a source checkout, I want a reproducible wheel with a
+checksum and provenance tied to its commit, so I can verify, smoke-test, upgrade, and
+remove it without trusting an editable working tree.
+
+Desired outcomes:
+
+- Build byte-identical wheel and normalized source archives with pinned tooling.
+- Reject tag/version drift, secrets, unsafe paths, and undeclared archive members.
+- Install the wheel in a clean environment and run only passive/simulated smoke paths.
+- Keep artifact preparation separate from package-index publication and release creation.
+
 ### Reuse the ring as a general-purpose input
 
 When a ring gesture or motion event is available, I want to map it to a small,

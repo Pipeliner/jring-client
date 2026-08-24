@@ -249,6 +249,19 @@ states, impossible progressions, and duplicate report IDs without echoing unsafe
 values. Deterministic merge output names its synthetic/owner counts and every tested or
 untested dimension; generation and merge print reviewable JSON and never publish it.
 
+### Verified install artifact
+
+Given a clean commit or matching version tag, the release-artifact workflow uses pinned
+build tools to build twice under one source epoch, normalizes archive metadata, and
+requires byte-identical outputs. Inspection checks package metadata, safe paths,
+declared source members, and required review policy/tool files before checksumming.
+
+The built wheel is installed outside the checkout and runs `doctor`, simulated status,
+and simulated capabilities. The workflow creates a provenance attestation and a
+short-lived CI artifact only. It has no package-index upload, GitHub-release creation,
+contents-write permission, or signing secret. Installation documentation covers
+checksum verification, pipx/uv-tool install, upgrade, and uninstall.
+
 ### Non-destructive export
 
 History refuses to replace an existing destination unless `--force` is explicit.
@@ -282,6 +295,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Guided same-process selection | `test_guided_status_selects_only_after_confirmation`, `test_guided_selection_never_autoconnects`, `test_guided_selection_zero_or_invalid_results_do_not_connect`, `test_aliases_change_between_process_seeds` |
 | Privacy-safe evidence | `test_unsafe_evidence_is_rejected_without_echo`, `test_manifest_requires_provenance_consent_coverage_and_redactions`, `test_safe_synthetic_manifest_derives_deterministically`, `test_repository_evidence_scan_rejects_raw_artifacts` |
 | Honest compatibility | `test_compatibility_report_rejects_sensitive_values_without_echo`, `test_untested_dimensions_cannot_claim_compatibility`, `test_synthetic_reports_merge_deterministically`, `test_zero_failure_synthetic_report_names_hardware_as_untested` |
+| Verified install artifact | `test_project_version_agrees_with_runtime`, `test_artifact_inspection_and_checksums_are_deterministic`, `test_sdist_normalization_removes_build_time_variance`, `test_release_workflow_is_pinned_and_has_no_publish_step`, `test_install_documentation_covers_lifecycle_and_verification` |
 | Non-destructive export | `test_history_export_requires_force_to_replace` |
 
 ## Deliberate non-goals
