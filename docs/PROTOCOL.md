@@ -11,7 +11,7 @@ decompiled vendor material.
 | BLE SDK | `com.sxr.sdk.ble.keepfit` service, AIDL client/options/profiles/callbacks | High | Architecture informed only |
 | Standard GATT | Device Info `180a`/`2a23`–`2a2a`,`2a50`; Heart Rate `180d`/`2a37`; CCCD `2902` | High | Device text and HR parsers |
 | Standard HID | HID service `1812` and assigned characteristic/descriptor UUID meanings are standards-based compatibility checks, not observed vendor evidence | Low for JRing presence | Enumerate metadata only; no values or reports |
-| Vendor GATT | `33f3`–`33f6`, `56ff`, `57ff`, `fef5`, `ffe5`, `ffe9` strings | High existence; medium roles | Detect/report only |
+| Vendor GATT | SDK constants place `56ff` as a service with `33f3`/`33f4` transport characteristics and `33f5`/`33f6` raw-data characteristics; `ffe5`/`ffe9` form a second path; `57ff` and `fef5` also occur | High static roles; unverified on hardware | Service/characteristic metadata only |
 | Battery | SDK methods/callbacks and Android UI actions mention battery | High capability; unknown UUID | Standard `2a19` safe read |
 | Device info | SDK get-device-info operations and standard DIS UUIDs | High | Safe reads |
 | Time | get/set device-time operations | High capability; unknown vendor frame | Standard CTS only, guarded |
@@ -19,13 +19,41 @@ decompiled vendor material.
 | History | by-day, oxygen offline, sensor offline, multiple sport, ECG history operations | High capability; unknown bytes | Simulator/export only |
 | Pair/session | authorize, bind, session timeout/response strings | Medium | No automation or bypass |
 | Integrity | CRC/XOR/check-CRC strings | Medium; coverage/algorithm unknown | No vendor frame implementation |
-| Other | alarms, sedentary/sleep, user profile, goals, notifications, contacts, weather, dials/OTA, Wi-Fi/AI | High API surface | Intentionally not implemented |
+| Other | alarms, sedentary/sleep, user profile, goals, notifications, contacts, weather, dials/OTA, Wi-Fi/AI | High API surface | Parity tracked; intentionally not transmitted |
 | Native | One arm64 native library in ABI split | High | Not redistributed or invoked |
 
 Standard Bluetooth UUID semantics come from the Bluetooth SIG assignments; their
 presence proves code support, not that every JRing model exposes each characteristic.
 The Battery Service UUID was not observed in the extracted string set and is therefore
 a standards-based compatibility attempt, not vendor verification.
+
+## Static parity boundary
+
+A second, owner-authorized clean-room pass used JADX 1.5.6 on the same digest-verified
+archive in a mode-0700 temporary directory. It recovered 10,185 Java source renderings;
+JADX reported errors for 89 of 6,705 processed classes. None of the APK, DEX, rendered
+source, logs, assets, or native code is part of this repository.
+
+The SDK interface exposes more than one hundred entry points and corresponding event
+callbacks. The public capability groups are:
+
+| Group | Static operation surface | Python/hardware state |
+|---|---|---|
+| Transport | scan, connect/disconnect, service/characteristic access, notification control, RSSI | Explicit selection and passive metadata supported; vendor values untouched |
+| Device queries | battery, device info/code/state/function, time, screen/touch/mode, dial/file/media/EQ/Wi-Fi state | Standard GATT subset only |
+| Activity/history | current sport, by-day activity, multi-sport, advanced sensor, oxygen and ECG history | Simulator export only |
+| Live sensors | heart rate, oxygen, blood pressure, temperature, ECG, G-sensor/raw sensor | Standard HR library API only; no vendor subscription |
+| Personalization | goal, profile, alarms, reminders, sleep/idle, language, display, anti-lost, vibration | Static surface tracked; vendor transmission disabled |
+| Phone integration | notifications, contacts, call/media state, volume, weather, messages and cards | Static surface tracked; private data never sent |
+| Session | authorization, binding, application/device identifiers, command queue and response timeout | Unknown owner-session protocol; no bypass or replay |
+| Bulk/high risk | dials, wallpapers, files, FTP, OTA/DFU, factory test, Wi-Fi and AI/audio features | Deferred and separately threat-modelled |
+
+Static analysis can establish endpoint labels, candidate opcodes, fixed frame widths,
+and parser branches. It cannot by itself establish which firmware exposes an endpoint,
+legitimate owner authentication, a write's complete side effects, or response timing.
+Those distinctions are tracked in issue #16. A vendor encoder may be tested offline,
+but it cannot reach `BleTransport.write` until every byte is classified and a bounded
+owner-ring canary independently confirms that exact operation.
 
 ## Required hardware evidence to advance
 

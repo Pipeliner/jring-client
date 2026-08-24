@@ -132,6 +132,13 @@ malformed Report Reference descriptor does not hide valid HID characteristic sta
 No hardware motion event appears as verified until an accepted issue-#1 fixture proves
 its non-health meaning.
 
+Known vendor UUIDs are inventoried in both service and characteristic positions.
+Each observation states only its location and `meaning: unknown`; a writable property
+does not make a vendor operation usable. Human output says that values were not read
+and writes remain disabled. If service enumeration fails but characteristic metadata
+is available, those independent observations remain visible and the overall result is
+`partial` rather than unsupported.
+
 ### Safe step-to-input preview
 
 Given no ring, when a person runs

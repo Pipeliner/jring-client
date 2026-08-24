@@ -8,6 +8,8 @@ from jring.uuids import (
     HID_INFORMATION,
     HID_REPORT,
     HUMAN_INTERFACE_DEVICE_SERVICE,
+    VENDOR_CHARACTERISTIC_33F4,
+    VENDOR_SERVICE_56FF,
 )
 
 
@@ -113,6 +115,97 @@ def test_capability_inventory_performs_no_reads_or_subscriptions():
     run(scenario())
 
 
+def test_vendor_characteristic_only_uuid_is_reported_without_inferred_meaning():
+    transport = FakeTransport(
+        {},
+        set(),
+        gatt_metadata=(
+            GattCharacteristicMetadata(
+                VENDOR_SERVICE_56FF,
+                VENDOR_CHARACTERISTIC_33F4,
+                ("write",),
+                (),
+            ),
+        ),
+    )
+
+    async def scenario():
+        async with JRingClient(transport) as client:
+            inventory = await client.capability_inventory()
+            observations = {
+                (item.uuid, item.observed_as, item.meaning)
+                for item in inventory.vendor_gatt
+            }
+            assert observations == {
+                (VENDOR_SERVICE_56FF, "service", "unknown"),
+                (VENDOR_CHARACTERISTIC_33F4, "characteristic", "unknown"),
+            }
+
+    run(scenario())
+
+
+def test_vendor_inventory_is_metadata_only_even_for_writable_characteristic():
+    class MetadataOnlyTransport(FakeTransport):
+        async def read(self, _characteristic):
+            raise AssertionError("vendor inventory must not read values")
+
+        async def write(self, _characteristic, _data):
+            raise AssertionError("vendor inventory must not write")
+
+        async def subscribe(self, _characteristic, _callback):
+            raise AssertionError("vendor inventory must not subscribe")
+
+    transport = MetadataOnlyTransport(
+        {},
+        {VENDOR_SERVICE_56FF},
+        gatt_metadata=(
+            GattCharacteristicMetadata(
+                VENDOR_SERVICE_56FF,
+                VENDOR_CHARACTERISTIC_33F4,
+                ("write",),
+                (),
+            ),
+        ),
+    )
+
+    async def scenario():
+        async with JRingClient(transport) as client:
+            inventory = await client.capability_inventory()
+            assert len(inventory.vendor_gatt) == 2
+
+    run(scenario())
+
+
+def test_vendor_metadata_survives_service_inventory_failure_as_partial():
+    class MissingServicesTransport(FakeTransport):
+        async def service_uuids(self):
+            raise OSError("service inventory unavailable")
+
+    transport = MissingServicesTransport(
+        {},
+        set(),
+        gatt_metadata=(
+            GattCharacteristicMetadata(
+                VENDOR_SERVICE_56FF,
+                VENDOR_CHARACTERISTIC_33F4,
+                ("write",),
+                (),
+            ),
+        ),
+    )
+
+    async def scenario():
+        async with JRingClient(transport) as client:
+            inventory = await client.capability_inventory()
+            assert inventory.inventory_state == "partial"
+            assert {(item.uuid, item.observed_as) for item in inventory.vendor_gatt} == {
+                (VENDOR_SERVICE_56FF, "service"),
+                (VENDOR_CHARACTERISTIC_33F4, "characteristic"),
+            }
+
+    run(scenario())
+
+
 def test_cli_capability_inventory_is_private(capsys):
     assert cli.main(["capabilities", "--simulate", "--json"]) == 0
     serialized = capsys.readouterr().out
@@ -125,6 +218,7 @@ def test_cli_capability_inventory_is_private(capsys):
     assert result["standard_hid"]["usability_state"] == "not_verified"
     assert result["standard_hid"]["os_attachment_state"] == "not_checked"
     assert result["neutral_events"] == {"events": [], "state": "unsupported"}
+    assert result["vendor_gatt"] == []
     assert "AA:BB" not in serialized
     assert "report_map_value" not in serialized
     assert '"usable"' not in serialized
@@ -139,3 +233,5 @@ def test_cli_capability_inventory_human_copy_is_honest(capsys):
     assert "OS attachment: not checked" in output
     assert "Report Map contents: not read" in output
     assert "Verified hardware events: none (unsupported)" in output
+    assert "Known vendor UUID observations: none" in output
+    assert "Vendor meanings: unknown; values not read; writes disabled" in output

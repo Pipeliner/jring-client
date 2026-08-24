@@ -258,6 +258,7 @@ def _capability_payload(inventory: object) -> dict[str, object]:
             "state": inventory.neutral_event_state,
             "events": list(inventory.neutral_events),
         },
+        "vendor_gatt": [asdict(item) for item in inventory.vendor_gatt],
     }
 
 
@@ -274,6 +275,17 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
     print(f"HID usability: {hid['usability_state'].replace('_', ' ')}")
     print(f"OS attachment: {hid['os_attachment_state'].replace('_', ' ')}")
     print("Verified hardware events: none (unsupported)")
+    vendor = payload["vendor_gatt"]
+    if vendor:
+        print(f"Known vendor UUID observations: {len(vendor)}")
+        for observation in vendor:
+            print(
+                f"- {observation['uuid']}: {observation['observed_as']}; "
+                f"meaning {observation['meaning']}"
+            )
+    else:
+        print("Known vendor UUID observations: none")
+    print("Vendor meanings: unknown; values not read; writes disabled")
 
 
 async def _run(args: argparse.Namespace) -> int:
@@ -509,7 +521,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="authorize BLE scan requests for interactive selection",
     )
     capabilities = sub.add_parser(
-        "capabilities", help="inventory standard HID metadata without reading reports"
+        "capabilities",
+        help="inventory standard HID and known vendor metadata without reading values",
     )
     _add_runtime_options(capabilities, suppress=True)
     sync = sub.add_parser("time-sync", help="write standard Bluetooth Current Time")

@@ -71,12 +71,20 @@ class CapabilityFeature:
 
 
 @dataclass(frozen=True)
+class VendorGattObservation:
+    uuid: str
+    observed_as: str
+    meaning: str = "unknown"
+
+
+@dataclass(frozen=True)
 class CapabilityInventory:
     inventory_state: str
     metadata_state: str
     hid_service_state: str
     characteristics: tuple[CapabilityFeature, ...]
     report_reference_state: str
+    vendor_gatt: tuple[VendorGattObservation, ...] = ()
     usability_state: str = "not_verified"
     os_attachment_state: str = "not_checked"
     neutral_event_state: str = "unsupported"
@@ -187,6 +195,20 @@ class JRingClient:
             str(value).lower() for value in services_value
         } if services_state == "available" else set()
         metadata = tuple(metadata_value) if metadata_state == "available" else ()
+        vendor_observations = {
+            (uuid, "service")
+            for uuid in services
+            if uuid in VENDOR_UUIDS
+        }
+        for record in metadata:
+            if not isinstance(record, GattCharacteristicMetadata):
+                continue
+            service_uuid = record.service_uuid.lower()
+            characteristic_uuid = record.uuid.lower()
+            if service_uuid in VENDOR_UUIDS:
+                vendor_observations.add((service_uuid, "service"))
+            if characteristic_uuid in VENDOR_UUIDS:
+                vendor_observations.add((characteristic_uuid, "characteristic"))
         hid_records = tuple(
             record for record in metadata
             if isinstance(record, GattCharacteristicMetadata)
@@ -248,6 +270,13 @@ class JRingClient:
             hid_service_state=service_state,
             characteristics=tuple(features),
             report_reference_state=descriptor_state,
+            vendor_gatt=tuple(
+                VendorGattObservation(uuid, observed_as)
+                for uuid, observed_as in sorted(
+                    vendor_observations,
+                    key=lambda item: (item[0], 0 if item[1] == "service" else 1),
+                )
+            ),
         )
 
     async def status(self) -> Status:

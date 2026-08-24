@@ -4,6 +4,25 @@ Status: reprioritized after adversarial review for v0.5
 
 ## Core jobs
 
+### Replace the owner app without losing ring capabilities
+
+When I own a JRing and choose Linux, I want every Bluetooth capability exposed by
+the authorized Android package accounted for in the Python client, so I can stop
+depending on the vendor app or cloud without accepting guessed writes or hidden
+privacy risks.
+
+Desired outcomes:
+
+- See one complete matrix of app operations, GATT endpoints, protocol evidence,
+  Python support, firmware scope, and owner-hardware verification.
+- Gain useful passive and read-only support while uncertain or destructive
+  operations remain visibly gated.
+- Never confuse a UUID string, advertised property, static opcode, or simulated
+  vector with proven behavior on my ring.
+- Use only legitimate owner pairing/session flows; extracted secrets, token replay,
+  authorization bypasses, and device impersonation are out of scope.
+- Keep the APK, decompiled code, captures, identifiers, and real measurements private.
+
 ### Establish trust before touching hardware
 
 When I am considering a community client for a wearable with sensitive data, I want

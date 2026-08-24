@@ -25,9 +25,12 @@ foreground-service permissions. These describe the Android app, not permissions
 required by this client. The arm64 split contains one native library. The base has
 three DEX files and local web/font/audio assets.
 
-**Hypothesis (medium):** `33f3` is a vendor service and adjacent UUIDs are its
-transport characteristics. Adjacency and SDK patterns support this, but roles are
-not proven. The client only reports these capabilities; it does not write them.
+**Verified statically (high confidence):** the embedded SDK names `56ff` as its main
+service, associates `33f3`/`33f4` with its transport path and `33f5`/`33f6` with a
+raw-data path, and names `ffe5`/`ffe9` as a second path. These are SDK code roles, not
+claims that a selected ring exposes them or that request/response direction has been
+confirmed on Linux. The client reports matching service and characteristic metadata
+with `meaning: unknown`; it reads no values and performs no vendor writes.
 
 **Hypothesis (low):** vendor frames use an application checksum and session command
 queue. Static strings mention CRC/XOR, command responses, authorization and session
@@ -84,6 +87,11 @@ descriptor UUIDs; no characteristic or descriptor value is read. Known standard 
 metadata is converted into explicit evidence states, while report contents, OS
 attachment, usability, and hardware motion remain unverified.
 
+The same inventory preserves role-neutral observations of statically known vendor
+UUIDs wherever they appear as a service or characteristic. Characteristic-only
+evidence is no longer lost or mislabeled as a service. A vendor UUID's presence and
+properties never infer health, motion, HID, history, or command semantics.
+
 The repository-local compatibility tool validates coarse, versioned reports using the
 same fail-closed sensitive-content checks as evidence manifests. It performs no device
 operation and merges rows deterministically. Synthetic and owner evidence remain
@@ -112,6 +120,8 @@ no publishing step or repository-contents write permission.
   without capturing reports.
 - Standard HID metadata inventory never reads or subscribes and preserves independent
   characteristic states when optional descriptor metadata is missing or malformed.
+- Vendor UUID inventory covers service and characteristic positions, labels meanings
+  unknown, and cannot read, subscribe, pair, or write.
 - Status collects battery, Device Information, and service inventory concurrently under
   one bounded deadline. Additive per-field states distinguish absence, malformed data,
   timeouts, and a service that was not advertised without exposing raw values.
