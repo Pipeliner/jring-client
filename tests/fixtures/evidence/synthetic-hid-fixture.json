@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "evidence_id": "synthetic-hid-advertisement",
+  "source": "synthetic",
+  "synthetic": true,
+  "operation": "service_inventory",
+  "device_context": {
+    "model_family": "synthetic-ring",
+    "firmware_major": "synthetic"
+  },
+  "coverage": [
+    "hid_service_advertised",
+    "hid_usability"
+  ],
+  "confidence": "synthetic",
+  "facts": {
+    "hid_service_advertised": true,
+    "hid_usability": "not_tested"
+  }
+}

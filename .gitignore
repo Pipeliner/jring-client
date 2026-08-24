@@ -13,7 +13,13 @@ __pycache__/
 captures/
 exports/
 *.pcap*
+*.btsnoop
+*.hcidump
 *.har
+*.apk
+*.xapk
+evidence/incoming/
+evidence/private/
 
 .DS_Store
 .idea/

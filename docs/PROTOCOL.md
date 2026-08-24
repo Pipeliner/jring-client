@@ -29,11 +29,32 @@ a standards-based compatibility attempt, not vendor verification.
 
 ## Required hardware evidence to advance
 
-With the owner's ring explicitly selected, record a redacted GATT service listing and
-captures of one operation at a time from the official app: battery read, device info,
-time read/write, start/stop heart rate, and a bounded history request. Remove addresses,
-account material, and health values before retaining fixtures. Repeated captures with
-controlled single-byte changes are needed to establish opcodes, lengths, endianness,
-checksum coverage, sequence/session state, acknowledgements, pagination, and terminal
-markers. Until then, vendor characteristics remain read/report-only and no guessed
-packet should be sent.
+Hardware evidence is owner-authorized and processed locally; autonomous work never
+contacts a ring. Any original capture or application archive stays outside Git and is
+deleted or retained privately according to the owner's decision. It is never accepted
+in an issue, pull request, fixture directory, or CI artifact.
+
+Contributors first create a schema-1 evidence manifest following
+`tests/fixtures/evidence/synthetic-hid-manifest.json`. It declares provenance,
+publication consent, coarse model/firmware context, redactions, coverage, and
+confidence. Run both commands locally before sharing anything:
+
+```sh
+python3 scripts/evidence_tool.py validate path/to/manifest.json
+python3 scripts/evidence_tool.py derive path/to/manifest.json
+```
+
+Validation fails closed on addresses, BlueZ paths, account identifiers, precise
+timestamps, raw health fields, raw payload fields, long hex, missing consent, and
+missing coverage. It reports a category and manifest field but never repeats the
+value. `derive` writes a deterministic minimal fixture to stdout only after the whole
+manifest passes. Review that output manually before publication; the tool deliberately
+does not attempt to redact unsafe input automatically.
+
+Each fixture covers one operation and includes only declared facts needed by a test.
+The repository scan checks tracked, staged, and non-ignored new files; ignored private
+working material is neither opened nor treated as publishable evidence.
+Repeated owner-authorized observations may eventually establish opcodes, lengths,
+endianness, checksum coverage, sequence/session state, acknowledgements, pagination,
+and terminal markers. Until separately reviewed evidence proves those meanings,
+vendor characteristics remain report-only and no guessed packet is sent.

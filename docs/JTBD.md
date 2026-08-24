@@ -63,6 +63,20 @@ Desired outcomes:
 - Cancel or reject an unclear selection without connecting.
 - Keep a mode-0600 address file as the non-interactive automation path.
 
+### Contribute protocol evidence without exposing private data
+
+When I have owner-authorized or synthetic protocol evidence, I want a fail-closed local
+review workflow that produces the smallest test fixture, so I can help compatibility
+without publishing identifiers, health values, proprietary archives, or raw captures.
+
+Desired outcomes:
+
+- Declare provenance, publication consent, context, redactions, coverage, and confidence.
+- Reject unsafe or incomplete input without repeating the sensitive value.
+- Keep originals local and derive deterministic reviewable output without uploading it.
+- Route sensitive security reports to a verified private channel.
+- Prevent capture files, app archives, and unsafe evidence data from entering Git.
+
 ### Reuse the ring as a general-purpose input
 
 When a ring gesture or motion event is available, I want to map it to a small,

@@ -206,6 +206,20 @@ address selectors, and missing `--active-scan`; automation continues to use a
 mode-0600 `--address-file`. Aliases and the private address-to-alias association are
 neither persisted nor exposed by public results or object representations.
 
+### Privacy-safe evidence contribution
+
+Given a contributor with locally authorized evidence, when they validate a manifest,
+then missing provenance, publication consent, coarse device context, redaction
+declarations, coverage, or confidence fails closed. Addresses, BlueZ paths, account
+identifiers, precise timestamps, health fields, raw payload fields, and long hex are
+rejected without the diagnostic repeating the sensitive value.
+
+Given a fully synthetic safe manifest, `derive` emits the smallest deterministic JSON
+fixture to stdout. It omits administrative consent and collection details, preserves
+explicit synthetic provenance, and includes only facts named by coverage. Nothing is
+uploaded or written automatically. The contributor manually reviews the output before
+publication and uses the private security channel for sensitive reports.
+
 ### Non-destructive export
 
 History refuses to replace an existing destination unless `--force` is explicit.
@@ -236,6 +250,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Option meaning is enforced | `test_non_applicable_global_options_are_rejected`, `test_timeout_must_be_finite_and_bounded` |
 | Private and sanitized selection | `test_address_file_must_be_private`, `test_cli_errors_redact_identifiers` |
 | Guided same-process selection | `test_guided_status_selects_only_after_confirmation`, `test_guided_selection_never_autoconnects`, `test_guided_selection_zero_or_invalid_results_do_not_connect`, `test_aliases_change_between_process_seeds` |
+| Privacy-safe evidence | `test_unsafe_evidence_is_rejected_without_echo`, `test_manifest_requires_provenance_consent_coverage_and_redactions`, `test_safe_synthetic_manifest_derives_deterministically`, `test_repository_evidence_scan_rejects_raw_artifacts` |
 | Non-destructive export | `test_history_export_requires_force_to_replace` |
 
 ## Deliberate non-goals

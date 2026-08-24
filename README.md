@@ -68,6 +68,11 @@ write one redacted envelope to stdout and nothing to stderr. Stable failure exit
 incompatibility, 6 for permission, 70 for an unexpected internal failure, and 130 for
 interruption. Scripts should branch on the error `code`, not its explanatory message.
 
+Contributions are welcome, but raw Bluetooth captures, app archives, device addresses,
+account details, timestamps, health values, and vendor payload dumps do not belong in
+GitHub issues or commits. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the local
+fail-closed evidence workflow and [SECURITY.md](SECURITY.md) for private reporting.
+
 Run `jring doctor` before touching hardware. It passively checks Python, Linux, Bleak,
 BlueZ, evdev, and `/dev/uinput`, explains exactly what is missing, and reports
 simulator, BLE-hardware, and desktop-input readiness independently. It does not scan,
