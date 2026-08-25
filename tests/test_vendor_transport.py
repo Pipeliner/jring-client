@@ -34,6 +34,11 @@ from jring.vendor_settings import (
 )
 from jring.vendor_personal_settings import encode_reminder_text
 from jring.vendor_behavior_settings import AlarmBatchRequest, VibrationRequest
+from jring.vendor_main_commands import (
+    NoArgumentMainCommand,
+    NoArgumentMainCommandRequest,
+    ScreenLightTimeRequest,
+)
 
 
 def _operation(name: str = "battery") -> OfflineVendorOperation:
@@ -824,3 +829,35 @@ def test_multi_frame_alarm_batch_cannot_be_collapsed_into_single_transaction():
 
     with pytest.raises(TypeError, match="multi-frame"):
         OfflineVendorOperation.from_behavior_request(batch)
+
+
+def test_closed_main_command_query_composes_subcommand_aware_fake_matcher():
+    operation = OfflineVendorOperation.from_main_command_request(
+        NoArgumentMainCommandRequest(NoArgumentMainCommand.DEVICE_SYSTEM_STATE)
+    )
+
+    assert operation.name == "get_device_system_state"
+    assert operation.success_opcodes == (0x54,)
+    assert operation.expected_subcommand == 0x12
+    disposition, parsed = operation._match(
+        VENDOR_CHARACTERISTIC_33F4, bytes((0x54, 0x12, 7)) + bytes(17)
+    )
+    assert disposition.value == "success"
+    assert parsed.event.value == "device_system_state"
+    assert parsed.value == 7
+
+
+def test_screen_light_typed_request_preserves_its_synthetic_value_privately():
+    request = ScreenLightTimeRequest(17)
+    operation = OfflineVendorOperation.from_main_command_request(request)
+
+    assert operation.name == "set_screen_light_time"
+    assert operation.synthetic_request_for_test()[:3] == bytes((0x78, 0x0A, 17))
+    assert "17" not in repr(operation)
+
+
+def test_streaming_wifi_scan_is_rejected_by_single_response_factory():
+    request = NoArgumentMainCommandRequest(NoArgumentMainCommand.SCAN_WIFI)
+
+    with pytest.raises(TypeError, match="streaming"):
+        OfflineVendorOperation.from_main_command_request(request)

@@ -23,6 +23,7 @@ from .protocol import ProtocolError
 from .uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 from .vendor_protocol import (
     StaticAckOperation,
+    Static54ValueEvent,
     StaticQuery,
     StaticVendorRequest,
     encode_static_query,
@@ -33,9 +34,16 @@ from .vendor_protocol import (
     parse_vendor_battery,
     parse_vendor_current_sport,
     parse_vendor_device_info,
+    parse_vendor_device_code,
+    parse_vendor_device_dial,
+    parse_vendor_device_dial_custom,
+    parse_vendor_device_file_state,
+    parse_vendor_eq_info,
     parse_vendor_multi_sport_day,
+    parse_vendor_offline_speech_mode,
     parse_vendor_oxygen_day,
     parse_vendor_screen_light_time,
+    parse_vendor_54_value_event,
     static_protocol_coverage,
 )
 from .vendor_settings import (
@@ -56,6 +64,11 @@ from .vendor_behavior_settings import (
     IdleReminderRequest,
     SleepScheduleRequest,
     VibrationRequest,
+)
+from .vendor_main_commands import (
+    NoArgumentMainCommand,
+    NoArgumentMainCommandRequest,
+    ScreenLightTimeRequest,
 )
 
 _ENGINE_IDS = itertools.count()
@@ -191,6 +204,30 @@ _BEHAVIOR_ACKS = {
         "auto_heart_schedule", 0x19, StaticAckOperation.AUTO_HEART,
     ),
     GoalStepRequest: ("goal_step", 0x1A, StaticAckOperation.GOAL),
+}
+_NO_ARGUMENT_MAIN_RESPONSES = {
+    NoArgumentMainCommand.DEVICE_CODE: (
+        (0x1F,), (0x9F,), None, parse_vendor_device_code,
+    ),
+    NoArgumentMainCommand.DEVICE_DIAL: (
+        (0x34,), (), None, parse_vendor_device_dial,
+    ),
+    NoArgumentMainCommand.DEVICE_DIAL_CUSTOM: (
+        (0x42,), (), None, parse_vendor_device_dial_custom,
+    ),
+    NoArgumentMainCommand.DEVICE_SYSTEM_STATE: (
+        (0x54,), (), 0x12,
+        partial(parse_vendor_54_value_event, event=Static54ValueEvent.DEVICE_SYSTEM_STATE),
+    ),
+    NoArgumentMainCommand.EQ_INFO: (
+        (0x53,), (), None, partial(parse_vendor_eq_info, expected_kind="get"),
+    ),
+    NoArgumentMainCommand.MEDIA_FILE_STATE: (
+        (0x54,), (), 0x06, parse_vendor_device_file_state,
+    ),
+    NoArgumentMainCommand.OFFLINE_SPEECH_STATE: (
+        (0x78,), (), 0x0C, parse_vendor_offline_speech_mode,
+    ),
 }
 
 
@@ -348,6 +385,44 @@ class OfflineVendorOperation:
             failure_opcodes=(failure_opcode,),
             expected_subcommand=None,
             parser=partial(parse_vendor_ack, operation=ack_operation),
+        )
+
+    @classmethod
+    def from_main_command_request(cls, request: object) -> "OfflineVendorOperation":
+        """Compose a proven single-response main-command route for the fake runtime."""
+
+        if type(request) is ScreenLightTimeRequest:
+            frames = request.frames()
+            frame = frames[0].synthetic_bytes_for_test()
+            return cls._create(
+                name=request.operation.value,
+                request_frame=frame,
+                success_opcodes=(0x78,),
+                failure_opcodes=(),
+                expected_subcommand=0x0B,
+                parser=parse_vendor_screen_light_time,
+            )
+        if type(request) is not NoArgumentMainCommandRequest:
+            raise TypeError("request is not a proven single-response main command")
+        if request.command is NoArgumentMainCommand.SCAN_WIFI:
+            raise TypeError("streaming Wi-Fi scan requires a separate state machine")
+        binding = _NO_ARGUMENT_MAIN_RESPONSES.get(request.command)
+        if binding is None:
+            raise TypeError("main command has no proven single-response binding")
+        success, failure, expected_subcommand, parser = binding
+        frames = request.frames()
+        if len(frames) != 1:
+            raise ValueError("single-response main command produced an invalid batch")
+        frame = frames[0].synthetic_bytes_for_test()
+        if len(frame) != 20:
+            raise ValueError("main command request must be exactly 20 bytes")
+        return cls._create(
+            name=request.operation.value,
+            request_frame=frame,
+            success_opcodes=success,
+            failure_opcodes=failure,
+            expected_subcommand=expected_subcommand,
+            parser=parser,
         )
 
     @classmethod

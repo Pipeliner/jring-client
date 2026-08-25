@@ -147,6 +147,9 @@ their private input stays hidden and absence of a proven failure opcode remains 
 Eight single-frame behavior mutations are also composable with paired acknowledgements.
 Alarm batches are deliberately rejected by this factory because their multi-frame,
 source-sequential semantics require a separate state machine.
+Seven additional no-argument main queries and the typed screen-light request use
+subcommand-aware fake matchers. Streaming Wi-Fi scan is rejected rather than being
+misrepresented as a singleton response.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke

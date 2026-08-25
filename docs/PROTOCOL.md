@@ -213,6 +213,10 @@ and real device support remain outside this model.
 Eight single-frame behavior mutations use the same fake-only path and paired ack
 parsers. Alarm remains excluded because collapsing its ordered base and content frames
 would falsely claim a single-response transaction contract.
+The fake operation layer additionally accepts seven exact no-argument main queries and
+the typed screen-light request. Response matching retains `54`/`78` subcommands and EQ
+get/set discrimination. Wi-Fi scan remains outside the singleton engine because its
+fragment stream has no proven whole-operation terminal.
 
 Within those routes, 37 statically reviewed builder families have a second,
 domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum

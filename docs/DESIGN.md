@@ -217,6 +217,10 @@ only and hardware-ineligible.
 Alarm batching is rejected rather than flattened: its base/content messages,
 per-alarm acknowledgements, and source non-atomic enqueue behavior need a dedicated
 batch state machine.
+Seven no-argument main queries and the typed screen-light request also compose through
+closed response bindings. Multiplexed `54`/`78` families require exact subcommands;
+the EQ route preserves its get-kind discriminator. Wi-Fi scan is rejected because its
+count and fragment assembly have no proven whole-scan terminal.
 
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
