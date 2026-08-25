@@ -66,6 +66,12 @@ class Static54ValueEvent(str, Enum):
     AI_CONNECTION_METHOD = "ai_connection_method"
 
 
+class Static45Notification(str, Enum):
+    CLASSIC_INFO = "classic_info"
+    CLASSIC_NAME = "classic_name"
+    APP_ID = "app_id"
+
+
 _ZERO_ARGUMENT_OPCODES = {
     StaticQuery.CURRENT_SPORT: 0x03,
     StaticQuery.BATTERY: 0x0B,
@@ -463,6 +469,7 @@ class VendorVoidEvent:
 
 @dataclass(frozen=True)
 class VendorDeviceCode:
+    success: bool = True
     identifier_redacted: bool = True
     consumed_identifier_bytes: int = 18
     trailing_byte_ignored_by_sdk: bool = True
@@ -493,6 +500,7 @@ class VendorEqInfo:
     kind: str
     metadata: tuple[int, int]
     values: tuple[int, ...]
+    apk_callback_drops_last_value: bool = False
     hardware_verified: bool = False
 
 
@@ -526,6 +534,116 @@ class VendorBindingInfo:
     values: tuple[int, int]
     meaning: str = "unknown"
     hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorRedactedTextNotification:
+    kind: Static45Notification
+    consumed_content_bytes: int = 17
+    content_redacted: bool = True
+    trailing_byte_ignored_by_sdk: bool = True
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorClassicInfo:
+    values: tuple[int, int]
+    identifiers_redacted: bool = True
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorRedactedBlob:
+    kind: str
+    consumed_content_bytes: int
+    content_redacted: bool = True
+    callback_zero_fills_last_byte: bool = False
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorSmsSend:
+    value: int
+    declared_text_length: int
+    apk_consumed_text_bytes: int
+    text_redacted: bool = True
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorWifiState:
+    state_code: int
+    address_redacted: bool = True
+    host_network_action: str = "not_performed"
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorWifiSsidCount:
+    count: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorWifiSsid:
+    end_flag: bool
+    part_id: int
+    current_id: int
+    signal: int
+    _ssid: bytes = field(repr=False)
+    hardware_verified: bool = False
+
+    def ssid_for_explicit_local_use(self) -> str:
+        return self._ssid.decode("utf-8", errors="strict")
+
+
+class VendorWifiSsidAssembler:
+    def __init__(self, *, max_encoded_bytes: int = 256):
+        if type(max_encoded_bytes) is not int:
+            raise TypeError("maximum SSID bytes must be an integer")
+        if not 1 <= max_encoded_bytes <= 4096:
+            raise ValueError("maximum SSID bytes must be between 1 and 4096")
+        self._maximum = max_encoded_bytes
+        self._buffer = bytearray()
+        self._current_id: int | None = None
+
+    @property
+    def buffered_bytes(self) -> int:
+        return len(self._buffer)
+
+    def reset(self) -> None:
+        self._buffer.clear()
+        self._current_id = None
+
+    def feed(self, data: bytes) -> VendorWifiSsid | None:
+        response = _response(data, 0x54)
+        if response[1] != 0x0A:
+            raise ProtocolError("unexpected vendor Wi-Fi SSID subcommand")
+        flags = response[2]
+        part_id = (flags >> 6) & 0x01
+        current_id = flags & 0x3F
+        if part_id == 0:
+            self.reset()
+            self._current_id = current_id
+        elif self._current_id != current_id:
+            self.reset()
+            raise ProtocolError("vendor Wi-Fi SSID fragment sequence mismatch")
+        content = response[4:20].split(b"\x00", 1)[0]
+        if len(self._buffer) + len(content) > self._maximum:
+            self.reset()
+            raise ProtocolError("vendor Wi-Fi SSID exceeds configured bound")
+        self._buffer.extend(content)
+        if not flags & 0x80:
+            return None
+        result = VendorWifiSsid(
+            end_flag=True,
+            part_id=part_id,
+            current_id=current_id,
+            signal=response[3] - 256 if response[3] >= 128 else response[3],
+            _ssid=bytes(self._buffer),
+        )
+        self.reset()
+        return result
 
 
 def _request(operation: StaticQuery, *fields: int) -> StaticVendorRequest:
@@ -917,8 +1035,11 @@ def parse_vendor_chat_action(data: bytes) -> VendorSingleValueState:
 
 
 def parse_vendor_device_code(data: bytes) -> VendorDeviceCode:
-    _response(data, 0x1F)
-    return VendorDeviceCode()
+    response = _response(data, 0x1F, 0x9F)
+    return VendorDeviceCode(
+        success=response[0] == 0x1F,
+        consumed_identifier_bytes=18 if response[0] == 0x1F else 0,
+    )
 
 
 def parse_vendor_device_dial(data: bytes) -> VendorDeviceDial:
@@ -948,7 +1069,10 @@ def parse_vendor_device_file_state(data: bytes) -> VendorDeviceFileState:
     response = _response(data, 0x54)
     if response[1] != 0x06:
         raise ProtocolError("unexpected vendor file-state subcommand")
-    return VendorDeviceFileState(value=int.from_bytes(response[2:6], "little"))
+    value = int.from_bytes(response[2:6], "little")
+    if value > 0x7FFFFFFF:
+        raise ProtocolError("vendor file-state value exceeds APK signed range")
+    return VendorDeviceFileState(value=value)
 
 
 def parse_vendor_eq_info(data: bytes, *, expected_kind: str) -> VendorEqInfo:
@@ -959,8 +1083,8 @@ def parse_vendor_eq_info(data: bytes, *, expected_kind: str) -> VendorEqInfo:
     if actual_kind != expected_kind:
         raise ProtocolError("unexpected vendor EQ response kind")
     count = response[4]
-    if count > 14:
-        raise ProtocolError("vendor EQ value count exceeds static frame layout")
+    if count > 15:
+        raise ProtocolError("vendor EQ value count exceeds wire capacity")
     values = tuple(
         value - 256 if value >= 128 else value
         for value in response[5 : 5 + count]
@@ -969,6 +1093,7 @@ def parse_vendor_eq_info(data: bytes, *, expected_kind: str) -> VendorEqInfo:
         kind=actual_kind,
         metadata=(response[2], response[3]),
         values=values,
+        apk_callback_drops_last_value=count == 15,
     )
 
 
@@ -998,3 +1123,75 @@ def parse_vendor_54_value_event(
 def parse_vendor_binding_info(data: bytes) -> VendorBindingInfo:
     response = _response(data, 0x4B)
     return VendorBindingInfo(values=(response[1], response[2]))
+
+
+_45_SELECTORS = {
+    Static45Notification.CLASSIC_INFO: 0,
+    Static45Notification.CLASSIC_NAME: 1,
+    Static45Notification.APP_ID: 2,
+}
+
+
+def parse_vendor_45_notification(
+    data: bytes, *, expected_kind: Static45Notification
+) -> VendorClassicInfo | VendorRedactedTextNotification:
+    if not isinstance(expected_kind, Static45Notification):
+        raise TypeError("45 notification kind must be a Static45Notification")
+    response = _response(data, 0x45)
+    if response[1] != _45_SELECTORS[expected_kind]:
+        raise ProtocolError("unexpected vendor 45 notification selector")
+    if expected_kind is Static45Notification.CLASSIC_INFO:
+        return VendorClassicInfo(values=(response[2], response[3]))
+    return VendorRedactedTextNotification(kind=expected_kind)
+
+
+def parse_vendor_contact_crc(data: bytes) -> VendorRedactedBlob:
+    _response(data, 0x46)
+    return VendorRedactedBlob(kind="contact_crc", consumed_content_bytes=4)
+
+
+def _private_update_blob(data: bytes, *, opcode: int, kind: str) -> VendorRedactedBlob:
+    response = _response(data, opcode)
+    if response[1] != 0x03:
+        raise ProtocolError("unexpected private update notification selector")
+    return VendorRedactedBlob(
+        kind=kind,
+        consumed_content_bytes=17,
+        callback_zero_fills_last_byte=True,
+    )
+
+
+def parse_vendor_e_card_need_update(data: bytes) -> VendorRedactedBlob:
+    return _private_update_blob(data, opcode=0x4C, kind="e_card_need_update")
+
+
+def parse_vendor_sms_need_update(data: bytes) -> VendorRedactedBlob:
+    return _private_update_blob(data, opcode=0x4D, kind="sms_need_update")
+
+
+def parse_vendor_sms_send(data: bytes) -> VendorSmsSend:
+    response = _response(data, 0x4D)
+    if response[1] != 0x06:
+        raise ProtocolError("unexpected SMS send notification selector")
+    declared = response[3]
+    if declared > 15:
+        raise ProtocolError("vendor SMS text length exceeds wire capacity")
+    return VendorSmsSend(
+        value=response[2],
+        declared_text_length=declared,
+        apk_consumed_text_bytes=min(15, declared + 1),
+    )
+
+
+def parse_vendor_wifi_state(data: bytes) -> VendorWifiState:
+    response = _response(data, 0x54)
+    if response[1] != 0x04:
+        raise ProtocolError("unexpected vendor Wi-Fi state subcommand")
+    return VendorWifiState(state_code=response[2])
+
+
+def parse_vendor_wifi_ssid_count(data: bytes) -> VendorWifiSsidCount:
+    response = _response(data, 0x54)
+    if response[1] != 0x09:
+        raise ProtocolError("unexpected vendor Wi-Fi count subcommand")
+    return VendorWifiSsidCount(count=response[2])

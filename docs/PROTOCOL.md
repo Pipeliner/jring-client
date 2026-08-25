@@ -137,7 +137,7 @@ that treated only three interface methods as stubs; static call-site tracing sho
 `static_vendor_callback_coverage()` likewise accounts for all 105 callback declarations
 exactly once. Eighty-nine are reached by a structured main or raw Bluetooth opcode,
 14 originate in Android transport, scan, network, OTA, authorization, or cache flows,
-and two declarations have no invocation site in this SDK build. Seventy-five callback
+and two declarations have no invocation site in this SDK build. Eighty-five callback
 families now have offline response codecs: the seven query families plus bounded
 non-health state, action, counter, dial, schedule, current-data, and unknown-motion
 events, five raw notification families, and operation-specific acknowledgements. Every
@@ -261,10 +261,16 @@ signed EQ values, factory-test bytes, offline speech mode, binding fields, and t
 factory bytes are hidden from representations and exposed only through an explicit
 local-use method. Binding fields remain neutral and cannot establish ownership.
 
-EQ set/get is correlated with an expected response kind and rejects a declared count
-beyond the 14 bytes this APK actually consumes. Dial fields cover every byte of the
-frame. None of these decoders enables the corresponding write, cloud, file, factory,
-binding, or OTA workflow.
+EQ set/get is correlated with an expected response kind and preserves all 15 wire
+values while reporting that this APK's callback drops the fifteenth. Dial fields cover
+every byte of the frame. None of these decoders enables the corresponding write,
+cloud, file, factory, binding, or OTA workflow.
+
+Privacy-bearing Bluetooth names, app IDs, device identifiers, contact fingerprints,
+SMS metadata, Wi-Fi addresses, and SSID fragments are decoded without exposing their
+contents in representations or coverage output. Wi-Fi fragments use a bounded,
+entry-keyed assembler; no parser starts host networking or copies private values into
+logs. Explicit local SSID access is opt-in after a complete sequence.
 
 ## Required hardware evidence to advance
 

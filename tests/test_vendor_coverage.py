@@ -108,7 +108,7 @@ def test_callback_coverage_distinguishes_unused_and_non_ble_sources():
     assert by_name["onGetDeviceAction"].source == "bluetooth_opcode"
 
 
-def test_seventy_five_callback_families_have_offline_response_codecs():
+def test_eighty_five_callback_families_have_offline_response_codecs():
     implemented = {
         entry.name
         for entry in static_vendor_callback_coverage()
@@ -147,6 +147,9 @@ def test_seventy_five_callback_families_have_offline_response_codecs():
         "onGetSenserData",
         "onGetSportSteps",
         "onGetTouchMode",
+        "onGetWifiSsid",
+        "onGetWifiSsidCount",
+        "onGetWifiState",
         "onGetWorshipInfo",
         "onGetWorshipTimesData",
         "onReadCurrentSportData",
@@ -157,9 +160,16 @@ def test_seventy_five_callback_families_have_offline_response_codecs():
         "onEditDeviceDialCustom",
         "onSendVibrationSignal",
         "onNotifyAiConnectionMethod",
+        "onNotifyAppId",
         "onNotifyBindedInfo",
+        "onNotifyClassicBtInfo",
+        "onNotifyClassicBtName",
+        "onNotifyContactCrc",
         "onNotifyDeviceSystemStateInfo",
         "onNotifyDeviceWifiApState",
+        "onNotifyECardNeedUpdate",
+        "onNotifySmsRspNeedUpdate",
+        "onNotifySmsRspSend",
         "onSetAlarm",
         "onSetAntiLost",
         "onSetBPAdjust",

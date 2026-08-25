@@ -6,6 +6,7 @@ from jring.vendor_protocol import (
     StaticAckOperation,
     StaticValueEvent,
     Static54ValueEvent,
+    Static45Notification,
     StaticVendorRequest,
     encode_day_query,
     encode_static_query,
@@ -48,6 +49,14 @@ from jring.vendor_protocol import (
     parse_vendor_eq_info,
     parse_vendor_factory_test_data,
     parse_vendor_offline_speech_mode,
+    parse_vendor_45_notification,
+    parse_vendor_contact_crc,
+    parse_vendor_e_card_need_update,
+    parse_vendor_sms_need_update,
+    parse_vendor_sms_send,
+    parse_vendor_wifi_ssid_count,
+    parse_vendor_wifi_state,
+    VendorWifiSsidAssembler,
     static_protocol_coverage,
 )
 from jring.protocol import ProtocolError
@@ -705,10 +714,15 @@ def test_device_code_discards_all_identifier_bytes():
     result = parse_vendor_device_code(bytes((0x1F,)) + bytes(range(1, 20)))
 
     assert result.identifier_redacted is True
+    assert result.success is True
     assert result.consumed_identifier_bytes == 18
     assert result.trailing_byte_ignored_by_sdk is True
     assert not hasattr(result, "identifier")
     assert "0102030405" not in repr(result)
+
+    failure = parse_vendor_device_code(bytes((0x9F,)) + bytes(19))
+    assert failure.success is False
+    assert failure.consumed_identifier_bytes == 0
 
 
 def test_device_dial_decodes_every_field_in_the_twenty_byte_layout():
@@ -744,6 +758,10 @@ def test_device_file_state_decodes_54_06_u32_only():
     assert result.value == 123_456
     with pytest.raises(ProtocolError):
         parse_vendor_device_file_state(bytes((0x54, 0x05)) + bytes(18))
+    with pytest.raises(ProtocolError):
+        parse_vendor_device_file_state(
+            bytes((0x54, 0x06)) + (0x80000000).to_bytes(4, "little") + bytes(14)
+        )
 
 
 @pytest.mark.parametrize("kind,selector", [("set", 0), ("get", 1)])
@@ -761,10 +779,22 @@ def test_eq_info_decodes_signed_values_and_requires_expected_kind(kind, selector
         parse_vendor_eq_info(data, expected_kind="get" if kind == "set" else "set")
 
 
-def test_eq_info_rejects_count_beyond_statically_consumed_bytes():
+def test_eq_info_preserves_fifteen_wire_values_despite_apk_callback_bug():
+    values = tuple(range(-7, 8))
+    result = parse_vendor_eq_info(
+        bytes((0x53, 1, 0, 0, 15))
+        + bytes(value & 0xFF for value in values),
+        expected_kind="get",
+    )
+
+    assert result.values == values
+    assert result.apk_callback_drops_last_value is True
+
+
+def test_eq_info_rejects_count_beyond_wire_capacity():
     with pytest.raises(ProtocolError):
         parse_vendor_eq_info(
-            bytes((0x53, 1, 0, 0, 15)) + bytes(15),
+            bytes((0x53, 1, 0, 0, 16)) + bytes(15),
             expected_kind="get",
         )
 
@@ -811,3 +841,116 @@ def test_binding_info_preserves_neutral_fields_without_claiming_owner_state():
     assert result.values == (2, 3)
     assert result.meaning == "unknown"
     assert result.hardware_verified is False
+
+
+@pytest.mark.parametrize(
+    "kind,selector",
+    [
+        (Static45Notification.CLASSIC_NAME, 1),
+        (Static45Notification.APP_ID, 2),
+    ],
+)
+def test_45_text_notifications_discard_sensitive_text_and_byte_19(kind, selector):
+    result = parse_vendor_45_notification(
+        bytes((0x45, selector)) + bytes(range(2, 20)), expected_kind=kind
+    )
+
+    assert result.kind is kind
+    assert result.content_redacted is True
+    assert result.consumed_content_bytes == 17
+    assert result.trailing_byte_ignored_by_sdk is True
+    assert not hasattr(result, "content")
+
+
+def test_classic_bt_info_preserves_only_two_non_identifier_values():
+    result = parse_vendor_45_notification(
+        bytes((0x45, 0, 7, 8)) + bytes(range(4, 20)),
+        expected_kind=Static45Notification.CLASSIC_INFO,
+    )
+
+    assert result.values == (7, 8)
+    assert result.identifiers_redacted is True
+    assert not hasattr(result, "first_identifier")
+
+
+def test_contact_and_update_fingerprints_are_redacted():
+    contact = parse_vendor_contact_crc(bytes((0x46,)) + bytes(range(1, 20)))
+    e_card = parse_vendor_e_card_need_update(
+        bytes((0x4C, 3)) + bytes(range(2, 20))
+    )
+    sms = parse_vendor_sms_need_update(bytes((0x4D, 3)) + bytes(range(2, 20)))
+
+    assert contact.content_redacted is True
+    assert contact.consumed_content_bytes == 4
+    assert e_card.consumed_content_bytes == 17
+    assert sms.consumed_content_bytes == 17
+    assert e_card.callback_zero_fills_last_byte is True
+    assert "02030405" not in repr(e_card)
+
+
+def test_sms_send_discards_text_and_reports_apk_off_by_one_projection():
+    result = parse_vendor_sms_send(
+        bytes((0x4D, 6, 9, 3)) + b"ABCD" + bytes(12)
+    )
+
+    assert result.value == 9
+    assert result.declared_text_length == 3
+    assert result.apk_consumed_text_bytes == 4
+    assert result.text_redacted is True
+    assert not hasattr(result, "text")
+
+    with pytest.raises(ProtocolError):
+        parse_vendor_sms_send(bytes((0x4D, 6, 9, 16)) + bytes(16))
+
+
+def test_wifi_state_discards_address_material_and_never_starts_networking():
+    result = parse_vendor_wifi_state(
+        bytes((0x54, 4, 2, 192, 168, 1, 1)) + bytes(13)
+    )
+
+    assert result.state_code == 2
+    assert result.address_redacted is True
+    assert result.host_network_action == "not_performed"
+    assert not hasattr(result, "address")
+
+
+def test_wifi_ssid_count_is_a_single_bounded_value():
+    assert parse_vendor_wifi_ssid_count(
+        bytes((0x54, 9, 6)) + bytes(17)
+    ).count == 6
+
+
+def test_wifi_ssid_assembler_hides_fragments_and_returns_only_on_end():
+    assembler = VendorWifiSsidAssembler(max_encoded_bytes=32)
+    first = bytes((0x54, 0x0A, 0x01, 0xD8)) + b"Private" + bytes(9)
+    final = bytes((0x54, 0x0A, 0xC1, 0xD8)) + b"%20Net" + bytes(10)
+
+    assert assembler.feed(first) is None
+    result = assembler.feed(final)
+
+    assert result is not None
+    assert result.end_flag is True
+    assert result.part_id == 1
+    assert result.current_id == 1
+    assert result.signal == -40
+    assert result.ssid_for_explicit_local_use() == "Private%20Net"
+    assert "Private" not in repr(result)
+
+
+def test_wifi_ssid_assembler_is_bounded_and_resettable():
+    assembler = VendorWifiSsidAssembler(max_encoded_bytes=3)
+    frame = bytes((0x54, 0x0A, 0x80, 0)) + b"four" + bytes(12)
+
+    with pytest.raises(ProtocolError):
+        assembler.feed(frame)
+    assembler.reset()
+    assert assembler.buffered_bytes == 0
+
+
+def test_wifi_ssid_continuation_requires_matching_started_entry():
+    assembler = VendorWifiSsidAssembler()
+    continuation = bytes((0x54, 0x0A, 0xC2, 0)) + b"private" + bytes(9)
+
+    with pytest.raises(ProtocolError):
+        assembler.feed(continuation)
+    assert assembler.buffered_bytes == 0
