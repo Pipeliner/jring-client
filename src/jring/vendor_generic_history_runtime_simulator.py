@@ -62,6 +62,7 @@ class GenericHistorySimulationResult:
     local_end_projected: bool
     delivery_uncertain: bool
     _parsed_updates: tuple[VendorHistoryUpdate, ...] = field(repr=False)
+    _local_end_arguments: tuple[int, int] | None = field(repr=False)
 
     @property
     def wire_terminal_observed(self) -> bool:
@@ -83,8 +84,36 @@ class GenericHistorySimulationResult:
     def hardware_verified(self) -> bool:
         return False
 
+    @property
+    def partial_data(self) -> bool:
+        return (
+            self.completeness is HistoryCompleteness.ABORTED
+            and self.sample_count > 0
+        )
+
+    @property
+    def user_guidance(self) -> str:
+        prefix = "Synthetic history only; no real device was contacted. "
+        if self.completeness is HistoryCompleteness.CONFIRMED:
+            return prefix + "The fake reproduced explicit device completion evidence."
+        if self.completeness is HistoryCompleteness.FAILED:
+            return prefix + "The fake reproduced a device failure callback."
+        if self.completeness is HistoryCompleteness.ABORTED:
+            detail = (
+                " Parsed values are partial and must not be treated as history."
+                if self.partial_data
+                else ""
+            )
+            return prefix + "Collection aborted without a completion claim." + detail
+        return prefix + "Collection stopped locally; returned history may be incomplete."
+
     def parsed_updates_for_test(self) -> tuple[VendorHistoryUpdate, ...]:
         return tuple(self._parsed_updates)
+
+    def local_end_arguments_for_explicit_test_use(self) -> tuple[int, int] | None:
+        """Return source callback arguments only for defensive local parity tests."""
+
+        return self._local_end_arguments
 
     def __repr__(self) -> str:
         return (
@@ -98,6 +127,7 @@ class GenericHistorySimulationResult:
             f"cleanup_succeeded={self.cleanup_succeeded!r}, "
             f"local_end_projected={self.local_end_projected!r}, "
             f"delivery_uncertain={self.delivery_uncertain!r}, "
+            f"partial_data={self.partial_data!r}, "
             "parsed_updates=<redacted>, quiet_means_success=False, "
             "simulation_only=True, hardware_eligible=False, hardware_verified=False)"
         )
@@ -142,6 +172,7 @@ class FakeVendorGenericHistorySimulator:
         if type(transport) is not ScriptedVendorFakeTransport:
             raise TypeError("transport must be the exact ScriptedVendorFakeTransport type")
         self._transport = transport
+        self._collecting = False
 
     async def collect(
         self,
@@ -150,6 +181,30 @@ class FakeVendorGenericHistorySimulator:
         frame_limit: int = 64,
         quiet_timeout: float = 0.05,
         overall_timeout: float = 5.0,
+        stage_timeout: float = 5.0,
+    ) -> GenericHistorySimulationResult:
+        if self._collecting:
+            raise RuntimeError("generic history collection is already in progress")
+        self._collecting = True
+        try:
+            return await self._collect(
+                request=request,
+                frame_limit=frame_limit,
+                quiet_timeout=quiet_timeout,
+                overall_timeout=overall_timeout,
+                stage_timeout=stage_timeout,
+            )
+        finally:
+            self._collecting = False
+
+    async def _collect(
+        self,
+        *,
+        request: DayDataRequest,
+        frame_limit: int,
+        quiet_timeout: float,
+        overall_timeout: float,
+        stage_timeout: float,
     ) -> GenericHistorySimulationResult:
         if type(request) is not DayDataRequest:
             raise TypeError("request must be the exact DayDataRequest type")
@@ -157,8 +212,11 @@ class FakeVendorGenericHistorySimulator:
             raise TypeError("frame_limit must be an integer")
         if frame_limit <= 0:
             raise ValueError("frame_limit must be positive")
+        if frame_limit > 4_096:
+            raise ValueError("frame_limit cannot exceed 4096")
         quiet = _positive_number(quiet_timeout, "quiet_timeout")
         overall = _positive_number(overall_timeout, "overall_timeout")
+        stage = _positive_number(stage_timeout, "stage_timeout")
 
         queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=frame_limit + 1)
         updates: list[VendorHistoryUpdate] = []
@@ -173,39 +231,49 @@ class FakeVendorGenericHistorySimulator:
         reason = GenericHistorySimulationReason.LOCAL_QUIET
         completeness = HistoryCompleteness.UNKNOWN
         loop = asyncio.get_running_loop()
-        stream = VendorHistoryStream(
-            _STREAM_KINDS[request.kind],
-            started_at=loop.time(),
-            first_frame_timeout=overall,
-            idle_timeout=quiet,
-            overall_timeout=overall,
-        )
         overflowed = False
+        accepting = True
 
         def receive(data: bytes) -> None:
             nonlocal overflowed
+            if not accepting:
+                return
+            bounded = data if len(data) <= 20 else data[:21]
             try:
-                queue.put_nowait(bytes(data))
+                queue.put_nowait(bytes(bounded))
             except asyncio.QueueFull:
                 # A bounded fake runtime aborts after observing overflow.  It never
                 # discards an older frame and calls the resulting sequence complete.
                 overflowed = True
 
         try:
-            await self._transport.connect()
-            if not await self._preflight():
+            await asyncio.wait_for(self._transport.connect(), timeout=stage)
+            if not await asyncio.wait_for(self._preflight(), timeout=stage):
                 reason = GenericHistorySimulationReason.PREFLIGHT_FAILURE
                 completeness = HistoryCompleteness.ABORTED
             else:
-                await self._transport.subscribe(VENDOR_CHARACTERISTIC_33F4, receive)
+                await asyncio.wait_for(
+                    self._transport.subscribe(VENDOR_CHARACTERISTIC_33F4, receive),
+                    timeout=stage,
+                )
                 subscribed = True
                 frame = request.frames()[0]
                 write_issued = True
-                await self._transport.write_with_response(
-                    VENDOR_CHARACTERISTIC_33F3,
-                    frame.synthetic_bytes_for_test(),
+                await asyncio.wait_for(
+                    self._transport.write_with_response(
+                        VENDOR_CHARACTERISTIC_33F3,
+                        frame.synthetic_bytes_for_test(),
+                    ),
+                    timeout=stage,
                 )
                 command_written = True
+                stream = VendorHistoryStream(
+                    _STREAM_KINDS[request.kind],
+                    started_at=loop.time(),
+                    first_frame_timeout=overall,
+                    idle_timeout=quiet,
+                    overall_timeout=overall,
+                )
                 quiet_deadline = loop.time() + quiet
                 overall_deadline = loop.time() + overall
 
@@ -234,6 +302,8 @@ class FakeVendorGenericHistorySimulator:
                     )
                     for task in pending:
                         task.cancel()
+                    if pending:
+                        await asyncio.gather(*pending, return_exceptions=True)
                     if not done:
                         continue
                     if disconnect_task in done and disconnect_task.result():
@@ -263,6 +333,10 @@ class FakeVendorGenericHistorySimulator:
                         count = len(update.samples)
                         sample_count += count
                         projections.append(("onGetDataByDay", count, "wire_frame"))
+                        if request.kind is DayDataKind.SDK_TYPE_13:
+                            projections.append(
+                                ("onGetOxygenOfflineData", count, "wire_frame")
+                            )
                     quiet_deadline = loop.time() + quiet
                     closure = update.closure
                     if closure is None:
@@ -273,22 +347,40 @@ class FakeVendorGenericHistorySimulator:
                     elif closure.reason is HistoryCloseReason.DEVICE_METADATA:
                         reason = GenericHistorySimulationReason.DEVICE_METADATA
                         origin = "device_metadata"
-                    else:
+                    elif closure.reason is HistoryCloseReason.DEVICE_FAILURE:
                         reason = GenericHistorySimulationReason.DEVICE_FAILURE
                         origin = "wire_failure_frame"
+                    elif closure.reason in {
+                        HistoryCloseReason.FIRST_FRAME_TIMEOUT,
+                        HistoryCloseReason.OVERALL_TIMEOUT,
+                    }:
+                        reason = GenericHistorySimulationReason.OVERALL_TIMEOUT
+                        completeness = closure.completeness
+                        break
+                    elif closure.reason is HistoryCloseReason.IDLE_TIMEOUT:
+                        reason = GenericHistorySimulationReason.LOCAL_QUIET
+                        completeness = closure.completeness
+                        break
+                    else:
+                        reason = GenericHistorySimulationReason.DISCONNECTED
+                        completeness = closure.completeness
+                        break
                     completeness = closure.completeness
                     projections.append(("onGetDataByDayEnd", 1, origin))
                     break
                 else:
                     reason = GenericHistorySimulationReason.LIMIT_REACHED
-        except (ConnectionError, LookupError, OSError):
+        except (ConnectionError, LookupError, OSError, TimeoutError):
             reason = (
                 GenericHistorySimulationReason.WRITE_FAILURE
                 if subscribed else GenericHistorySimulationReason.PREFLIGHT_FAILURE
             )
             completeness = HistoryCompleteness.ABORTED
         finally:
-            cleanup_succeeded = await self._cleanup(subscribed)
+            accepting = False
+            while not queue.empty():
+                queue.get_nowait()
+            cleanup_succeeded = await self._cleanup(subscribed, timeout=stage)
 
         if not cleanup_succeeded:
             reason = GenericHistorySimulationReason.CLEANUP_FAILURE
@@ -296,10 +388,20 @@ class FakeVendorGenericHistorySimulator:
         if (
             cleanup_succeeded
             and reason is GenericHistorySimulationReason.LOCAL_QUIET
-            and accepted
+            and sample_count
         ):
             projections.append(("onGetDataByDayEnd", 1, "local_quiet_projection"))
             local_end_projected = True
+        local_end_arguments = None
+        if local_end_projected:
+            for update in reversed(updates):
+                if update.samples:
+                    last = update.samples[-1]
+                    local_end_arguments = (
+                        last.data_by_day_type,
+                        last.device_epoch_seconds,
+                    )
+                    break
 
         return GenericHistorySimulationResult(
             request_kind=request.kind,
@@ -316,6 +418,7 @@ class FakeVendorGenericHistorySimulator:
                 write_issued and completeness is HistoryCompleteness.ABORTED
             ),
             _parsed_updates=tuple(updates),
+            _local_end_arguments=local_end_arguments,
         )
 
     @staticmethod
@@ -350,16 +453,19 @@ class FakeVendorGenericHistorySimulator:
             and uuid16(0x2902) in rx[0].descriptor_uuids
         )
 
-    async def _cleanup(self, subscribed: bool) -> bool:
+    async def _cleanup(self, subscribed: bool, *, timeout: float) -> bool:
         succeeded = True
         if subscribed and self._transport.connected:
             try:
-                await self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F4)
-            except (ConnectionError, OSError):
+                await asyncio.wait_for(
+                    self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F4),
+                    timeout=timeout,
+                )
+            except (ConnectionError, OSError, TimeoutError):
                 succeeded = False
         try:
-            await self._transport.close()
-        except OSError:
+            await asyncio.wait_for(self._transport.close(), timeout=timeout)
+        except (OSError, TimeoutError):
             succeeded = False
         return succeeded
 

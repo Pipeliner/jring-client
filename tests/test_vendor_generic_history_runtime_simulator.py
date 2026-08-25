@@ -2,14 +2,21 @@ import asyncio
 
 import pytest
 
+import jring.vendor_generic_history_runtime_simulator as generic_runtime
 from jring.uuids import VENDOR_CHARACTERISTIC_33F4
 from jring.vendor_generic_history_runtime_simulator import (
     FakeVendorGenericHistorySimulator,
     GenericHistorySimulationReason,
 )
-from jring.vendor_history import HistoryCompleteness
+from jring.vendor_history import (
+    HistoryCloseReason,
+    HistoryClosure,
+    HistoryCompleteness,
+    HistoryStreamKind,
+    VendorHistoryUpdate,
+)
 from jring.vendor_main_commands import DayDataKind, DayDataRequest
-from jring.vendor_runtime_fake import ScriptedVendorFakeTransport
+from jring.vendor_runtime_fake import ScriptGate, ScriptedVendorFakeTransport
 
 
 def run(coro):
@@ -52,6 +59,8 @@ def test_daily_frames_project_samples_then_local_unknown_end():
     assert result.local_end_projected is True
     assert result.wire_terminal_observed is False
     assert result.accepted_frame_count == 2
+    assert result.local_end_arguments_for_explicit_test_use() == (2, 1_840)
+    assert "1840" not in repr(result)
 
 
 def test_detail_ff_is_confirmed_wire_terminal_without_invented_samples():
@@ -97,6 +106,24 @@ def test_detail_metadata_predicate_closes_confirmed_but_not_wire_terminal():
     assert result.wire_terminal_observed is False
 
 
+def test_detail_metadata_only_quiet_does_not_fabricate_local_end():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, _detail(0xF0, {6: 5})
+    )
+
+    result = run(FakeVendorGenericHistorySimulator(transport).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_2, 0),
+        frame_limit=2,
+        quiet_timeout=0.01,
+    ))
+
+    assert result.reason is GenericHistorySimulationReason.LOCAL_QUIET
+    assert result.sample_count == 0
+    assert result.local_end_projected is False
+    assert result.projections == ()
+
+
 @pytest.mark.parametrize(
     "kind,failure_opcode",
     [
@@ -139,6 +166,25 @@ def test_other_family_does_not_refresh_quiet_or_become_success():
     assert result.projections == ()
 
 
+def test_type_13_preserves_generic_then_specialized_oxygen_multiplicity():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, _frame(0x40)
+    )
+
+    result = run(FakeVendorGenericHistorySimulator(transport).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_13, 0),
+        frame_limit=1,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is GenericHistorySimulationReason.LIMIT_REACHED
+    assert result.projections == (
+        ("onGetDataByDay", 15, "wire_frame"),
+        ("onGetOxygenOfflineData", 15, "wire_frame"),
+    )
+
+
 def test_matching_malformed_frame_aborts_and_result_repr_redacts_data():
     transport = ScriptedVendorFakeTransport.vendor_route()
     transport.before_write = lambda fake, _call: fake.emit(
@@ -154,6 +200,9 @@ def test_matching_malformed_frame_aborts_and_result_repr_redacts_data():
     assert result.completeness is HistoryCompleteness.ABORTED
     assert "77" not in repr(result)
     assert "parsed_updates=<redacted>" in repr(result)
+    assert result.partial_data is False
+    assert "no real device was contacted" in result.user_guidance
+    assert "without a completion claim" in result.user_guidance
 
 
 def test_limit_is_unknown_and_does_not_fabricate_end_projection():
@@ -193,6 +242,161 @@ def test_bounded_queue_overflow_aborts_instead_of_silently_dropping_history():
     assert result.accepted_frame_count == 0
     assert result.projections == ()
     assert result.delivery_uncertain is True
+
+
+def test_setup_delay_does_not_turn_a_valid_frame_into_device_failure():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    async def delayed_emit(fake, _call):
+        await asyncio.sleep(0.02)
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x10))
+
+    transport.before_write = delayed_emit
+    result = run(FakeVendorGenericHistorySimulator(transport).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_1, 0),
+        frame_limit=1,
+        quiet_timeout=0.1,
+        overall_timeout=0.01,
+        stage_timeout=0.1,
+    ))
+
+    assert result.reason is GenericHistorySimulationReason.LIMIT_REACHED
+    assert result.completeness is HistoryCompleteness.UNKNOWN
+    assert result.sample_count == 15
+
+
+def test_expired_stream_closure_never_projects_a_device_failure(monkeypatch):
+    class ExpiredStream:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def feed(self, _data, *, now):
+            return VendorHistoryUpdate(closure=HistoryClosure(
+                stream_kind=HistoryStreamKind.DAILY,
+                reason=HistoryCloseReason.OVERALL_TIMEOUT,
+                completeness=HistoryCompleteness.ABORTED,
+                families=(),
+            ))
+
+    monkeypatch.setattr(generic_runtime, "VendorHistoryStream", ExpiredStream)
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, _frame(0x10)
+    )
+    result = run(FakeVendorGenericHistorySimulator(transport).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_1, 0),
+    ))
+
+    assert result.reason is GenericHistorySimulationReason.OVERALL_TIMEOUT
+    assert result.completeness is HistoryCompleteness.ABORTED
+    assert result.projections == ()
+
+
+def test_blocked_setup_and_cleanup_stages_are_bounded_and_aborted():
+    connect_blocked = ScriptedVendorFakeTransport.vendor_route(
+        connect_gate=ScriptGate.blocked()
+    )
+    result = run(FakeVendorGenericHistorySimulator(connect_blocked).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_1, 0),
+        stage_timeout=0.01,
+    ))
+    assert result.reason is GenericHistorySimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is HistoryCompleteness.ABORTED
+
+    cleanup_blocked = ScriptedVendorFakeTransport.vendor_route(
+        unsubscribe_gate=ScriptGate.blocked()
+    )
+    cleanup_blocked.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, _frame(0x10)
+    )
+    result = run(FakeVendorGenericHistorySimulator(cleanup_blocked).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_1, 0),
+        frame_limit=1,
+        stage_timeout=0.01,
+    ))
+    assert result.reason is GenericHistorySimulationReason.CLEANUP_FAILURE
+    assert result.completeness is HistoryCompleteness.ABORTED
+    assert result.cleanup_succeeded is False
+
+
+def test_collector_rejects_concurrent_use_and_allows_sequential_reuse():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(connect_gate=gate)
+    simulator = FakeVendorGenericHistorySimulator(transport)
+    request = DayDataRequest(DayDataKind.SDK_TYPE_1, 0)
+
+    async def scenario():
+        first = asyncio.create_task(simulator.collect(
+            request=request,
+            quiet_timeout=0.01,
+            stage_timeout=0.1,
+        ))
+        await gate.wait_until_entered()
+        with pytest.raises(RuntimeError, match="already in progress"):
+            await simulator.collect(request=request)
+        gate.release()
+        first_result = await first
+        second_result = await simulator.collect(
+            request=request,
+            quiet_timeout=0.01,
+        )
+        return first_result, second_result
+
+    first_result, second_result = run(scenario())
+    assert first_result.reason is GenericHistorySimulationReason.LOCAL_QUIET
+    assert second_result.reason is GenericHistorySimulationReason.LOCAL_QUIET
+
+
+def test_old_retained_callback_cannot_inject_into_reused_collector():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    simulator = FakeVendorGenericHistorySimulator(transport)
+    request = DayDataRequest(DayDataKind.SDK_TYPE_1, 0)
+
+    def first_emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x10, 100))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x11, 200))
+
+    def second_emit(fake, _call):
+        fake.emit_stale(0, bytes((0x90,)) + bytes(19))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x10, 300))
+
+    async def scenario():
+        transport.before_write = first_emit
+        first = await simulator.collect(request=request, frame_limit=1)
+        transport.before_write = second_emit
+        second = await simulator.collect(request=request, frame_limit=1)
+        return first, second
+
+    first, second = run(scenario())
+    assert first.sample_count == 15
+    assert second.reason is GenericHistorySimulationReason.LIMIT_REACHED
+    assert second.completeness is HistoryCompleteness.UNKNOWN
+    assert second.sample_count == 15
+    assert second.projections == (("onGetDataByDay", 15, "wire_frame"),)
+
+
+def test_frame_limit_is_capped_before_connecting():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    simulator = FakeVendorGenericHistorySimulator(transport)
+
+    with pytest.raises(ValueError, match="cannot exceed"):
+        run(simulator.collect(
+            request=DayDataRequest(DayDataKind.SDK_TYPE_1, 0),
+            frame_limit=4_097,
+        ))
+    assert transport.connect_count == 0
+
+
+def test_unknown_result_guidance_calls_out_local_incompleteness():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    result = run(FakeVendorGenericHistorySimulator(transport).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_1, 0),
+        quiet_timeout=0.01,
+    ))
+
+    assert "Synthetic history only" in result.user_guidance
+    assert "stopped locally" in result.user_guidance
+    assert "may be incomplete" in result.user_guidance
 
 
 def test_collector_accepts_only_exact_closed_fake_and_request_types():

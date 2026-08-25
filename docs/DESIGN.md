@@ -251,6 +251,10 @@ only direct wire terminal; the recovered F0/AA/A0 predicate is confirmed device
 metadata, not a wire terminal. Local quiet may project the source-shaped end callback
 after accepted data but remains incomplete/unknown, while a caller frame limit never
 fabricates an end callback. Matching malformed frames and bounded-queue overflow abort.
+Every setup/write/cleanup stage has a finite deadline, concurrent use is rejected, old
+retained callbacks are inert, queued frames are drained, and frame limits are capped.
+Type-13 frames preserve both generic and specialized oxygen multiplicity; local end
+arguments stay available only through an explicitly named redacted test accessor.
 
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
