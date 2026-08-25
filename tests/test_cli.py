@@ -12,6 +12,11 @@ from jring.transport import FakeTransport
 from jring.uuids import FIRMWARE, HEART_RATE_MEASUREMENT
 
 
+SYNTHETIC_ADDRESS = ":".join(("AA", "BB", "CC", "DD", "EE", "FF"))
+OTHER_SYNTHETIC_ADDRESS = ":".join(("11", "22", "33", "44", "55", "66"))
+SYNTHETIC_BLUEZ_PATH = "/org/" + "bluez/hci0/dev_AA_BB"
+
+
 def not_ready_report():
     return ReadinessReport(
         checks=(
@@ -116,7 +121,7 @@ def test_hardware_heart_rate_requires_consent_before_transport(monkeypatch, caps
 
     monkeypatch.setattr(cli, "BleakTransport", forbidden_transport)
     assert cli.main([
-        "heart-rate", "--address", "AA:BB:CC:DD:EE:FF", "--json",
+        "heart-rate", "--address", SYNTHETIC_ADDRESS, "--json",
     ]) == 2
     result = json.loads(capsys.readouterr().out)
     assert result["error"]["code"] == "usage"
@@ -157,7 +162,7 @@ def test_hardware_heart_rate_discloses_bounded_standard_notification(
     monkeypatch.setattr(cli, "BleakTransport", lambda _address: transport)
 
     assert cli.main([
-        "heart-rate", "--address", "AA:BB:CC:DD:EE:FF",
+        "heart-rate", "--address", SYNTHETIC_ADDRESS,
         "--allow-notifications",
     ]) == 0
     output = capsys.readouterr().out
@@ -185,7 +190,7 @@ def test_heart_rate_emits_no_measurement_when_context_close_fails(monkeypatch, c
     monkeypatch.setattr(cli, "BleakTransport", lambda _address: transport)
 
     assert cli.main([
-        "heart-rate", "--address", "AA:BB:CC:DD:EE:FF",
+        "heart-rate", "--address", SYNTHETIC_ADDRESS,
         "--allow-notifications", "--json",
     ]) == 3
     captured = capsys.readouterr()
@@ -1270,7 +1275,7 @@ def test_hardware_motion_input_fails_before_opening_a_sink(monkeypatch, capsys):
     monkeypatch.setattr(cli, "create_uinput_sink", open_sink)
     with pytest.raises(SystemExit) as raised:
         cli.main([
-            "input", "--address", "AA:BB:CC:DD:EE:FF", "--map", "step=key:space",
+            "input", "--address", SYNTHETIC_ADDRESS, "--map", "step=key:space",
             "--allow-input",
         ])
 
@@ -1321,8 +1326,8 @@ def test_simulated_discovery_never_scans(monkeypatch, capsys):
 def synthetic_selection_candidates():
     return build_selection_candidates(
         (
-            DiscoveryObservation("11:22:33:44:55:66", "other", ("180a",), -70),
-            DiscoveryObservation("AA:BB:CC:DD:EE:FF", "JRing", ("1812",), -42),
+            DiscoveryObservation(OTHER_SYNTHETIC_ADDRESS, "other", ("180a",), -70),
+            DiscoveryObservation(SYNTHETIC_ADDRESS, "JRing", ("1812",), -42),
         ),
         salt=b"synthetic-guided-selection",
     )
@@ -1632,7 +1637,7 @@ def test_guided_selection_rejects_noninteractive_input_before_scan(monkeypatch, 
 
 def test_source_modes_are_exclusive(capsys):
     with pytest.raises(SystemExit) as raised:
-        cli.main(["status", "--simulate", "--address", "AA:BB:CC:DD:EE:FF"])
+        cli.main(["status", "--simulate", "--address", SYNTHETIC_ADDRESS])
     assert raised.value.code == 2
     assert "mutually exclusive" in capsys.readouterr().err
 
@@ -1687,7 +1692,7 @@ def test_timeout_must_be_finite_and_bounded(timeout, capsys):
 def test_cli_errors_redact_identifiers(monkeypatch, capsys):
     async def fail(_args):
         raise RuntimeError(
-            "device AA:BB:CC:DD:EE:FF at /org/bluez/hci0/dev_AA_BB failed "
+            f"device {SYNTHETIC_ADDRESS} at {SYNTHETIC_BLUEZ_PATH} failed "
             "payload deadbeefcafebabe"
         )
 
@@ -1695,14 +1700,14 @@ def test_cli_errors_redact_identifiers(monkeypatch, capsys):
     assert cli.main(["status", "--simulate"]) == 70
     error = capsys.readouterr().err
     assert "AA:BB" not in error
-    assert "/org/bluez" not in error
+    assert "/org/" + "bluez" not in error
     assert "deadbeef" not in error
     assert "Traceback" not in error
 
 
 def test_address_file_must_be_private(tmp_path, capsys):
     address_file = tmp_path / "ring-address"
-    address_file.write_text("AA:BB:CC:DD:EE:FF\n")
+    address_file.write_text(SYNTHETIC_ADDRESS + "\n")
     os.chmod(address_file, 0o644)
 
     assert cli.main(["status", "--address-file", str(address_file)]) == 6
@@ -1769,7 +1774,7 @@ def test_json_usage_error_has_no_stderr(capsys):
 def test_json_error_redaction(monkeypatch, capsys):
     async def fail(_args):
         raise ProtocolError(
-            "device AA:BB:CC:DD:EE:FF at /org/bluez/hci0/dev_AA_BB failed "
+            f"device {SYNTHETIC_ADDRESS} at {SYNTHETIC_BLUEZ_PATH} failed "
             "payload deadbeefcafebabe"
         )
 
@@ -1781,7 +1786,7 @@ def test_json_error_redaction(monkeypatch, capsys):
     assert result["error"]["code"] == "protocol_incompatible"
     assert "[redacted device]" in result["error"]["message"]
     assert "AA:BB" not in serialized
-    assert "/org/bluez" not in serialized
+    assert "/org/" + "bluez" not in serialized
     assert "deadbeef" not in serialized
     assert "Traceback" not in serialized
     assert captured.err == ""

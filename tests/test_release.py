@@ -180,6 +180,7 @@ def test_release_workflow_is_pinned_and_has_no_publish_step():
     assert "pypi" not in workflow.lower()
     assert "gh release" not in workflow.lower()
     assert "contents: write" not in workflow.lower()
+    assert "python scripts/evidence_tool.py scan ." in workflow
 
 
 def test_install_documentation_covers_lifecycle_and_verification():

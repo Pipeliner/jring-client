@@ -1,0 +1,91 @@
+{
+  "schema_version": 2,
+  "claim_id": "synthetic-vendor-device-info",
+  "provenance": {
+    "source": "synthetic",
+    "private_evidence_reference": "not_applicable"
+  },
+  "consent": {
+    "publication": "granted",
+    "scope": "public_repository"
+  },
+  "operation": "vendor_main_device_info_canary_v1",
+  "device_context": {
+    "model_family": "synthetic-ring",
+    "firmware_major": "synthetic"
+  },
+  "redactions": {
+    "bluetooth_addresses": true,
+    "bluez_paths": true,
+    "account_identifiers": true,
+    "precise_timestamps": true,
+    "health_measurements": true,
+    "raw_payloads": true,
+    "unique_device_identifiers": true
+  },
+  "protocol": {
+    "endpoint_profile": "vendor_main",
+    "request_builder": "encode_static_query:device_info",
+    "response_parser": "parse_vendor_device_info",
+    "terminal_set": [
+      "device_information_rejected",
+      "device_information_succeeded"
+    ],
+    "integrity_rule": "canary_success_requires_valid_seeded_crc",
+    "identifier_policy": "not_materialized"
+  },
+  "effects": {
+    "connection": true,
+    "notification_activation": true,
+    "notification_deactivation_required": true,
+    "vendor_write": true,
+    "vendor_write_kind": "with_response",
+    "maximum_attempts": 1,
+    "maximum_writes_per_attempt": 1,
+    "automatic_retry": false,
+    "disconnect_required": true,
+    "cleanup_must_complete_before_result": true,
+    "binding": false,
+    "bonding": false,
+    "cloud_network": false,
+    "startup_time_write": false,
+    "input_injection": false,
+    "ota": false,
+    "raw_retention": false
+  },
+  "synthetic_vectors": [
+    {
+      "case": "bad_integrity",
+      "fixture_kind": "device_information_bad_integrity",
+      "expected_canary_outcome": "rejected_bad_integrity"
+    },
+    {
+      "case": "rejection",
+      "fixture_kind": "device_information_rejection",
+      "expected_canary_outcome": "device_rejected"
+    },
+    {
+      "case": "success",
+      "fixture_kind": "device_information_success",
+      "expected_canary_outcome": "succeeded"
+    }
+  ],
+  "maturity": "synthetic_candidate",
+  "review": {
+    "status": "candidate",
+    "required_gates": [
+      "hardware_evidence",
+      "operation_authorization",
+      "privacy_review",
+      "protocol_review"
+    ]
+  },
+  "runtime_authority": {
+    "runnable": false,
+    "live_eligible": false,
+    "owner_authorized": false,
+    "hardware_eligible": false,
+    "hardware_verified": false,
+    "generic_vendor_io_authorized": false
+  }
+}

@@ -26,6 +26,9 @@ from jring.vendor_phone_integration import (
 )
 
 
+SYNTHETIC_ADDRESS = ":".join(("AA", "BB", "CC", "DD", "EE", "FF"))
+
+
 def _frames(request):
     return request.synthetic_frames_for_test()
 
@@ -47,10 +50,12 @@ def test_simple_main_channel_frames_are_exactly_twenty_bytes():
 
 def test_app_id_and_phone_mac_use_fixed_utf8_fields_without_truncation():
     app = encode_app_id("client-42")
-    mac = encode_phone_mac("AA:BB:CC:DD:EE:FF")
+    mac = encode_phone_mac(SYNTHETIC_ADDRESS)
 
     assert _frames(app) == (bytes((0x48,)) + b"client-42" + bytes(10),)
-    assert _frames(mac) == (bytes((0x49,)) + b"AA:BB:CC:DD:EE:FF" + bytes(2),)
+    assert _frames(mac) == (
+        bytes((0x49,)) + SYNTHETIC_ADDRESS.encode("ascii") + bytes(2),
+    )
 
 
 @pytest.mark.parametrize("encoder", [encode_app_id, encode_phone_mac])

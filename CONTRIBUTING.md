@@ -25,6 +25,16 @@ derived fixture yourself before adding it. Run `python3 scripts/evidence_tool.py
 and the full tests before committing. If a finding or reproduction needs sensitive
 material, stop and follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
+Schema-2 `*-claim.json` files are public review candidates and must have an exact
+`*-fixture.json` derivation. The current allowlist contains only the sealed vendor-main
+device-info canary shape. Do not turn a private owner manifest into a tracked claim:
+derive and review the minimal public candidate separately. Schema validation grants no
+permission to connect, activate notifications, write, publish private evidence, or
+claim hardware support.
+The `-manifest.json`, `-claim.json`, and `-fixture.json` suffixes are reserved across
+the repository; moving an unpaired artifact outside `tests/fixtures/evidence` does not
+bypass validation.
+
 Vendor writes remain disabled. Evidence contribution never authorizes scanning,
 connecting, subscribing, input injection, or packet emission.
 

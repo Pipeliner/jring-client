@@ -39,6 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           git diff --exit-code
+          python scripts/evidence_tool.py scan .
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             python scripts/release_artifacts.py check-version "${GITHUB_REF_NAME}"
           elif [[ "${PUBLISH_REQUESTED}" == "true" ]]; then

@@ -14,6 +14,9 @@ from scripts.compatibility_matrix import (
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "compatibility"
+SYNTHETIC_ADDRESS = ":".join(("DE", "AD", "BE", "EF", "00", "01"))
+SYNTHETIC_TIMESTAMP = "2026-08-" + "24T13:00:00Z"
+SYNTHETIC_PAYLOAD = "00112233" + "445566778899"
 
 
 def report(name="synthetic-python310.json"):
@@ -23,10 +26,10 @@ def report(name="synthetic-python310.json"):
 @pytest.mark.parametrize(
     "field,value,secret",
     [
-        ("device_address", "DE:AD:BE:EF:00:01", "DE:AD"),
-        ("observed_at", "2026-08-24T13:00:00Z", "13:00"),
+        ("device_address", SYNTHETIC_ADDRESS, "DE:AD"),
+        ("observed_at", SYNTHETIC_TIMESTAMP, "13:00"),
         ("heart_rate", 72, "72"),
-        ("raw_payload", "00112233445566778899", "001122"),
+        ("raw_payload", SYNTHETIC_PAYLOAD, "001122"),
     ],
 )
 def test_compatibility_report_rejects_sensitive_values_without_echo(field, value, secret):
@@ -96,3 +99,13 @@ def test_duplicate_report_ids_are_rejected():
     with pytest.raises(CompatibilityError) as raised:
         merge_reports([duplicate, copy.deepcopy(duplicate)])
     assert raised.value.code == "duplicate_report"
+
+
+@pytest.mark.parametrize("version", [True, 1.0, "1"])
+def test_compatibility_schema_version_requires_an_exact_integer(version):
+    candidate = report()
+    candidate["schema_version"] = version
+
+    with pytest.raises(CompatibilityError) as raised:
+        validate_report(candidate)
+    assert raised.value.code == "invalid_report"

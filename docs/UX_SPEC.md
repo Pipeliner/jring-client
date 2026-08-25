@@ -681,6 +681,19 @@ Local validation requires mode 0600; repository scanning rejects it at any mode.
 scan inspects every repository file and rejects disguised capture, archive, Android,
 native, decompiler, and smali material without echoing a filename or rejected content.
 
+A schema-2 device-info candidate is a different public artifact. Its human meaning is
+“ready for protocol/privacy/runtime review,” never “ready to run.” Validation accepts
+only one fixed operation shape and explicitly shows that the prospective canary needs
+notification activation and one vendor GATT write. The candidate cannot contain an
+address, identifier, timestamp, raw frame, arbitrary endpoint, free-form fact,
+confidence, or success field. The derived fixture omits publication administration and
+the private evidence reference while retaining all denied effects and six false
+authority flags. Public-derived identifiers and model/firmware context are fixed to
+withheld values in this first schema. Repository scanning requires an exact
+claim/fixture pair anywhere in the repository and compares JSON types strictly; a
+private schema-1 ledger is neither required nor commit-eligible. Release and PyPI
+artifact builds run the same scan before packaging.
+
 ### Honest compatibility matrix
 
 Given synthetic CI evidence only, when a maintainer builds the matrix, then the row may

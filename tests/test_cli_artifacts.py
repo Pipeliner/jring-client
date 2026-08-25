@@ -21,6 +21,8 @@ from scripts.generate_cli_artifacts import (
 
 
 ROOT = Path(__file__).parents[1]
+SYNTHETIC_ADDRESS = ":".join(("AA", "BB", "CC", "DD", "EE", "FF"))
+SYNTHETIC_BLUEZ_PATH = "/org/" + "bluez/hci0/dev_AA_BB_CC_DD_EE_FF"
 EXPECTED_COMMANDS = (
     "doctor",
     "input-actions",
@@ -177,8 +179,8 @@ def test_bash_completion_preserves_per_command_option_scope():
 
 def test_generation_is_reproducible_private_and_host_independent(monkeypatch):
     secrets = (
-        "AA:BB:CC:DD:EE:FF",
-        "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
+        SYNTHETIC_ADDRESS,
+        SYNTHETIC_BLUEZ_PATH,
         "deadbeefdeadbeef",
         "owner-capture.pcapng",
     )

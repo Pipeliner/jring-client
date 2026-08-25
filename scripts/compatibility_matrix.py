@@ -134,7 +134,7 @@ def validate_report(report: object) -> dict[str, Any]:
         raise CompatibilityError("unsafe_report", "sensitive content") from exc
     root = _mapping(report, "report")
     _exact(root, _FIELDS, "report fields")
-    if root.get("schema_version") != 1:
+    if type(root.get("schema_version")) is not int or root["schema_version"] != 1:
         _reject("invalid_report", "schema_version")
     _slug(root.get("report_id"), "report_id")
     if root.get("source") not in {"synthetic_ci", "owner_hardware"}:

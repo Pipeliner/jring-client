@@ -233,6 +233,10 @@ Desired outcomes:
 - Let a protocol maintainer distinguish a typed callback projection from a proven
   transaction terminal, so value/event callbacks and ambiguous batched routes can never
   be reported as singleton success.
+- Let a maintainer publish a schema-2 candidate for one sealed vendor device-info
+  canary without copying its private owner ledger, raw vectors, or evidence reference;
+  validation must keep live eligibility, owner authorization, and hardware support
+  false until separate runtime and owner gates exist.
 
 ### Understand what environments are actually supported
 

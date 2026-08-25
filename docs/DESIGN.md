@@ -443,6 +443,33 @@ same fail-closed sensitive-content checks as evidence manifests. It performs no 
 operation and merges rows deterministically. Synthetic and owner evidence remain
 separate, and no computation promotes `untested` into a compatibility claim.
 
+Evidence schema 2 is a separate commit-eligible candidate format, not a private owner
+ledger and not runtime configuration. Its first operation allowlist contains only the
+fixed vendor-main device-info canary shape. The schema states the real prospective
+effects—connection, notification activation, and one response-requesting vendor
+write—while fixing retries, binding, bonding, cloud use, startup time writes, input,
+and OTA to false. One attempt permits at most one response-requesting write, retains no
+raw data, and requires notification deactivation, disconnect, and confirmed cleanup
+before any future result. Protocol roles, executable codec locators, integrity policy,
+terminal set, and symbolic fixture cases are exact constants; arbitrary UUIDs, frames,
+facts, confidence, or success fields are impossible. Derivation removes consent
+administration and any private evidence reference, and always preserves
+`runnable=false`, `live_eligible=false`, `owner_authorized=false`,
+`hardware_eligible=false`, `hardware_verified=false`, and generic vendor-I/O denial. A
+valid candidate therefore proves only that a public review artifact fits the schema.
+The `public_derived` provenance label is a self-declared review input, not an
+authenticated owner signature; the scanner verifies shape and privacy boundaries, not
+the truth of an observation.
+
+Both artifact-build workflows run the same repository evidence scan before creating a
+wheel or source archive, so renaming or moving a malformed claim cannot bypass the
+release gate. Evidence suffixes are reserved repository-wide, and derived fixture
+comparison is strict about JSON scalar types (`false` is not `0`; `1` is not `true`).
+The scanner also content-sniffs every regular file: evidence-shaped JSON is recognized
+without trusting its name, mixed-case evidence suffixes fail, and identifier patterns
+in source, review text, or extensionless data are rejected without naming the file or
+value. Binary signatures and decodable text fragments remain covered by the same pass.
+
 Release preparation uses an isolated workflow with immutable action SHAs and exact
 Python build-tool versions. Wheels must already be reproducible; source archives are
 normalized to sorted members, the commit epoch, numeric ownership, and a deterministic

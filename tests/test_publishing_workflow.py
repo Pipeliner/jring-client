@@ -43,6 +43,7 @@ def test_validation_builds_once_without_oidc_and_exercises_safe_paths():
     assert "compare dist-a dist-b" in validation
     assert "inspect dist-a" in validation
     assert "check-version" in validation
+    assert "python scripts/evidence_tool.py scan ." in validation
     assert "--no-index --no-deps" in validation
     assert "jring doctor --json" in validation
     assert "jring status --simulate --json" in validation

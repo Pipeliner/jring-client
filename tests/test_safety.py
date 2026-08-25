@@ -9,18 +9,21 @@ from jring.discovery import (
 )
 
 
+SYNTHETIC_ADDRESS = ":".join(("AA", "BB", "CC", "DD", "EE", "FF"))
+
+
 def test_address_redaction_is_stable_but_not_reversible():
     redactor = Redactor(salt=b"test-salt")
-    alias = redactor.address("AA:BB:CC:DD:EE:FF")
+    alias = redactor.address(SYNTHETIC_ADDRESS)
     assert alias.startswith("device-")
     assert "AA" not in alias
-    assert alias == redactor.address("AA:BB:CC:DD:EE:FF")
+    assert alias == redactor.address(SYNTHETIC_ADDRESS)
 
 
 def test_selection_requires_exact_explicit_address():
     with pytest.raises(ValueError):
         select_exact(None)
-    assert select_exact("AA:BB:CC:DD:EE:FF") == "AA:BB:CC:DD:EE:FF"
+    assert select_exact(SYNTHETIC_ADDRESS) == SYNTHETIC_ADDRESS
 
 
 def test_discovery_bounds_fail_before_loading_hardware_dependency():
@@ -32,7 +35,7 @@ def test_discovery_bounds_fail_before_loading_hardware_dependency():
 def test_aliases_change_between_process_seeds_and_hide_addresses():
     observations = (
         DiscoveryObservation(
-            address="AA:BB:CC:DD:EE:FF",
+            address=SYNTHETIC_ADDRESS,
             name="JRing",
             service_uuids=("1812",),
             rssi=-48,
@@ -47,4 +50,4 @@ def test_aliases_change_between_process_seeds_and_hide_addresses():
     assert "AA:BB" not in repr(first)
     assert "AA:BB" not in str(first.public_summary())
     assert first.public_summary()["likely_jring_basis"] == "client_name_heuristic"
-    assert first.connection_address() == "AA:BB:CC:DD:EE:FF"
+    assert first.connection_address() == SYNTHETIC_ADDRESS

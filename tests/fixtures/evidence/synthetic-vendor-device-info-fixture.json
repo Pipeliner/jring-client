@@ -1,0 +1,75 @@
+{
+  "claim_id": "synthetic-vendor-device-info",
+  "device_context": {
+    "firmware_major": "synthetic",
+    "model_family": "synthetic-ring"
+  },
+  "effects": {
+    "automatic_retry": false,
+    "binding": false,
+    "bonding": false,
+    "cleanup_must_complete_before_result": true,
+    "cloud_network": false,
+    "connection": true,
+    "disconnect_required": true,
+    "input_injection": false,
+    "maximum_attempts": 1,
+    "maximum_writes_per_attempt": 1,
+    "notification_activation": true,
+    "notification_deactivation_required": true,
+    "ota": false,
+    "raw_retention": false,
+    "startup_time_write": false,
+    "vendor_write": true,
+    "vendor_write_kind": "with_response"
+  },
+  "maturity": "synthetic_candidate",
+  "operation": "vendor_main_device_info_canary_v1",
+  "protocol": {
+    "endpoint_profile": "vendor_main",
+    "identifier_policy": "not_materialized",
+    "integrity_rule": "canary_success_requires_valid_seeded_crc",
+    "request_builder": "encode_static_query:device_info",
+    "response_parser": "parse_vendor_device_info",
+    "terminal_set": [
+      "device_information_rejected",
+      "device_information_succeeded"
+    ]
+  },
+  "review": {
+    "required_gates": [
+      "hardware_evidence",
+      "operation_authorization",
+      "privacy_review",
+      "protocol_review"
+    ],
+    "status": "candidate"
+  },
+  "runtime_authority": {
+    "generic_vendor_io_authorized": false,
+    "hardware_eligible": false,
+    "hardware_verified": false,
+    "live_eligible": false,
+    "owner_authorized": false,
+    "runnable": false
+  },
+  "schema_version": 2,
+  "source": "synthetic",
+  "synthetic_vectors": [
+    {
+      "case": "bad_integrity",
+      "expected_canary_outcome": "rejected_bad_integrity",
+      "fixture_kind": "device_information_bad_integrity"
+    },
+    {
+      "case": "rejection",
+      "expected_canary_outcome": "device_rejected",
+      "fixture_kind": "device_information_rejection"
+    },
+    {
+      "case": "success",
+      "expected_canary_outcome": "succeeded",
+      "fixture_kind": "device_information_success"
+    }
+  ]
+}

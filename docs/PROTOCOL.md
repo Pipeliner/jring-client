@@ -920,10 +920,30 @@ does not attempt to redact unsafe input automatically.
 
 An `owner_authorized` schema-1 manifest is a private local ledger. Mode 0600 is
 required for local validation and the repository scanner rejects it even with those
-permissions; only a separately reviewed synthetic/public-derived fixture is eligible
-for Git. The current schema cannot yet express packet layouts or authorize writes.
-Issue #17 tracks a typed v2 public-claim schema with operation-specific fields,
-synthetic vectors, maturity, and review gates.
+permissions. It never becomes the paired source of a committed fixture.
+
+Schema 2 adds a standalone, commit-eligible public candidate paired with its own
+minimal fixture. The initial closed allowlist is
+`vendor_main_device_info_canary_v1`: one fixed device-info request builder, the exact
+device-info response parser, seeded-CRC integrity requirement, identifier
+non-materialization, and explicit success/rejection terminals. It contains only named
+symbolic fixture cases—never frame bytes—and links the existing static request builder,
+parser, and matched-terminal eligibility in executable tests. Bad seeded CRC is a
+specified canary rejection even though the offline parser still exposes
+`integrity_valid=false` for analysis. A future canary would connect, activate
+notifications, perform at most one response-requesting vendor write, deactivate
+notifications, and disconnect; cleanup must complete before a result and raw data is
+not retained. Automatic retry, binding, bonding, cloud access, startup time writes,
+input injection, and OTA are forbidden.
+
+Schema-2 validation is not evidence authentication, operation consent, a hardware
+result, or a Bluetooth capability. Its review state remains `candidate`, and its live,
+owner, runnable, hardware-eligibility, generic-I/O, and hardware-verification fields
+must all be false. A public-derived candidate says
+only that its private evidence reference was withheld; neither the candidate nor its
+fixture carries an owner-linkable evidence ID. The future private pre-run plan, sealed
+result-state schema, owner canary, and runtime registry remain separate work under
+issues #17, #18, and #21.
 
 Each fixture covers one operation and includes only declared facts needed by a test.
 The repository scan checks every tracked, staged, and non-ignored new regular file,

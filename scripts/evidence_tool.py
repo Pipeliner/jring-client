@@ -21,12 +21,39 @@ _MAC = re.compile(r"(?i)(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}")
 _BLUEZ_PATH = re.compile(r"/org/bluez(?:/[A-Za-z0-9_]+)+")
 _EMAIL = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 _PRECISE_TIME = re.compile(r"\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?")
+_PERSONAL_TIMESTAMP = re.compile(
+    r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?"
+)
 _LONG_HEX = re.compile(r"(?i)\b[0-9a-f]{16,}\b")
 _UNSAFE_TEXT_FIELD = re.compile(
     r"(?im)^\s*(?:account|account_email|account_id|bluetooth_address|blood_pressure|"
     r"device_id|ecg|email|heart_rate|health|health_measurement|mac|mac_address|"
     r"oxygen|payload|raw_bytes|raw_payload|raw_report|report_map|serial|serial_number|"
     r"spo2|temperature|timestamp|token|user|user_id|username)\s*[:=,]"
+)
+_UNSAFE_TEXT_ASSIGNMENT = re.compile(
+    r"(?im)^\s*(?:account|account_email|account_id|bluetooth_address|blood_pressure|"
+    r"device_id|ecg|email|heart_rate|health_measurement|mac_address|raw_bytes|"
+    r"raw_payload|raw_report|report_map|serial_number|spo2|temperature|timestamp|"
+    r"user_id|username)\s*[:=]"
+)
+_PYTHON_PRIVATE_VALUE = re.compile(
+    r"(?im)^\s*(?:(?:blood_pressure|heart_rate|spo2|temperature)\s*=\s*[-+]?\d|"
+    r"(?:raw_bytes|raw_payload|raw_report|report_map)\s*=\s*"
+    r"(?:[rubf]*['\"][0-9a-f]|[-+]?\d))"
+)
+_EMBEDDED_OWNER_LEDGER = re.compile(
+    r"(?im)['\"]?source['\"]?\s*"
+    r"(?::|(?<![=!])=(?!=))\s*['\"]?owner_authorized['\"]?"
+)
+_EMBEDDED_MEASUREMENT = re.compile(
+    r"(?im)(?:['\"](?:blood_pressure|heart_rate|spo2|temperature)['\"]|"
+    r"(?<![A-Za-z0-9_.])(?:blood_pressure|heart_rate|spo2|temperature))"
+    r"\s*:\s*[-+]?\d"
+)
+_EMBEDDED_RAW_CONSTRUCTOR = re.compile(
+    r"(?im)\b(?:raw_bytes|raw_payload|raw_report|report_map)\s*=\s*"
+    r"bytes\.fromhex\s*\("
 )
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
@@ -72,6 +99,10 @@ _REQUIRED_REDACTIONS = {
     "health_measurements",
     "raw_payloads",
 }
+_PUBLIC_CLAIM_REDACTIONS = _REQUIRED_REDACTIONS | {
+    "bluez_paths",
+    "unique_device_identifiers",
+}
 _TOP_LEVEL_FIELDS = {
     "schema_version",
     "evidence_id",
@@ -88,9 +119,93 @@ _OPERATIONS = {"service_inventory", "device_information", "neutral_event"}
 _CONFIDENCE = {"synthetic", "low", "medium", "high"}
 _SOURCES = {"synthetic", "owner_authorized"}
 _METHODS = {"synthetic_construction", "manual_gatt_inventory", "sanitized_tool_export"}
+_PUBLIC_CLAIM_FIELDS = {
+    "schema_version",
+    "claim_id",
+    "provenance",
+    "consent",
+    "operation",
+    "device_context",
+    "redactions",
+    "protocol",
+    "effects",
+    "synthetic_vectors",
+    "maturity",
+    "review",
+    "runtime_authority",
+}
+_DEVICE_INFO_OPERATION = "vendor_main_device_info_canary_v1"
+_DEVICE_INFO_PROTOCOL = {
+    "endpoint_profile": "vendor_main",
+    "request_builder": "encode_static_query:device_info",
+    "response_parser": "parse_vendor_device_info",
+    "terminal_set": [
+        "device_information_rejected",
+        "device_information_succeeded",
+    ],
+    "integrity_rule": "canary_success_requires_valid_seeded_crc",
+    "identifier_policy": "not_materialized",
+}
+_DEVICE_INFO_EFFECTS = {
+    "connection": True,
+    "notification_activation": True,
+    "notification_deactivation_required": True,
+    "vendor_write": True,
+    "vendor_write_kind": "with_response",
+    "maximum_attempts": 1,
+    "maximum_writes_per_attempt": 1,
+    "automatic_retry": False,
+    "disconnect_required": True,
+    "cleanup_must_complete_before_result": True,
+    "binding": False,
+    "bonding": False,
+    "cloud_network": False,
+    "startup_time_write": False,
+    "input_injection": False,
+    "ota": False,
+    "raw_retention": False,
+}
+_DEVICE_INFO_VECTORS = [
+    {
+        "case": "bad_integrity",
+        "fixture_kind": "device_information_bad_integrity",
+        "expected_canary_outcome": "rejected_bad_integrity",
+    },
+    {
+        "case": "rejection",
+        "fixture_kind": "device_information_rejection",
+        "expected_canary_outcome": "device_rejected",
+    },
+    {
+        "case": "success",
+        "fixture_kind": "device_information_success",
+        "expected_canary_outcome": "succeeded",
+    },
+]
+_CANDIDATE_REVIEW = {
+    "status": "candidate",
+    "required_gates": [
+        "hardware_evidence",
+        "operation_authorization",
+        "privacy_review",
+        "protocol_review",
+    ],
+}
+_NO_RUNTIME_AUTHORITY = {
+    "runnable": False,
+    "live_eligible": False,
+    "owner_authorized": False,
+    "hardware_eligible": False,
+    "hardware_verified": False,
+    "generic_vendor_io_authorized": False,
+}
 _FORBIDDEN_NAMES = (".pcap", ".pcapng", ".btsnoop", ".hcidump")
 _FORBIDDEN_SUFFIXES = {".har", ".apk", ".xapk"}
-_DATA_SUFFIXES = {".csv", ".json", ".jsonl", ".log", ".txt", ".yaml", ".yml"}
+_RESERVED_EVIDENCE_SUFFIXES = (
+    "-manifest.json",
+    "-claim.json",
+    "-fixture.json",
+)
 _IGNORED_DIRECTORIES = {".git", ".venv", ".pytest_cache", "build", "dist", "__pycache__"}
 _FORBIDDEN_MAGIC_PREFIXES = (
     b"dex\n",
@@ -170,6 +285,37 @@ def _exact_fields(value: dict[str, Any], fields: set[str], field: str) -> None:
         _reject("invalid_manifest", field)
 
 
+def _strict_equal(value: object, expected: object) -> bool:
+    if type(value) is not type(expected):
+        return False
+    if isinstance(expected, dict):
+        return set(value) == set(expected) and all(
+            _strict_equal(value[key], child) for key, child in expected.items()
+        )
+    if isinstance(expected, list):
+        return len(value) == len(expected) and all(
+            _strict_equal(item, child) for item, child in zip(value, expected)
+        )
+    return value == expected
+
+
+def _claim_mapping(value: object, field: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        _reject("invalid_claim", field)
+    return value
+
+
+def _claim_exact_fields(value: dict[str, Any], fields: set[str], field: str) -> None:
+    if set(value) != fields:
+        _reject("invalid_claim", field)
+
+
+def _claim_slug(value: object, field: str, *, limit: int = 64) -> str:
+    if not isinstance(value, str) or len(value) > limit or not _SLUG.fullmatch(value):
+        _reject("invalid_claim", field)
+    return value
+
+
 def _slug(value: object, field: str, *, limit: int = 64) -> str:
     if not isinstance(value, str) or len(value) > limit or not _SLUG.fullmatch(value):
         _reject("invalid_manifest", field)
@@ -180,7 +326,7 @@ def validate_manifest(manifest: object) -> dict[str, Any]:
     _scan_sensitive(manifest)
     root = _mapping(manifest, "manifest")
     _exact_fields(root, _TOP_LEVEL_FIELDS, "manifest fields")
-    if root.get("schema_version") != 1:
+    if type(root.get("schema_version")) is not int or root["schema_version"] != 1:
         _reject("invalid_manifest", "schema_version")
     _slug(root.get("evidence_id"), "evidence_id")
 
@@ -257,6 +403,80 @@ def validate_manifest(manifest: object) -> dict[str, Any]:
     return root
 
 
+def validate_public_claim(claim: object) -> dict[str, Any]:
+    """Validate a commit-eligible candidate without granting runtime authority.
+
+    Schema 2 is deliberately operation-specific. It can carry a synthetic candidate or
+    a separately reviewed public derivation from private owner evidence, but it cannot
+    authorize a Bluetooth operation or assert general hardware support.
+    """
+
+    _scan_sensitive(claim)
+    root = _claim_mapping(claim, "claim")
+    _claim_exact_fields(root, _PUBLIC_CLAIM_FIELDS, "claim fields")
+    if type(root.get("schema_version")) is not int or root["schema_version"] != 2:
+        _reject("invalid_claim", "schema_version")
+
+    provenance = _claim_mapping(root.get("provenance"), "provenance")
+    _claim_exact_fields(
+        provenance, {"source", "private_evidence_reference"}, "provenance fields"
+    )
+    source = provenance.get("source")
+    if source not in {"synthetic", "public_derived"}:
+        _reject("invalid_claim", "provenance.source")
+    expected_reference = "not_applicable" if source == "synthetic" else "withheld"
+    if provenance.get("private_evidence_reference") != expected_reference:
+        _reject("invalid_claim", "provenance.private_evidence_reference")
+    expected_claim_id = (
+        "synthetic-vendor-device-info"
+        if source == "synthetic"
+        else "vendor-device-info-public-candidate"
+    )
+    if root.get("claim_id") != expected_claim_id:
+        _reject("invalid_claim", "claim_id")
+
+    consent = _claim_mapping(root.get("consent"), "consent")
+    if not _strict_equal(
+        consent, {"publication": "granted", "scope": "public_repository"}
+    ):
+        _reject("invalid_claim", "consent")
+    if root.get("operation") != _DEVICE_INFO_OPERATION:
+        _reject("invalid_claim", "operation")
+
+    context = _claim_mapping(root.get("device_context"), "device_context")
+    _claim_exact_fields(context, {"model_family", "firmware_major"}, "device context")
+    expected_context = (
+        {"model_family": "synthetic-ring", "firmware_major": "synthetic"}
+        if source == "synthetic"
+        else {"model_family": "withheld", "firmware_major": "withheld"}
+    )
+    if not _strict_equal(context, expected_context):
+        _reject("invalid_claim", "provenance device context")
+
+    redactions = _claim_mapping(root.get("redactions"), "redactions")
+    _claim_exact_fields(redactions, _PUBLIC_CLAIM_REDACTIONS, "redactions")
+    if any(value is not True for value in redactions.values()):
+        _reject("invalid_claim", "redactions")
+
+    closed_values = (
+        ("protocol", _DEVICE_INFO_PROTOCOL),
+        ("effects", _DEVICE_INFO_EFFECTS),
+        ("synthetic_vectors", _DEVICE_INFO_VECTORS),
+        (
+            "maturity",
+            "synthetic_candidate"
+            if source == "synthetic"
+            else "public_derived_candidate",
+        ),
+        ("review", _CANDIDATE_REVIEW),
+        ("runtime_authority", _NO_RUNTIME_AUTHORITY),
+    )
+    for field, expected in closed_values:
+        if not _strict_equal(root.get(field), expected):
+            _reject("invalid_claim", field)
+    return root
+
+
 def derive_fixture(manifest: object) -> dict[str, Any]:
     safe = validate_manifest(manifest)
     source = safe["provenance"]["source"]
@@ -277,6 +497,26 @@ def derive_fixture(manifest: object) -> dict[str, Any]:
     }
 
 
+def derive_public_claim(claim: object) -> dict[str, Any]:
+    safe = validate_public_claim(claim)
+    return {
+        "schema_version": 2,
+        "claim_id": safe["claim_id"],
+        "source": safe["provenance"]["source"],
+        "operation": safe["operation"],
+        "device_context": dict(safe["device_context"]),
+        "protocol": dict(safe["protocol"]),
+        "effects": dict(safe["effects"]),
+        "synthetic_vectors": [dict(item) for item in safe["synthetic_vectors"]],
+        "maturity": safe["maturity"],
+        "review": {
+            "status": safe["review"]["status"],
+            "required_gates": list(safe["review"]["required_gates"]),
+        },
+        "runtime_authority": dict(safe["runtime_authority"]),
+    }
+
+
 def serialize_fixture(fixture: dict[str, Any]) -> str:
     return json.dumps(fixture, indent=2, sort_keys=True) + "\n"
 
@@ -292,8 +532,15 @@ def load_manifest(path: Path) -> dict[str, Any]:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise EvidenceError("invalid_manifest", "input file") from exc
-    safe = validate_manifest(manifest)
-    if safe["provenance"]["source"] == "owner_authorized" and details.st_mode & 0o077:
+    version = manifest.get("schema_version") if isinstance(manifest, dict) else None
+    if type(version) is not int:
+        _reject("invalid_manifest", "schema_version")
+    safe = validate_manifest(manifest) if version == 1 else validate_public_claim(manifest)
+    if (
+        version == 1
+        and safe["provenance"]["source"] == "owner_authorized"
+        and details.st_mode & 0o077
+    ):
         _reject("unsafe_permissions", "input file")
     return safe
 
@@ -370,57 +617,165 @@ def _validate_repository_files(paths: list[Path]) -> list[Path]:
     return sorted(paths)
 
 
+def _looks_like_evidence(payload: object) -> bool:
+    if not isinstance(payload, dict) or "schema_version" not in payload:
+        return False
+    fields = set(payload)
+    return (
+        {"provenance", "redactions"} <= fields
+        or {"operation", "protocol", "runtime_authority"} <= fields
+    )
+
+
+def _scan_repository_text(text: str, path: Path) -> None:
+    if _EMBEDDED_OWNER_LEDGER.search(text):
+        _reject("private_evidence", "repository evidence")
+    public_json_claim_markers = (
+        re.search(r"(?is)['\"]schema_version['\"]\s*:\s*2\b", text),
+        re.search(r"(?is)['\"]provenance['\"]\s*:", text),
+        re.search(r"(?is)['\"]runtime_authority['\"]\s*:", text),
+        re.search(r"(?is)vendor_main_device_info_canary_v1", text),
+    )
+    public_python_claim_markers = (
+        re.search(r"(?im)\bschema_version\s*=\s*2\b", text),
+        re.search(r"(?im)\bprovenance\s*=", text),
+        re.search(r"(?im)\bruntime_authority\s*=", text),
+        re.search(r"(?is)vendor_main_device_info_canary_v1", text),
+    )
+    public_yaml_claim_markers = (
+        re.search(r"(?im)^\s*schema_version\s*:\s*2\b", text),
+        re.search(r"(?im)^\s*provenance\s*:", text),
+        re.search(r"(?im)^\s*runtime_authority\s*:", text),
+        re.search(r"(?is)vendor_main_device_info_canary_v1", text),
+    )
+    if any(
+        all(markers)
+        for markers in (
+            public_json_claim_markers,
+            public_python_claim_markers,
+            public_yaml_claim_markers,
+        )
+    ):
+        _reject("invalid_fixture", "repository evidence")
+    if _EMBEDDED_MEASUREMENT.search(text) or _EMBEDDED_RAW_CONSTRUCTOR.search(text):
+        _reject("unsafe_content", "repository data")
+    if any(pattern.search(text) for pattern in (_MAC, _BLUEZ_PATH, _EMAIL)):
+        _reject("unsafe_content", "repository data")
+    suffix = path.suffix.casefold()
+    source_or_review_text = suffix in {".py", ".md", ".rst"}
+    lock_or_workflow = suffix in {".lock", ".toml"} or (
+        ".github" in path.parts and "workflows" in path.parts
+    )
+    if not source_or_review_text and not lock_or_workflow:
+        if _PRECISE_TIME.search(text) or _LONG_HEX.search(text):
+            _reject("unsafe_content", "repository data")
+    elif source_or_review_text and _PERSONAL_TIMESTAMP.search(text):
+        _reject("unsafe_content", "repository data")
+    if suffix == ".py" and _PYTHON_PRIVATE_VALUE.search(text):
+        _reject("unsafe_content", "repository data")
+    if suffix in {".md", ".rst"} and _UNSAFE_TEXT_ASSIGNMENT.search(text):
+        _reject("unsafe_content", "repository data")
+    if not source_or_review_text and _UNSAFE_TEXT_FIELD.search(text):
+        _reject("unsafe_content", "repository data")
+
+
 def scan_repository(root: Path) -> None:
     manifests: dict[Path, dict[str, Any]] = {}
+    claims: dict[Path, dict[str, Any]] = {}
     fixtures: dict[Path, object] = {}
     for path in _repository_files(root):
-        is_evidence = "evidence" in path.parts and path.name.endswith(
-            ("-manifest.json", "-fixture.json")
+        lowered_name = path.name.casefold()
+        reserved_suffix = next(
+            (
+                suffix
+                for suffix in _RESERVED_EVIDENCE_SUFFIXES
+                if lowered_name.endswith(suffix)
+            ),
+            None,
         )
+        is_evidence = reserved_suffix is not None and path.name.endswith(
+            reserved_suffix
+        )
+        if reserved_suffix is not None and not is_evidence:
+            _reject("invalid_fixture", "repository evidence")
+
+        try:
+            text_content = path.read_text(encoding="utf-8")
+        except UnicodeError:
+            try:
+                text_content = path.read_bytes().decode("utf-8", errors="ignore")
+            except OSError as exc:
+                raise EvidenceError("unsafe_content", "repository data") from exc
+        except OSError as exc:
+            raise EvidenceError("unsafe_content", "repository data") from exc
+        parsed_json: object | None = None
+        if text_content is not None and (
+            path.suffix.casefold() == ".json"
+            or text_content.lstrip().startswith(("{", "["))
+        ):
+            try:
+                parsed_json = json.loads(text_content)
+            except json.JSONDecodeError as exc:
+                if path.suffix.casefold() == ".json":
+                    raise EvidenceError(
+                        "unsafe_content", "repository data"
+                    ) from exc
+        if not is_evidence and _looks_like_evidence(parsed_json):
+            provenance = parsed_json.get("provenance")
+            if (
+                isinstance(provenance, dict)
+                and provenance.get("source") == "owner_authorized"
+            ):
+                _reject("private_evidence", "repository evidence")
+            _reject("invalid_fixture", "repository evidence")
         if not is_evidence:
-            if path.suffix.lower() in _DATA_SUFFIXES:
-                try:
-                    content = path.read_text(encoding="utf-8")
-                except (OSError, UnicodeError) as exc:
-                    raise EvidenceError("unsafe_content", "repository data") from exc
-                if path.suffix.lower() == ".json":
+            if parsed_json is not None:
+                _scan_sensitive(parsed_json)
+            elif text_content is not None:
+                if path.suffix.casefold() == ".jsonl":
                     try:
-                        _scan_sensitive(json.loads(content))
-                    except json.JSONDecodeError as exc:
-                        raise EvidenceError("unsafe_content", "repository data") from exc
-                elif path.suffix.lower() == ".jsonl":
-                    try:
-                        for line in content.splitlines():
+                        for line in text_content.splitlines():
                             if line.strip():
                                 _scan_sensitive(json.loads(line))
                     except json.JSONDecodeError as exc:
                         raise EvidenceError("unsafe_content", "repository data") from exc
                 else:
-                    workflow = ".github" in path.parts and "workflows" in path.parts
-                    _scan_sensitive(content, allow_long_hex=workflow)
-                    if _UNSAFE_TEXT_FIELD.search(content):
-                        _reject("unsafe_content", "repository data")
+                    _scan_repository_text(text_content, path)
             continue
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            payload = json.loads(text_content)
+        except json.JSONDecodeError as exc:
             raise EvidenceError("invalid_manifest", "repository evidence") from exc
         if path.name.endswith("-manifest.json"):
             manifest = validate_manifest(payload)
             if manifest["provenance"]["source"] == "owner_authorized":
                 _reject("private_evidence", "repository evidence")
             manifests[path] = manifest
+        elif path.name.endswith("-claim.json"):
+            claims[path] = validate_public_claim(payload)
         else:
             _scan_sensitive(payload)
             fixtures[path] = payload
     for path, manifest in manifests.items():
         fixture_path = path.with_name(path.name.replace("-manifest.json", "-fixture.json"))
-        if fixture_path not in fixtures or fixtures[fixture_path] != derive_fixture(manifest):
+        if fixture_path not in fixtures or not _strict_equal(
+            fixtures[fixture_path], derive_fixture(manifest)
+        ):
             _reject("invalid_fixture", "repository evidence")
-    if set(fixtures) != {
+    for path, claim in claims.items():
+        fixture_path = path.with_name(path.name.replace("-claim.json", "-fixture.json"))
+        if fixture_path not in fixtures or not _strict_equal(
+            fixtures[fixture_path], derive_public_claim(claim)
+        ):
+            _reject("invalid_fixture", "repository evidence")
+    expected_fixtures = {
         path.with_name(path.name.replace("-manifest.json", "-fixture.json"))
         for path in manifests
-    }:
+    } | {
+        path.with_name(path.name.replace("-claim.json", "-fixture.json"))
+        for path in claims
+    }
+    if set(fixtures) != expected_fixtures:
         _reject("invalid_fixture", "repository evidence")
 
 
@@ -444,9 +799,20 @@ def main(argv: list[str] | None = None) -> int:
         else:
             manifest = load_manifest(args.manifest)
             if args.command == "validate":
-                print("Evidence manifest passed fail-closed validation.")
+                message = (
+                    "Evidence manifest passed fail-closed validation."
+                    if manifest["schema_version"] == 1
+                    else "Public evidence candidate passed fail-closed validation; "
+                    "runtime and hardware authority remain false."
+                )
+                print(message)
             else:
-                print(serialize_fixture(derive_fixture(manifest)), end="")
+                derived = (
+                    derive_fixture(manifest)
+                    if manifest["schema_version"] == 1
+                    else derive_public_claim(manifest)
+                )
+                print(serialize_fixture(derived), end="")
     except EvidenceError as error:
         print(f"evidence: error: {error}", file=sys.stderr)
         return 2

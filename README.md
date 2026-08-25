@@ -109,6 +109,8 @@ Contributions are welcome, but raw Bluetooth captures, app archives, device addr
 account details, timestamps, health values, and vendor payload dumps do not belong in
 GitHub issues or commits. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the local
 fail-closed evidence workflow and [SECURITY.md](SECURITY.md) for private reporting.
+Schema-2 public candidates currently cover only one sealed vendor-main device-info
+canary shape; validation does not enable it, authorize hardware, or establish support.
 
 Maintainers can generate a hardware-independent compatibility row and deterministically
 merge reviewed reports without publishing them:
