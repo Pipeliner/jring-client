@@ -54,7 +54,7 @@ class RecoveredRequestCallbackCorrelations:
 
     @property
     def rows_with_unresolved_reasons_count(self) -> int:
-        """Count every row retaining a caveat, not only wholly unclosed rows."""
+        """Count every caveated row, not only statically unclosed relationships."""
 
         return sum(bool(row.unresolved_reasons) for row in self.rows)
 
@@ -237,6 +237,93 @@ _OVERRIDES: dict[str, dict[str, object]] = {
         "state": "same_opcode_event_candidate_unproven",
         "shared": True,
         "unresolved": ("notification_is_not_proven_to_acknowledge_request",),
+    },
+    "setSmsRspSendAck": {
+        "request_discriminator": (
+            "inbound_opcode_4d_subcommand_06_event_and_outbound_"
+            "subcommand_07_candidate"
+        ),
+        "predicates": (),
+        "callbacks": ("onNotifySmsRspSend",),
+        "multiplicity": "inbound_event_and_outbound_ack_multiplicity_not_proven",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "reverse_direction_event_ack_candidate_unproven",
+        "shared": True,
+        "unresolved": (
+            "callback_value_to_ack_value_propagation_not_proven",
+            "app_ack_invoke_not_observed",
+            "local_sms_side_effect_and_ack_order_not_proven",
+            "outbound_ack_response_and_terminal_not_proven",
+        ),
+    },
+    "sendWeather": {
+        "request_discriminator": (
+            "inbound_opcode_22_weather_refresh_and_outbound_cached_weather_"
+            "projection_candidate"
+        ),
+        "predicates": (),
+        "callbacks": ("onGetDeviceAction",),
+        "multiplicity": "refresh_event_and_weather_record_multiplicity_not_proven",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "reverse_direction_pipeline_candidate_unproven",
+        "shared": True,
+        "unresolved": (
+            "opcode_06_also_projects_device_actions",
+            "refresh_to_weather_call_order_and_batch_count_not_proven",
+            "local_location_acquisition_not_reproduced",
+            "outbound_weather_response_and_terminal_not_proven",
+        ),
+    },
+    "setGSensorIndState": {
+        "request_discriminator": "outbound_opcode_78_boolean_subcommand_00_or_01",
+        "predicates": ("inbound_opcode_78_runtime_subcommand_00_or_01",),
+        "callbacks": ("onGetGSensorData",),
+        "multiplicity": "zero_or_more_motion_candidate_frames",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "shared_stateful_event_candidate_unproven",
+        "shared": True,
+        "unresolved": (
+            "setter_app_invoke_not_observed",
+            "opcode_78_is_shared_with_known_non_motion_subcommands",
+            "selector_meaning_axes_and_enable_delivery_causation_not_proven",
+            "disable_behavior_and_terminal_not_proven",
+        ),
+    },
+    "setAiChatState": {
+        "predicates": ("opcode_4e_action_event",),
+        "callbacks": ("onGetChatgptAction",),
+        "multiplicity": "zero_or_more_notifications",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "event_candidate_unproven",
+        "shared": True,
+        "unresolved": (
+            "setter_app_invoke_not_observed",
+            "opcode_or_field_correlation_and_temporal_order_not_proven",
+            "shared_opcode_54_enable_disable_ownership_not_proven",
+            "action_event_terminal_not_proven",
+        ),
+    },
+    "setChatgptContent": {
+        "request_discriminator": (
+            "inbound_opcode_4e_action_and_outbound_opcode_4f_content_candidate"
+        ),
+        "predicates": (),
+        "callbacks": ("onGetChatgptAction",),
+        "multiplicity": "action_event_and_content_frame_multiplicity_not_proven",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "reverse_direction_pipeline_candidate_unproven",
+        "shared": True,
+        "unresolved": (
+            "content_request_app_invoke_not_observed",
+            "action_to_content_type_value_mapping_and_call_order_not_proven",
+            "fragment_batch_failure_and_terminal_not_proven",
+            "local_ai_execution_not_reproduced",
+        ),
     },
 }
 

@@ -208,16 +208,25 @@ response correlation, safe retry, or hardware support.
 
 A closed correlation ledger now accounts for all 85 deterministic request codecs.
 Forty-seven have exact single-frame callback eligibility, one has exact branching,
-six are shared streams, five are shared/stateful, seven are unproven event candidates
-(six raw plus one same-opcode contact-fingerprint relationship), and 18 remain
-explicitly unresolved. The contact relationship proves only matching outbound and
+six are shared streams, five are shared/stateful, nine are non-ack event candidates,
+four are reverse-direction pipelines or candidates, and 13 remain explicitly
+unresolved. The contact relationship proves only matching outbound and
 inbound `46` four-byte shapes plus callback eligibility; it proves no causality,
 acknowledgement, multiplicity, failure, or terminal. The phone-volume pair is instead a
 reverse-direction pipeline: an inbound request causes an outbound host-state projection,
-without proving any acknowledgement or terminal. These are dispatcher relationships,
-not transaction proof: the source has no wire transaction identifier and its wait state
-is not operation-bound. Safe matching therefore requires endpoint, discriminator,
-operation token, and connection generation; silence and local idle remain unknown.
+without proving any acknowledgement or terminal.
+The SMS-send pair is a second reverse-direction candidate: inbound `4d/06` projects a
+redacted event and outbound `4d/07` is ACK-named, but value propagation, ordering,
+failure, response, and terminal semantics are unproven. These are dispatcher
+relationships, not transaction proof: the source has no wire transaction identifier
+and its wait state is not operation-bound. Safe matching therefore requires endpoint,
+discriminator, operation token, and connection generation; silence and local idle
+remain unknown.
+Four additional topology rows record only what the committed dispatcher and codec
+evidence can support: a shared weather-refresh/cached-weather candidate, a shared
+motion-stream state candidate, an unowned ChatGPT action event candidate, and a shared
+action/fragmented-content candidate. All retain no proven ordering, failure, or terminal
+and authorize no runtime.
 
 Offline singleton runtime reproduction now includes the eight typed settings families,
 four static query families, seven personal-setting families, and screen-light route.

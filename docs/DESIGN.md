@@ -219,13 +219,20 @@ alarm batching and dial-state queue mutation divergences explicit and remains st
 non-callable, and hardware-ineligible.
 
 Request/callback correlation is a third view over the 85 deterministic request codecs.
-Each request has exactly one closed row, including 18 explicitly unresolved rows and
+Each request has exactly one closed row, including 13 explicitly unresolved rows and
 zero unspecified rows. The model preserves endpoint role, opcode/subcommand or marker
 predicates, ordered callback projections, multiplicity, direct versus silent failure,
 and terminal rules. Raw typed notifications and the same-opcode contact-fingerprint
 notification remain event candidates rather than acknowledgements. The phone-volume
 callback is an inbound request that causes an
 outbound host-state projection; its shared opcode is not treated as an acknowledgement.
+The SMS send callback and ACK-named request are recorded only as a reverse-direction
+event-to-ack candidate: the model does not claim callback-value propagation, call
+ordering, a response to the outbound ACK, or a terminal.
+Weather refresh, motion delivery, ChatGPT actions, and fragmented chat content are
+also represented only as shared or reverse-direction event candidates. Their rows
+retain unknown request ownership, causality, local side effects, failure, and terminal
+semantics instead of converting capability grouping into acknowledgement evidence.
 Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 

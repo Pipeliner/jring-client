@@ -183,8 +183,9 @@ Desired outcomes:
   direct, bound, branching, pipeline, stateful, and unresolved-family relationships.
 - Exercise generic history through an exact fake request, with source callback counts
   preserved and local quiet visibly distinct from a device-confirmed terminal.
-- Show wholly unclosed correlations, all rows retaining caveats, and every terminal-rule
-  category as separate denominators so a smaller gap count cannot imply parity.
+- Show generic explicitly-unresolved rows, all rows retaining caveats, and every
+  terminal-rule category as separate denominators so a smaller gap count cannot imply
+  parity.
 - See deterministic main/raw packet routes separately from shared preflight, dynamic
   writes, descriptor control, DFU, and operations that produce no fixed packet.
 - Expose process-local/system broadcast mismatches, unhandled registered actions,

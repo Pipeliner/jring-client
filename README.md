@@ -161,14 +161,20 @@ reference classification—not semantic, dependency/transitive, runtime, or hard
 completion.
 The report also gives every deterministic request codec one request/callback
 correlation row. Proven single responses, shared streams, stateful families, raw event
-candidates, callback-silent failures, and explicit unknowns remain distinct. Eighteen
-rows are wholly unclosed, while 58 of 85 retain at least one explicit caveat. The
-contact-fingerprint request and notification share an exact `46` four-byte shape but
-remain an unproven event relationship, not an acknowledgement. The phone-volume path
+candidates, callback-silent failures, and explicit unknowns remain distinct. Thirteen
+rows remain in the generic explicitly-unresolved state, while 58 of 85 retain at least
+one explicit caveat. The contact-fingerprint request and notification share an exact `46`
+four-byte shape but remain an unproven event relationship, not an acknowledgement. The
+phone-volume path
 is modeled as an inbound device request followed by an outbound host-state projection,
-never as an acknowledgement. Terminal rules comprise 36 single matched
-responses, 29 with no proven terminal, 17 per-frame only, two local-quiet-unknown, and
-one metadata-or-marker-else-local-quiet-unknown.
+never as an acknowledgement. The SMS-send path likewise has only an inbound `4d/06`
+event and an outbound `4d/07` acknowledgement candidate: value propagation, ordering,
+failure, and terminal behavior remain unproven.
+Weather refresh, motion delivery, ChatGPT action, and fragmented chat content now have
+explicit non-terminal event/shared-topology candidate rows too; none claims request
+ownership, causality, acknowledgement, or hardware support. Terminal rules comprise 36
+single matched responses, 29 with no proven terminal, 17 per-frame only, two
+local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown.
 Local quiet is never promoted to success, and matching requires an operation token
 plus connection generation.
 The fake-only singleton transaction simulator composes four static query families, the

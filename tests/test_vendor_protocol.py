@@ -1083,6 +1083,8 @@ def test_sms_send_discards_text_and_reports_apk_off_by_one_projection():
 
     with pytest.raises(ProtocolError):
         parse_vendor_sms_send(bytes((0x4D, 6, 9, 16)) + bytes(16))
+    with pytest.raises(ProtocolError):
+        parse_vendor_sms_send(bytes((0x4D, 7, 9, 0)) + bytes(16))
 
 
 def test_wifi_state_discards_address_material_and_never_starts_networking():
