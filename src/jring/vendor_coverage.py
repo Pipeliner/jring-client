@@ -154,6 +154,36 @@ _OFFLINE_REQUEST_CODECS = frozenset(
     }
 )
 _OFFLINE_RAW_REQUEST_CODECS = frozenset(_RAW_COMMANDS)
+_OFFLINE_MUTATION_CODECS = frozenset(
+    {
+        "editDeviceDialCustom",
+        "sendVibrationSignal",
+        "setAlarm",
+        "setAntiLost",
+        "setAutoHeartMode",
+        "setBPAdjust",
+        "setBloodPressureMode",
+        "setDeviceCode",
+        "setDeviceDialState",
+        "setDeviceHeartRateArea",
+        "setDeviceInfo",
+        "setDeviceMode",
+        "setDeviceName",
+        "setDeviceWallpaperState",
+        "setFemaleReminder",
+        "setGoalStep",
+        "setHourFormat",
+        "setIdleTime",
+        "setLanguage",
+        "setPhontMode",
+        "setPressureMode",
+        "setReminder",
+        "setReminderText",
+        "setSleepTime",
+        "setSpoMode",
+        "setSugarMode",
+    }
+)
 
 _ROUTES = (
     ("main_command", _MAIN_COMMANDS),
@@ -179,6 +209,8 @@ def static_vendor_operation_coverage() -> tuple[StaticVendorOperation, ...]:
                 if name in _OFFLINE_REQUEST_CODECS
                 else "offline_raw_request_codec"
                 if name in _OFFLINE_RAW_REQUEST_CODECS
+                else "offline_mutation_codec"
+                if name in _OFFLINE_MUTATION_CODECS
                 else "not_reproduced"
             ),
         )

@@ -61,6 +61,48 @@ def test_all_six_raw_commands_have_offline_request_codecs_only():
     }
 
 
+def test_twenty_six_mutations_have_offline_codecs_without_live_eligibility():
+    implemented = {
+        entry.name
+        for entry in static_vendor_operation_coverage()
+        if entry.python_state == "offline_mutation_codec"
+    }
+
+    assert implemented == {
+        "editDeviceDialCustom",
+        "sendVibrationSignal",
+        "setAlarm",
+        "setAntiLost",
+        "setAutoHeartMode",
+        "setBPAdjust",
+        "setBloodPressureMode",
+        "setDeviceCode",
+        "setDeviceDialState",
+        "setDeviceHeartRateArea",
+        "setDeviceInfo",
+        "setDeviceMode",
+        "setDeviceName",
+        "setDeviceWallpaperState",
+        "setFemaleReminder",
+        "setGoalStep",
+        "setHourFormat",
+        "setIdleTime",
+        "setLanguage",
+        "setPhontMode",
+        "setPressureMode",
+        "setReminder",
+        "setReminderText",
+        "setSleepTime",
+        "setSpoMode",
+        "setSugarMode",
+    }
+    assert all(
+        entry.hardware_eligible is False
+        for entry in static_vendor_operation_coverage()
+        if entry.name in implemented
+    )
+
+
 def test_static_coverage_never_promotes_an_operation_to_hardware():
     coverage = static_vendor_operation_coverage()
 
@@ -76,13 +118,15 @@ def test_sensitive_and_destructive_surfaces_remain_visibly_unimplemented():
         "setContactInfo",
         "setWifiHotSpotInfo",
         "setChatgptContent",
-        "setDeviceMode",
         "startFactoryTestMode",
         "startFileOta",
         "writeCharacteristic",
     ):
         assert by_name[name].python_state == "not_reproduced"
         assert by_name[name].hardware_eligible is False
+
+    assert by_name["setDeviceMode"].python_state == "offline_mutation_codec"
+    assert by_name["setDeviceMode"].hardware_eligible is False
 
 
 def test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once():

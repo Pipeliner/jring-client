@@ -58,6 +58,11 @@ transport, parser, input sink, or authority to promote a static candidate.
 keeps CCCD, ATT-write, and application acknowledgements distinct, binds stale callbacks
 to connection/operation generations, and classifies post-write ambiguity as uncertain.
 It has no BLE/client import and cannot make an operation hardware-eligible.
+`jring.vendor_behavior_settings`, `jring.vendor_settings`, and
+`jring.vendor_personal_settings` hold closed, strict synthetic mutation encoders. They
+preserve proven valid layouts while rejecting SDK wrapping, implicit encodings,
+partial batches, retries, and queue side effects; sensitive fields and frames stay out
+of representations.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`

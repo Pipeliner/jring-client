@@ -260,6 +260,7 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "OFFLINE PROTOCOL COVERAGE — no ring contacted" in output
     assert "Requests: 112" in output
     assert "Callbacks: 105" in output
+    assert "Offline request codecs: 39" in output
     assert "Offline response codecs: 86" in output
     assert "Offline local projections: 3" in output
     assert "Live vendor operations: 0" in output
@@ -276,6 +277,7 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["ok"] is True
     assert result["summary"]["request_total"] == 112
     assert result["summary"]["callback_total"] == 105
+    assert result["summary"]["offline_request_codecs"] == 39
     assert result["summary"]["offline_response_codecs"] == 86
     assert result["summary"]["offline_local_projections"] == 3
     assert result["summary"]["live_vendor_operations"] == 0

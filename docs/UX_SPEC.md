@@ -175,6 +175,14 @@ records using the host's current timezone, or reproduce the Android SDK's timeou
 callbacks. Advanced sensor fields and unverified sport codes retain neutral names.
 No decoded frame becomes eligible for hardware merely because the parser accepts it.
 
+Given a typed offline mutation request, its encoder preserves the proven 20-byte layout
+while rejecting low-byte wrapping, implicit host locale/charset use, partial alarm
+batches, unsafe text truncation, and unknown mode fallbacks. Frames and private values
+do not appear in representations. All 26 mutation families remain static-only,
+hardware-ineligible, absent from the client/transport, and unavailable as live writes;
+health, reproductive, reset, identifier, and private-text operations retain their risk
+boundaries.
+
 The machine-readable operation ledger accounts for all 112 SDK requests exactly once
 and keeps routing separate from Python maturity. Its presence does not imply 112 useful
 Bluetooth operations: local, cloud, filesystem, conversion, DFU, dynamic-GATT, and
@@ -420,6 +428,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_cli_capability_inventory_is_private` |
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Complete request accounting | `test_static_vendor_operation_coverage_accounts_for_all_112_requests_once`, `test_only_seven_operations_have_offline_request_and_response_codecs`, `test_static_coverage_never_promotes_an_operation_to_hardware` |
+| Strict offline mutation encoders | `test_twenty_six_mutations_have_offline_codecs_without_live_eligibility`, `test_device_settings_preserve_the_exact_profile_layout_and_inverted_calling_bit`, `test_alarm_batch_builds_base_and_exact_content_chunks_without_state`, `test_request_bytes_and_sensitive_inputs_are_structurally_hidden`, `test_requests_are_closed_offline_private_and_never_hardware_eligible`, `test_safety_metadata_refuses_unsafe_apk_runtime_behaviors` |
 | Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_all_eighty_six_wire_callback_families_have_offline_response_codecs`, `test_three_apk_generated_end_callbacks_are_local_projections_not_wire_codecs` |
 | Offline device/config decoding | `test_device_code_discards_all_identifier_bytes`, `test_device_dial_decodes_every_field_in_the_twenty_byte_layout`, `test_eq_info_decodes_signed_values_and_requires_expected_kind`, `test_factory_test_bytes_are_hidden_and_byte_19_is_not_claimed` |
 | Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |

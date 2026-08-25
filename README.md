@@ -114,9 +114,11 @@ jring protocol-coverage
 jring protocol-coverage --json
 ```
 
-The report accounts for 112 requests and 105 callbacks, distinguishes offline codecs
-from absent and non-Bluetooth behavior, and always reports zero live or hardware-verified
-vendor operations. It contains no payload bytes and grants no write authority.
+The report accounts for 112 requests and 105 callbacks, including 39 offline request
+codecs and all 86 wire callback codecs. It distinguishes those from absent,
+APK-generated, and non-Bluetooth behavior, and always reports zero live or
+hardware-verified vendor operations. It contains no payload bytes and grants no write
+authority.
 
 Run `jring doctor` before touching hardware. It passively checks Python, Linux, Bleak,
 BlueZ, evdev, and `/dev/uinput`, explains exactly what is missing, and reports

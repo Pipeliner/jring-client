@@ -122,14 +122,15 @@ filesystem/conversion methods, one DFU method, and four no-op stubs. Thus 80 wra
 transitively reach the main queue, but the composite OTA-info operation is not counted
 twice.
 No AIDL request is statically wired to the declared secondary channel. The Python
-client implements zero live vendor requests; seven request codecs and seven response
-families are offline-only. Local album saving, bitmap conversion, and worship-setting
+client implements zero live vendor requests; 39 request codecs (seven query, six raw,
+and 26 mutation families) and all 86 wire callback codecs are offline-only. Local album
+saving, bitmap conversion, and worship-setting
 operations are now included in the parity ledger even though they do not belong in a
 Bluetooth client implementation.
 
 `jring.vendor_coverage.static_vendor_operation_coverage()` is the checked source for
 the request names and mutually exclusive routes. Tests require exactly 112 unique
-entries, exact route totals, seven offline codec families, zero live vendor methods,
+entries, exact route totals, 39 offline request codecs, zero live vendor methods,
 and false hardware eligibility for every entry. This corrects an earlier grouped count
 that treated only three interface methods as stubs; static call-site tracing shows that
 `getWifiState` is also a no-op in this build even though related response parsing exists.
@@ -273,6 +274,28 @@ SMS metadata, Wi-Fi addresses, and SSID fragments are decoded without exposing t
 contents in representations or coverage output. Wi-Fi fragments use a bounded,
 entry-keyed assembler; no parser starts host networking or copies private values into
 logs. Explicit local SSID access is opt-in after a complete sequence.
+
+## Static mutation encoders
+
+Three pure modules encode 26 additional main-channel mutation families as hidden,
+exactly 20-byte synthetic vectors: device behavior/schedules, profile and sensor-session
+settings, and reminder/dial/personal settings. Every request fixes its endpoint,
+reports `static_apk_only`, remains permanently hardware-ineligible, and has no client or
+transport integration. The coverage CLI now reports 39 offline request codecs in total.
+
+The Python contracts deliberately correct unsafe SDK behavior: integers cannot wrap to
+low bytes, booleans and modes are closed types, strings use explicit UTF-8 and reject
+ambiguous truncation, alarm batches are explicit and atomic, device-mode invalid
+fallbacks are absent, host locale is never inferred, and private codes/text/schedules
+are hidden from representations. The shared `23` sensor selector is modeled as one
+neutral session with an identity-free stop rather than four independent toggles.
+
+These encoders do not reproduce raw-frame logging, retained stale alarms, partial
+sends, queue clearing, write retries, or ignored arguments. Health calibration,
+reproductive schedules, sensor starts, device reset, identifiers, and personal text
+remain high-risk offline evidence—not general-use or live-write features. A valid
+synthetic vector does not grant consent, prove firmware behavior, or make timeout
+replay safe.
 
 ## Static history streams
 
