@@ -46,6 +46,17 @@ from .vendor_personal_settings import (
     OfflinePersonalSettingRequest,
     PersonalSettingOperation,
 )
+from .vendor_behavior_settings import (
+    AlarmBatchRequest,
+    AntiLostRequest,
+    AutoHeartScheduleRequest,
+    CameraModeRequest,
+    DeviceModeRequest,
+    GoalStepRequest,
+    IdleReminderRequest,
+    SleepScheduleRequest,
+    VibrationRequest,
+)
 
 _ENGINE_IDS = itertools.count()
 
@@ -168,6 +179,18 @@ _PERSONAL_REQUEST_OPCODES = {
     PersonalSettingOperation.DEVICE_WALLPAPER_STATE: 0x36,
     PersonalSettingOperation.EDIT_DEVICE_DIAL_CUSTOM: 0x41,
     PersonalSettingOperation.FEMALE_REMINDER: 0x44,
+}
+_BEHAVIOR_ACKS = {
+    VibrationRequest: ("vibration", 0x04, StaticAckOperation.VIBRATION),
+    AntiLostRequest: ("anti_lost", 0x05, StaticAckOperation.ANTI_LOST),
+    CameraModeRequest: ("camera_mode", 0x07, StaticAckOperation.PHONE_MODE),
+    IdleReminderRequest: ("idle_reminder", 0x08, StaticAckOperation.IDLE_TIME),
+    SleepScheduleRequest: ("sleep_schedule", 0x09, StaticAckOperation.SLEEP_TIME),
+    DeviceModeRequest: ("device_mode", 0x0E, StaticAckOperation.DEVICE_MODE),
+    AutoHeartScheduleRequest: (
+        "auto_heart_schedule", 0x19, StaticAckOperation.AUTO_HEART,
+    ),
+    GoalStepRequest: ("goal_step", 0x1A, StaticAckOperation.GOAL),
 }
 
 
@@ -296,6 +319,33 @@ class OfflineVendorOperation:
             request_frame=frame,
             success_opcodes=(expected_opcode,),
             failure_opcodes=(),
+            expected_subcommand=None,
+            parser=partial(parse_vendor_ack, operation=ack_operation),
+        )
+
+    @classmethod
+    def from_behavior_request(cls, request: object) -> "OfflineVendorOperation":
+        """Compose one closed single-frame behavior mutation for the fake runtime."""
+
+        if type(request) is AlarmBatchRequest:
+            raise TypeError("multi-frame alarm batches require a separate state machine")
+        binding = _BEHAVIOR_ACKS.get(type(request))
+        if binding is None:
+            raise TypeError("request must be a closed single-frame behavior request")
+        name, expected_opcode, ack_operation = binding
+        frames = request.frames()
+        if len(frames) != 1:
+            raise ValueError("single-frame behavior request produced an invalid batch")
+        frame = frames[0].synthetic_bytes_for_test()
+        if len(frame) != 20 or frame[0] != expected_opcode:
+            raise ValueError("behavior request does not match its closed operation")
+        success_opcode = expected_opcode
+        failure_opcode = expected_opcode | 0x80
+        return cls._create(
+            name=name,
+            request_frame=frame,
+            success_opcodes=(success_opcode,),
+            failure_opcodes=(failure_opcode,),
             expected_subcommand=None,
             parser=partial(parse_vendor_ack, operation=ack_operation),
         )

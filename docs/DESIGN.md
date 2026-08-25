@@ -208,11 +208,15 @@ deadline, and an uncertain accepted write is never automatically retried.
 
 The exact-type fake runtime accepts closed operation factories for the seven static
 query encoders, all eight typed setting encoders, and all seven personal-setting
-encoders, plus the independently closed screen-light route. Composition validates the
+encoders, plus eight single-frame behavior requests and the independently closed
+screen-light route. Composition validates the
 fixed request opcode, binds the operation-specific acknowledgement parser, and
 preserves direct failure opcodes where present. It
 cannot accept arbitrary messages or transports, and every result remains simulation
 only and hardware-ineligible.
+Alarm batching is rejected rather than flattened: its base/content messages,
+per-alarm acknowledgements, and source non-atomic enqueue behavior need a dedicated
+batch state machine.
 
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime

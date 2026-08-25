@@ -210,6 +210,9 @@ shape, and binds the exact typed acknowledgement parser. Personal settings delib
 remain success-only because no failure branch is proven. A scripted fake can therefore
 exercise a mutation without exposing a live vendor write API; source queue side effects
 and real device support remain outside this model.
+Eight single-frame behavior mutations use the same fake-only path and paired ack
+parsers. Alarm remains excluded because collapsing its ordered base and content frames
+would falsely claim a single-response transaction contract.
 
 Within those routes, 37 statically reviewed builder families have a second,
 domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum

@@ -144,6 +144,9 @@ acknowledgement is parsed through the same closed correlation rules; this still 
 no client method, live adapter, write authority, retry policy, or hardware claim.
 All seven personal-setting encoders can likewise compose success-only fake matchers;
 their private input stays hidden and absence of a proven failure opcode remains explicit.
+Eight single-frame behavior mutations are also composable with paired acknowledgements.
+Alarm batches are deliberately rejected by this factory because their multi-frame,
+source-sequential semantics require a separate state machine.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke

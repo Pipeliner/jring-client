@@ -33,6 +33,7 @@ from jring.vendor_settings import (
     encode_sensor_session_start,
 )
 from jring.vendor_personal_settings import encode_reminder_text
+from jring.vendor_behavior_settings import AlarmBatchRequest, VibrationRequest
 
 
 def _operation(name: str = "battery") -> OfflineVendorOperation:
@@ -801,3 +802,25 @@ def test_personal_setting_request_composes_success_only_fake_matcher_privately()
     assert disposition.value == "success"
     assert parsed.operation.value == "reminder_text"
     assert parsed.success is True
+
+
+def test_single_frame_behavior_request_composes_fake_ack_matcher():
+    operation = OfflineVendorOperation.from_behavior_request(VibrationRequest(3))
+
+    assert operation.name == "vibration"
+    assert operation.success_opcodes == (0x04,)
+    assert operation.failure_opcodes == (0x84,)
+    disposition, parsed = operation._match(
+        VENDOR_CHARACTERISTIC_33F4, bytes((0x04,)) + bytes(19)
+    )
+    assert disposition.value == "success"
+    assert parsed.operation.value == "vibration"
+    assert parsed.success is True
+
+
+def test_multi_frame_alarm_batch_cannot_be_collapsed_into_single_transaction():
+    batch = object.__new__(AlarmBatchRequest)
+    object.__setattr__(batch, "alarms", ())
+
+    with pytest.raises(TypeError, match="multi-frame"):
+        OfflineVendorOperation.from_behavior_request(batch)
