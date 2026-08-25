@@ -135,6 +135,22 @@ public device state. Exact operation overrides now classify both host projection
 private content and the step goal as fitness data; tests also pin health-profile and
 device-identifier examples. No terminal status or runtime authority changed.
 
+The normalized-contract slice was separately challenged by protocol, non-health, and
+multi-persona reviewers. The first RED draft falsely attributed a passive device
+action to `sendPhoneVolume`, had no per-attempt result identity, conflated a matched
+response with device success, omitted the existing pre-dispatch `aborted` UX, and left
+deadline/sequence rules open. The final contract makes passive events unowned, adds
+connection-wide and operation ordering, derives dispatch/effect/uncertainty fields,
+preserves response evidence through cleanup uncertainty, and gives aborted or
+uncertain attempts explicit safe recovery. Operation IDs remain potentially sensitive
+activity metadata, so the contract is local by default and grants no export authority.
+The final semantic pass also separated exact success, exact failure, explicit marker,
+and terminal-metadata bases: matched device rejection is never called success, and a
+conditional history route cannot turn quiet into completion. Slotted models reject
+arbitrary extra attributes, while process-local weak seals reject changes to declared
+fields. Per-attempt transitions preserve local acceptance and matched-response
+evidence instead of regressing to a weaker dispatch state.
+
 The review found no need for a new implementation family. It did find that simulator
 and shell-completion work could distract from live client parity; simulator work is now
 last and minimal, and Fish completion is explicitly excluded.

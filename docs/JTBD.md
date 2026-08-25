@@ -139,6 +139,10 @@ Desired outcomes:
   require a fresh connection before another vendor operation.
 - Make cancellation and cleanup bounded; explain whether work stopped before or after
   possible dispatch without printing frame bytes or identifiers.
+- Give every normalized attempt a generation-scoped operation sequence, a primary
+  outcome, a stable reason, and a recovery directive. Announce the outcome first;
+  `accepted` means local dispatch only, while device effect remains unknown even after
+  a matched response.
 
 ### Understand static recovery gaps without false completeness
 

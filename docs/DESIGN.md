@@ -284,6 +284,15 @@ for unknown firmware behavior or Bluetooth capabilities outside the reviewed APK
 Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 
+The normalized [event/result contract](EVENT_CONTRACTS.md) is the next boundary above
+that registry. Immutable schema-1 envelopes separate passive unowned observations from
+exact operation correlation and separate local dispatch acceptance, matched response,
+workflow completion, device effect, uncertainty, and recovery. They serialize clock
+states but never clock values or transport payloads. Connection-wide sequence and
+generation guards fail closed on gaps, replay, stage regression, and terminal reuse.
+This is still an offline model: current registry evidence makes every event
+non-automatable and rejects every live/hardware provenance claim.
+
 The exact-type fake singleton runtime accepts closed operation factories for four
 static query encoders, six matched-terminal typed setting encoders, and all seven personal-setting
 encoders, plus eight single-frame behavior requests and the independently closed

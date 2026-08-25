@@ -193,6 +193,18 @@ The registry exposes no request bytes, runtime target, device identity, private 
 or generic transport API. Its recovered-request denominator is not evidence that every
 firmware implements every row.
 
+`jring.event_contracts` builds a versioned metadata-only vocabulary on top of the
+closed registry. The full schema, state matrix, temporal rules, ordering domain, and
+compatibility policy are specified in [EVENT_CONTRACTS.md](EVENT_CONTRACTS.md).
+Passive device actions are explicitly unowned rather than falsely attributed to a
+same-looking request. Only a registry row with a matchable terminal can source a
+transaction callback or a `response_matched` result. Local acceptance never proves
+peripheral receipt, a matched response never proves physical effect, and cleanup
+uncertainty preserves the earlier match while requiring reconnect/no-replay. This
+module contains no transport integration or typed callback value. Exact success and
+failure responses remain distinct terminal bases; conditional metadata/marker routes
+cannot turn local quiet into completion.
+
 `static_vendor_callback_coverage()` likewise accounts for all 105 callback declarations
 exactly once. Eighty-six are reached by a structured main or raw Bluetooth opcode,
 14 originate in Android transport, scan, network, OTA, authorization, or cache flows,
