@@ -15,10 +15,14 @@ Desired outcomes:
 
 - See one complete matrix of app operations, GATT endpoints, protocol evidence,
   Python support, firmware scope, and owner-hardware verification.
+- Inspect statically proven request and response layouts offline with synthetic data,
+  without making those codecs callable from a live client.
 - Gain useful passive and read-only support while uncertain or destructive
   operations remain visibly gated.
 - Never confuse a UUID string, advertised property, static opcode, or simulated
   vector with proven behavior on my ring.
+- Preserve raw device timestamps and opaque field names where the app's timezone
+  handling or user-facing labels are not independently proven.
 - Use only legitimate owner pairing/session flows; extracted secrets, token replay,
   authorization bypasses, and device impersonation are out of scope.
 - Keep the APK, decompiled code, captures, identifiers, and real measurements private.

@@ -65,13 +65,13 @@ integration; every result is permanently marked `static_apk_only` and
 
 | Operation | Opcode | Declared fields | Decoder/hardware status |
 |---|---:|---|---|
-| Current sport query | `03` | none | Response not yet verified |
-| Battery query | `0b` | none | Response not yet verified |
-| Device information query | `0c` | none | Response not yet verified |
-| Band-function query | `20` | none | Response not yet verified |
-| Multiple-sport day query | `25` | unsigned one-byte day offset | Response not yet verified |
-| Oxygen day query | `40` | unsigned one-byte day offset | Response not yet verified |
-| Advanced-sensor day query | `55` | unsigned one-byte day offset | Response not yet verified |
+| Current sport query | `03` | none | Static response decoder; hardware unverified |
+| Battery query | `0b` | none | Static response decoder; hardware unverified |
+| Device information query | `0c` | none | Static response decoder with identifier redaction; hardware unverified |
+| Band-function query | `20` | none | Static 96-flag response decoder; hardware unverified |
+| Multiple-sport day query | `25` | unsigned one-byte day offset | Static packed-record decoder; hardware unverified |
+| Oxygen day query | `40` | unsigned one-byte day offset | Static bounded-record decoder; hardware unverified |
+| Advanced-sensor day query | `55` | unsigned one-byte day offset | Static neutral-field decoder; hardware unverified |
 
 These are protocol facts and synthetic golden vectors, not captured owner frames.
 Health-related names describe the SDK operation; the repository contains no owner
@@ -92,6 +92,46 @@ The first strict response decoders cover:
 Failure opcodes (`8b`, `83`, and `8c` for these families), wrong opcodes, wrong frame
 lengths, and impossible battery percentages fail closed. Device-info CRC failure is
 represented explicitly; it never silently promotes the revision fields to trusted.
+
+The remaining four static response decoders cover:
+
+- `20`: twelve bytes expanded byte-major and least-significant-bit first into 96
+  capability flags. A small app-derived name table is metadata, not a claim that the
+  selected firmware supports or safely exposes a feature.
+- `25`: six one-minute records whose type codes are split across record bytes and
+  three trailing nibble packs. The 12-bit value remains neutral.
+- `40`: fifteen one-byte records at one-minute intervals.
+- `55`: three five-byte records at 15-minute intervals. All five fields remain
+  neutral because application labels are not firmware verification.
+
+All history timestamps are returned as raw device epoch seconds. The vendor SDK
+adjusts records using the host's current timezone offset, which is not reliable for
+historical daylight-saving boundaries. The clean-room decoders do not apply that
+policy. They also always report `end_of_history: false`: static evidence shows only
+two-second inactivity timers and inconsistent or duplicate inferred endings, not a
+reliable success marker on the wire.
+
+The interface inventory contains 112 request methods and 105 callback declarations.
+The service statically routes 80 requests through the main command path, six through
+the raw command path, one to raw-notification control, and the rest to local BLE,
+cloud/cache, phone-network, filesystem/conversion, DFU, composite, or no-op paths.
+No AIDL request is statically wired to the declared secondary channel. The Python
+client implements zero live vendor requests; seven request codecs and seven response
+families are offline-only. Local album saving, bitmap conversion, and worship-setting
+operations are now included in the parity ledger even though they do not belong in a
+Bluetooth client implementation.
+
+Three authorization domains remain separate: vendor developer-cloud SDK validation,
+device-cloud authorization, and a local BLE binding exchange. The independent Python
+client does not copy cloud credentials or endpoints and does not forge or replay cloud
+decisions. Local bind/unbind remains disabled because multiple fields, physical
+confirmation behavior, timeout state, and firmware coverage are unproven. Android OS
+bonding is not treated as vendor binding.
+
+Before any future live vendor command path can be ready, it must serialize CCCD and
+characteristic writes, require successful primary notification acknowledgement, match
+responses by an operation-specific shape, clear pending work on disconnect, redact
+frames from logs, and fail uncertain without automatically replaying a write.
 
 ## Required hardware evidence to advance
 

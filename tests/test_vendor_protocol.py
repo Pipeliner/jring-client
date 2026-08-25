@@ -6,9 +6,13 @@ from jring.vendor_protocol import (
     StaticVendorRequest,
     encode_day_query,
     encode_static_query,
+    parse_vendor_advanced_sensor_day,
     parse_vendor_battery,
+    parse_vendor_band_functions,
     parse_vendor_current_sport,
     parse_vendor_device_info,
+    parse_vendor_multi_sport_day,
+    parse_vendor_oxygen_day,
 )
 from jring.protocol import ProtocolError
 
@@ -176,3 +180,109 @@ def test_device_info_reports_bad_integrity_without_exposing_private_bytes():
 def test_device_info_rejects_wrong_length_and_failure_opcode(data):
     with pytest.raises(ProtocolError):
         parse_vendor_device_info(data)
+
+
+def test_band_functions_expand_twelve_bytes_lsb_first():
+    data = bytes((0x20, 0b10000001, 0b00000010)) + bytes(17)
+
+    result = parse_vendor_band_functions(data)
+
+    assert len(result.flags) == 96
+    assert result.enabled(0) is True
+    assert result.enabled(7) is True
+    assert result.enabled(9) is True
+    assert result.enabled(8) is False
+    assert result.static_app_mapping(0) == "social_notifications"
+    assert result.static_app_mapping(1) is None
+
+
+@pytest.mark.parametrize("index", [-1, 96, True, 1.5])
+def test_band_functions_reject_invalid_flag_indexes(index):
+    result = parse_vendor_band_functions(bytes((0x20,)) + bytes(19))
+
+    with pytest.raises((TypeError, ValueError)):
+        result.enabled(index)
+
+
+@pytest.mark.parametrize("data", [bytes(19), bytes((0xA0,)) + bytes(19)])
+def test_band_functions_reject_wrong_length_and_failure_opcode(data):
+    with pytest.raises(ProtocolError):
+        parse_vendor_band_functions(data)
+
+
+def test_multi_sport_day_decodes_six_packed_records():
+    base = 1_700_000_000
+    record_bytes = bytes(
+        (
+            0x31, 0x12,
+            0x42, 0x23,
+            0x53, 0x34,
+            0x64, 0x45,
+            0x75, 0x56,
+            0x86, 0x67,
+        )
+    )
+    packed_type_nibbles = bytes((0xA9, 0xB8, 0xC7))
+    data = bytes((0x25,)) + base.to_bytes(4, "little") + record_bytes + packed_type_nibbles
+
+    result = parse_vendor_multi_sport_day(data)
+
+    assert result.device_epoch_seconds == base
+    assert [sample.device_epoch_seconds for sample in result.samples] == [
+        base + offset for offset in range(0, 360, 60)
+    ]
+    assert [sample.sport_type_code for sample in result.samples] == [
+        0xA1, 0x92, 0xB3, 0x84, 0xC5, 0x76
+    ]
+    assert [sample.value for sample in result.samples] == [
+        0x123, 0x234, 0x345, 0x456, 0x567, 0x678
+    ]
+    assert result.end_of_history is False
+
+
+def test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end():
+    base = 1_700_000_000
+    values = bytes(range(80, 95))
+
+    result = parse_vendor_oxygen_day(
+        bytes((0x40,)) + base.to_bytes(4, "little") + values
+    )
+
+    assert result.device_epoch_seconds == base
+    assert [sample.device_epoch_seconds for sample in result.samples] == [
+        base + offset for offset in range(0, 900, 60)
+    ]
+    assert [sample.value for sample in result.samples] == list(range(80, 95))
+    assert result.end_of_history is False
+
+
+def test_advanced_sensor_day_preserves_three_neutral_five_byte_records():
+    base = 1_700_000_000
+    fields = bytes(range(1, 16))
+
+    result = parse_vendor_advanced_sensor_day(
+        bytes((0x55,)) + base.to_bytes(4, "little") + fields
+    )
+
+    assert result.device_epoch_seconds == base
+    assert [sample.device_epoch_seconds for sample in result.samples] == [
+        base,
+        base + 900,
+        base + 1800,
+    ]
+    assert result.samples[0].fields == (1, 2, 3, 4, 5)
+    assert result.samples[2].fields == (11, 12, 13, 14, 15)
+    assert result.end_of_history is False
+
+
+@pytest.mark.parametrize(
+    "parser,opcode",
+    [
+        (parse_vendor_multi_sport_day, 0xA5),
+        (parse_vendor_oxygen_day, 0xC0),
+        (parse_vendor_advanced_sensor_day, 0xD5),
+    ],
+)
+def test_day_decoders_reject_failure_or_unrelated_opcodes(parser, opcode):
+    with pytest.raises(ProtocolError):
+        parser(bytes((opcode,)) + bytes(19))

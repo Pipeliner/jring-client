@@ -93,6 +93,94 @@ class VendorDeviceInfo:
     identifier_redacted: bool = True
 
 
+_STATIC_APP_FEATURE_INDEX = {
+    0: "social_notifications",
+    2: "weather",
+    3: "time",
+    4: "anti_lost",
+    18: "automatic_interval",
+    19: "notifications",
+    20: "reminders",
+    24: "sport",
+    25: "dial",
+    26: "wallpaper",
+    31: "custom_dial",
+    32: "female_reminder",
+    34: "classic_bluetooth",
+    35: "vibration",
+    42: "custom_alarm",
+    44: "sms_auto_response",
+    45: "electronic_card",
+    48: "chat_assistant",
+    56: "sport_from_app",
+    63: "short_video",
+    68: "wifi",
+    69: "wear_mode",
+    70: "brightness",
+    78: "connect_watch",
+    79: "connect_bracelet",
+    80: "automatic_screen_wake",
+    82: "ai_transfer",
+    85: "device_serial",
+}
+
+
+@dataclass(frozen=True)
+class VendorBandFunctions:
+    flags: tuple[bool, ...]
+
+    def enabled(self, index: int) -> bool:
+        if type(index) is not int:
+            raise TypeError("feature index must be an integer")
+        if not 0 <= index < len(self.flags):
+            raise ValueError("feature index is outside the static flag set")
+        return self.flags[index]
+
+    def static_app_mapping(self, index: int) -> str | None:
+        self.enabled(index)
+        return _STATIC_APP_FEATURE_INDEX.get(index)
+
+
+@dataclass(frozen=True)
+class VendorMultiSportSample:
+    device_epoch_seconds: int
+    sport_type_code: int
+    value: int
+
+
+@dataclass(frozen=True)
+class VendorMultiSportDay:
+    device_epoch_seconds: int
+    samples: tuple[VendorMultiSportSample, ...]
+    end_of_history: bool = False
+
+
+@dataclass(frozen=True)
+class VendorOxygenSample:
+    device_epoch_seconds: int
+    value: int
+
+
+@dataclass(frozen=True)
+class VendorOxygenDay:
+    device_epoch_seconds: int
+    samples: tuple[VendorOxygenSample, ...]
+    end_of_history: bool = False
+
+
+@dataclass(frozen=True)
+class VendorAdvancedSensorSample:
+    device_epoch_seconds: int
+    fields: tuple[int, int, int, int, int]
+
+
+@dataclass(frozen=True)
+class VendorAdvancedSensorDay:
+    device_epoch_seconds: int
+    samples: tuple[VendorAdvancedSensorSample, ...]
+    end_of_history: bool = False
+
+
 def _request(operation: StaticQuery, *fields: int) -> StaticVendorRequest:
     encoded = bytes((operation_opcode(operation), *fields)) + bytes(19 - len(fields))
     return StaticVendorRequest(operation=operation, _encoded=encoded)
@@ -172,3 +260,58 @@ def parse_vendor_device_info(data: bytes) -> VendorDeviceInfo:
         software_revision=int.from_bytes(response[11:13], "little"),
         integrity_valid=actual_crc == expected_crc,
     )
+
+
+def parse_vendor_band_functions(data: bytes) -> VendorBandFunctions:
+    response = _response(data, 0x20)
+    flags = tuple(
+        bool(value & (1 << bit))
+        for value in response[1:13]
+        for bit in range(8)
+    )
+    return VendorBandFunctions(flags=flags)
+
+
+def parse_vendor_multi_sport_day(data: bytes) -> VendorMultiSportDay:
+    response = _response(data, 0x25)
+    base = int.from_bytes(response[1:5], "little")
+    samples: list[VendorMultiSportSample] = []
+    for index in range(6):
+        first = response[5 + (index * 2)]
+        second = response[6 + (index * 2)]
+        packed = response[17 + (index // 2)]
+        type_high = packed & 0xF0 if index % 2 == 0 else (packed & 0x0F) << 4
+        samples.append(
+            VendorMultiSportSample(
+                device_epoch_seconds=base + (index * 60),
+                sport_type_code=(first & 0x0F) | type_high,
+                value=(second << 4) | (first >> 4),
+            )
+        )
+    return VendorMultiSportDay(device_epoch_seconds=base, samples=tuple(samples))
+
+
+def parse_vendor_oxygen_day(data: bytes) -> VendorOxygenDay:
+    response = _response(data, 0x40)
+    base = int.from_bytes(response[1:5], "little")
+    samples = tuple(
+        VendorOxygenSample(
+            device_epoch_seconds=base + (index * 60),
+            value=value,
+        )
+        for index, value in enumerate(response[5:20])
+    )
+    return VendorOxygenDay(device_epoch_seconds=base, samples=samples)
+
+
+def parse_vendor_advanced_sensor_day(data: bytes) -> VendorAdvancedSensorDay:
+    response = _response(data, 0x55)
+    base = int.from_bytes(response[1:5], "little")
+    samples = tuple(
+        VendorAdvancedSensorSample(
+            device_epoch_seconds=base + (index * 900),
+            fields=tuple(response[5 + index * 5 : 10 + index * 5]),
+        )
+        for index in range(3)
+    )
+    return VendorAdvancedSensorDay(device_epoch_seconds=base, samples=samples)

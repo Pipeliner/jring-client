@@ -139,6 +139,19 @@ and writes remain disabled. If service enumeration fails but characteristic meta
 is available, those independent observations remain visible and the overall result is
 `partial` rather than unsupported.
 
+### Honest offline vendor decoding
+
+Given a synthetic, exactly 20-byte vendor response, the offline protocol library
+decodes only statically proven fields and rejects wrong lengths, unrelated opcodes, and
+failure branches. Band functions are exposed as 96 indexed flags in wire order, with
+app-derived names clearly distinguished from hardware verification. Bounded history
+frames expose raw device epoch seconds and deterministic record spacing.
+
+Offline decoders do not subscribe, write, infer that a frame ends history, adjust old
+records using the host's current timezone, or reproduce the Android SDK's timeout
+callbacks. Advanced sensor fields and unverified sport codes retain neutral names.
+No decoded frame becomes eligible for hardware merely because the parser accepts it.
+
 ### Safe step-to-input preview
 
 Given no ring, when a person runs
@@ -294,6 +307,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Readiness automation | `test_doctor_json_can_strictly_require_hardware` |
 | Standard HID visibility | `test_standard_hid_service_is_reported` |
 | Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_cli_capability_inventory_is_private` |
+| Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |
 | Accessible action discovery | `test_input_action_inventory_is_complete_and_stable`, `test_input_actions_are_screen_reader_ordered`, `test_mouse_aliases_are_deterministic` |
