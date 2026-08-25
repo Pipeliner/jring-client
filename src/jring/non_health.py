@@ -165,79 +165,95 @@ _CAPABILITIES = (
     ),
     _capability(
         "find_phone_alarm", "Find-phone alarm", "device_actions",
-        "statically classified device action code 1; host alarm side effect blocked",
+        "statically classified device action code 1; APK raises maximum host volume, "
+        "plays its find-phone sound, and performs a scheduled volume reset; all host "
+        "effects blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "camera_shutter", "Camera shutter", "device_actions",
-        "statically classified device action code 2", "static_apk",
+        "statically classified device action code 2; APK emits its camera shutter "
+        "broadcast",
+        "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "call_hangup", "Call hang up", "device_actions",
-        "statically classified device action code 4; phone-call side effect blocked",
+        "statically classified device action code 4; APK ends the phone call; side "
+        "effect blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "weather_location_refresh", "Weather/location refresh", "device_actions",
-        "statically classified device action code 5; location access blocked",
+        "statically classified device action code 5; APK conditionally refreshes phone "
+        "location and weather; location access blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "call_answer", "Call answer", "device_actions",
-        "statically classified device action code 8; phone-call side effect blocked",
+        "statically classified device action code 8; APK attempts to answer the ringing "
+        "call; phone-call side effect blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "media_play_pause", "Media play/pause", "device_actions",
-        "statically classified device action code 16", "static_apk",
+        "statically classified device action code 16; APK dispatches host media "
+        "play/pause",
+        "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "media_next", "Media next", "device_actions",
-        "statically classified device action code 32", "static_apk",
+        "statically classified device action code 32; APK dispatches host media next",
+        "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "media_previous", "Media previous", "device_actions",
-        "statically classified device action code 64", "static_apk",
+        "statically classified device action code 64; APK dispatches host media previous",
+        "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "camera_open", "Camera open request", "device_actions",
-        "statically classified device action code 65; camera lifecycle blocked",
+        "statically classified device action code 65; APK opens its camera activity; "
+        "camera lifecycle blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "camera_close", "Camera close request", "device_actions",
-        "statically classified device action code 66; camera lifecycle blocked",
+        "statically classified device action code 66; APK closes its camera activity; "
+        "camera lifecycle blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "time_sync_request", "Time sync request", "device_actions",
-        "statically classified device action code 67; device write request blocked",
+        "statically classified device action code 67; APK requests host time "
+        "synchronization; device write request blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "volume_up", "Volume up", "device_actions",
-        "statically classified device action code 68", "static_apk",
+        "statically classified device action code 68; APK raises host media volume",
+        "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "volume_down", "Volume down", "device_actions",
-        "statically classified device action code 69", "static_apk",
+        "statically classified device action code 69; APK lowers host media volume",
+        "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
         callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
@@ -251,8 +267,9 @@ _CAPABILITIES = (
     ),
     _capability(
         "unknown_motion_channels", "Nine unknown motion channels", "sensor_candidates",
-        "scripted fake only; exact 78/00 or 78/01 projects nine private signed "
-        "values with zero writes; reviewed app callback discards its argument; not "
+        "offline decoder accepts every selector except 03/07/08/09/0b/0c as nine "
+        "private signed values; scripted fake only covers 00/01, remains limited to "
+        "00/01, and performs zero writes; reviewed app callback discards its argument; not "
         "a live motion event, gesture, activation, or input",
         "static_apk", "offline_decoder", "unknown", False,
         privacy=("motion_sensor_data",),

@@ -650,6 +650,11 @@ live: discrete device actions and a cumulative step counter. Offline action deco
 lists all 13 mapped actions exactly once. It labels six media, volume, and shutter codes
 as possible future input candidates, while seven find-phone, call, location,
 camera-lifecycle, and time-write actions remain visibly blocked and side-effecting.
+Descriptions name the APK's actual host effects: maximum-volume find-phone playback
+with scheduled reset, camera shutter/open/close, call answer/end, conditional
+location/weather refresh, media play/pause/next/previous, time synchronization, and
+host media-volume changes. These are proprietary vendor-callback reactions, not HID
+reports, and the inventory executes none of them.
 Unknown action codes are never candidates. A live cumulative counter is not interpreted
 as a click: connection baselines, resets, batching, debounce, and rate limits require
 owner-hardware evidence first. The closed synthetic pair above demonstrates policy and

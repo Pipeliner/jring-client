@@ -127,6 +127,12 @@ def test_start_file_ota_has_closed_required_and_optional_suota_role_inventory():
     assert not hasattr(roles["status"], "subscribe")
 
 
+def test_optional_suota_metadata_roles_match_the_instruction_reviewed_apk():
+    assert SUOTA_MTU == "b7de1eea-823d-43bb-a3af-c4903dfce23c"
+    assert SUOTA_L2CAP_PSM == "61c8849c-f639-4765-946e-5c3419bebb2a"
+    assert "2abc2d8e-eb86-4c57-ad85-b686d3402a9d" not in VENDOR_UUIDS
+
+
 def test_suota_roles_are_vendor_capability_metadata_without_transfer_authority():
     evidence = evidence_for(FirmwareAndTransferEvidenceOperation.START_FILE_OTA)
     characteristic_uuids = {

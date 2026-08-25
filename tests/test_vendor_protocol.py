@@ -551,17 +551,27 @@ def test_non_health_event_decoders_fail_closed(parser, data):
         parser(data)
 
 
-def test_device_state_decodes_only_the_three_statically_used_bits():
-    result = parse_vendor_device_state(bytes((0x3D, 0b10000101)) + bytes(18))
+def test_device_state_decodes_three_independent_equality_to_one_bytes():
+    result = parse_vendor_device_state(bytes((0x3D, 1, 0, 1, 2)) + bytes(15))
 
     assert result.flag_0 is True
     assert result.flag_1 is False
     assert result.flag_2 is True
-    assert result.unused_bits_present is True
+    assert result.non_boolean_values_present is False
     assert result.app_snooze_repeat_state is True
     assert result.app_snooze_state is False
     assert result.app_alarm_enabled_state is True
     assert result.app_projection_scope == "reviewed_app_storage_not_wire_semantics"
+
+    non_boolean = parse_vendor_device_state(
+        bytes((0x3D, 2, 255, 3)) + bytes(16)
+    )
+    assert (non_boolean.flag_0, non_boolean.flag_1, non_boolean.flag_2) == (
+        False,
+        False,
+        False,
+    )
+    assert non_boolean.non_boolean_values_present is True
 
 
 def test_device_dial_custom_preserves_four_neutral_values():

@@ -428,7 +428,7 @@ class VendorDeviceState:
     flag_0: bool
     flag_1: bool
     flag_2: bool
-    unused_bits_present: bool
+    non_boolean_values_present: bool
 
     @property
     def app_snooze_repeat_state(self) -> bool:
@@ -997,12 +997,12 @@ def parse_vendor_step_counter(data: bytes) -> VendorStepCounter:
 
 def parse_vendor_device_state(data: bytes) -> VendorDeviceState:
     response = _response(data, 0x3D)
-    flags = response[1]
+    values = response[1:4]
     return VendorDeviceState(
-        flag_0=bool(flags & 0x01),
-        flag_1=bool(flags & 0x02),
-        flag_2=bool(flags & 0x04),
-        unused_bits_present=bool(flags & 0xF8),
+        flag_0=values[0] == 1,
+        flag_1=values[1] == 1,
+        flag_2=values[2] == 1,
+        non_boolean_values_present=any(value not in (0, 1) for value in values),
     )
 
 

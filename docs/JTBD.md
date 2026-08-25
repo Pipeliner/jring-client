@@ -299,6 +299,9 @@ Desired outcomes:
   with their own descriptor state.
 - Discover the complete local action vocabulary without Bluetooth, optional packages,
   or an input device.
+- Describe each action by the APK's actual host effect—find-phone sound/volume reset,
+  camera, call, location/weather, media, time synchronization, or volume—while making
+  clear that vendor callbacks are not Android HID reports and none of those effects run.
 - Preview a mapping before it can generate operating-system input.
 - Require explicit authorization for each input-injection run.
 - Allow only named keyboard and mouse actions; never execute shell commands.

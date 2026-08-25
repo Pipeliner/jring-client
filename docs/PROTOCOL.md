@@ -538,7 +538,8 @@ AI/audio/image material and is privacy-sensitive; Wi-Fi, call control, files/dia
 arbitrary writes, and executable `fef5` OTA are outside the default input path. The
 declared `57ff`, `ffe5`, and `ffe9` UUIDs have no executable call site in this build.
 
-Additional strict offline event decoders cover three device-state bits, four neutral
+Additional strict offline event decoders cover three independent device-state bytes,
+each true only when its byte equals one, four neutral
 custom-dial values, the `29` current-data event with two neutral counters, the host
 volume-state request, screen-light time, touch mode, and two schedule-state variants.
 They require exact 20-byte frames and exact subcommands, make no writes, and do not

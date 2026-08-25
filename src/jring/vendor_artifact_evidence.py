@@ -223,7 +223,9 @@ class ManifestSurfaceEvidence(_ClosedEvidence):
     service_count: int
     receiver_count: int
     activity_count: int
-    provider_count: int
+    provider_component_count: int
+    provider_query_node_count: int
+    provider_xml_node_count: int
     legacy_bluetooth_permission_count: int
     modern_scan_permission_declared: bool
     modern_connect_permission_declared: bool
@@ -783,7 +785,9 @@ _MANIFEST = _closed_instance(
     service_count=6,
     receiver_count=2,
     activity_count=79,
-    provider_count=8,
+    provider_component_count=6,
+    provider_query_node_count=2,
+    provider_xml_node_count=8,
     legacy_bluetooth_permission_count=2,
     modern_scan_permission_declared=True,
     modern_connect_permission_declared=True,

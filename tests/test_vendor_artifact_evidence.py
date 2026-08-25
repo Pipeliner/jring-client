@@ -312,6 +312,10 @@ def test_manifest_surface_separates_declared_features_from_dynamic_receivers():
     assert manifest.abi_split_count == 1
     assert manifest.permission_count == 35
     assert manifest.feature_count == 9
+    assert manifest.provider_component_count == 6
+    assert manifest.provider_query_node_count == 2
+    assert manifest.provider_xml_node_count == 8
+    assert not hasattr(manifest, "provider_count")
     assert manifest.legacy_bluetooth_permission_count == 2
     assert manifest.modern_scan_permission_declared is True
     assert manifest.modern_connect_permission_declared is True

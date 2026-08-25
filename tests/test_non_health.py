@@ -136,7 +136,10 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert unknown_motion.callback_operations == ("onGetGSensorData",)
     assert unknown_motion.input_candidate is False
     assert unknown_motion.input_eligible is False
-    assert "scripted fake only" in unknown_motion.description
+    assert "offline decoder accepts every selector except 03/07/08/09/0b/0c" in (
+        unknown_motion.description
+    )
+    assert "scripted fake only covers 00/01" in unknown_motion.description
     assert "zero writes" in unknown_motion.description
     assert "private" in unknown_motion.description
     assert "not a live motion event, gesture, activation, or input" in (
@@ -182,6 +185,21 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
             assert item.scripted_fake_transaction_available is False
             assert item.scripted_fake_transaction_performs_write is False
             assert item.scripted_fake_transaction_scope == "unavailable"
+
+
+def test_device_action_inventory_names_the_apk_host_effects_without_executing_them():
+    rows = {
+        item.name: item
+        for item in static_non_health_capabilities()
+        if item.group == "device_actions"
+    }
+
+    assert "maximum host volume" in rows["find_phone_alarm"].description
+    assert "scheduled volume reset" in rows["find_phone_alarm"].description
+    assert "camera shutter broadcast" in rows["camera_shutter"].description
+    assert "answer the ringing call" in rows["call_answer"].description
+    assert "requests host time synchronization" in rows["time_sync_request"].description
+    assert all(row.runnable is False for row in rows.values())
 
 
 def test_non_health_inventory_is_immutable_and_contains_no_payloads():
