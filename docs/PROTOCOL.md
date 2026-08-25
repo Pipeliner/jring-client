@@ -480,13 +480,19 @@ They require exact 20-byte frames and exact subcommands, make no writes, and do 
 claim that the fields are supported on owner hardware.
 
 The passive MAIN fake collector makes only the safely discriminated device-action,
-cumulative-step, and host-volume-request events executable in an offline transport
-scenario. It subscribes to the exact connection-scoped fake `33f4` target and performs
-zero writes. A transport-wide fake lease rejects pre-connected caller-owned transports
-and concurrent coordinators before I/O, so cleanup closes only a connection acquired by
-that attempt. Bounded quiet/limit closure stays unknown; malformed matching frames,
+cumulative-step, Classic info/name, and host-volume-request events executable in an
+offline transport scenario. Classic info retains only two neutral bytes; Classic name
+content is structurally redacted. It subscribes to the exact connection-scoped fake
+`33f4` target and performs zero writes. A transport-wide fake lease rejects
+pre-connected caller-owned transports and concurrent coordinators before I/O, so
+cleanup closes only a connection acquired by that attempt. Bounded quiet/limit closure
+stays unknown; malformed matching frames,
 overflow, timeout, disconnect, and cleanup failure abort. Opcode `78` remains excluded
-because its subcommands collide across unrelated operations. No decoded event is live,
+because its subcommands collide across unrelated operations. The known App-ID
+selector `45/02` is intentionally excluded from this collector and counted as
+unrelated here, while selectorless and unknown `45` traffic is also unrelated.
+Classic decoding does not establish profile
+attachment, bonding, RFCOMM, HID, or live support. No decoded event is live,
 hardware-verified, or input-eligible.
 
 The separate fake phone-volume coordinator composes the statically proven reverse

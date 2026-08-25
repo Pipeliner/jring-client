@@ -1429,8 +1429,8 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
     )
     print(
         "Developer-test scripted fake decoder coverage exists for device actions, "
-        "cumulative steps, and host-volume requests; there is no user command and no "
-        "live ring is contacted."
+        "cumulative steps, Classic information and redacted-name metadata, and "
+        "host-volume requests; there is no user command and no live ring is contacted."
     )
     print(
         "Global state for every row: runnable no; hardware eligible no; hardware "

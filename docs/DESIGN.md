@@ -402,16 +402,21 @@ actual OTA transfer uses GATT, with no observed RFCOMM connect, read, or write.
 These rows share no activation path with HID and remain non-live, non-input-eligible
 evidence.
 
-`FakeVendorMainEventSimulator` is the zero-write runtime boundary for three passive
-MAIN event kinds: device actions (`06`/`22`), cumulative steps (`51`), and the host
-volume-state request (`49`). It accepts only the exact scripted fake and an
+`FakeVendorMainEventSimulator` is the zero-write runtime boundary for five passive
+MAIN event kinds: device actions (`06`/`22`), cumulative steps (`51`), Classic info
+and redacted name metadata (`45/00` and `45/01`), and the host volume-state request
+(`49`). It accepts only the exact scripted fake and an
 instance-bound MAIN response target. Every fake coordinator shares one transport-wide
 lifecycle lease and may claim only a disconnected fake; a caller-owned connection or a
 different active coordinator is rejected before I/O. Queue, setup, overall collection,
 and cleanup are bounded; cancellation and reuse stale callbacks. Local quiet and limits
 remain unknown, while malformed matching events, overflow, disconnect, and cleanup
-failure abort. Colliding `78` traffic is unrelated. Values stay redacted and every
-event remains hardware- and input-ineligible.
+failure abort. Colliding `78` traffic is unrelated. The known App-ID selector `45/02`
+is intentionally outside this collector and therefore counted as unrelated here;
+selectorless and unknown `45` traffic is also unrelated. Classic events imply no
+profile attachment, bonding, RFCOMM, HID, or live
+Classic support. Values stay redacted and every event remains hardware- and
+input-ineligible.
 
 `FakeVendorPhoneVolumeSimulator` is a separate request-to-projection boundary for the
 reverse-direction `49` path. It accepts only an exact `PhoneVolumeRequest` containing

@@ -1,6 +1,6 @@
 """Bounded fake-only collector for passive events on the vendor MAIN route.
 
-The collector subscribes but never writes.  It recognizes only four statically
+The collector subscribes but never writes.  It recognizes only five statically
 discriminated notification opcodes and does not treat local quiet or a caller limit
 as a wire terminal.  In particular, opcode ``0x78`` is deliberately excluded because
 its recovered subcommands collide across unrelated operations.
@@ -21,9 +21,13 @@ from .vendor_gatt_preflight import (
     resolve_vendor_gatt_route,
 )
 from .vendor_protocol import (
+    Static45Notification,
+    VendorClassicInfo,
     VendorDeviceAction,
     VendorPhoneVolumeRequest,
+    VendorRedactedTextNotification,
     VendorStepCounter,
+    parse_vendor_45_notification,
     parse_vendor_device_action,
     parse_vendor_phone_volume_request,
     parse_vendor_step_counter,
@@ -35,6 +39,8 @@ class MainEventKind(str, Enum):
     DEVICE_ACTION = "device_action"
     CUMULATIVE_STEP = "cumulative_step"
     PHONE_VOLUME_REQUEST = "phone_volume_request"
+    CLASSIC_INFO = "classic_info"
+    CLASSIC_NAME = "classic_name"
 
 
 class MainEventSimulationReason(str, Enum):
@@ -54,7 +60,13 @@ class MainEventCollectionCompleteness(str, Enum):
     ABORTED = "aborted"
 
 
-DecodedMainEvent = VendorDeviceAction | VendorStepCounter | VendorPhoneVolumeRequest
+DecodedMainEvent = (
+    VendorDeviceAction
+    | VendorStepCounter
+    | VendorPhoneVolumeRequest
+    | VendorClassicInfo
+    | VendorRedactedTextNotification
+)
 
 
 @dataclass(frozen=True, repr=False)
@@ -147,7 +159,10 @@ class MainEventSimulationResult:
 
 
 _MAX_EVENT_LIMIT = 4_096
-_MATCHING_OPCODES = frozenset((0x06, 0x22, 0x49, 0x51))
+_MATCHING_OPCODES = frozenset((0x06, 0x22, 0x45, 0x49, 0x51))
+_CLASSIC_SELECTORS = frozenset((0x00, 0x01))
+
+
 class _StageTimeoutError(TimeoutError):
     pass
 
@@ -401,6 +416,11 @@ class FakeVendorMainEventSimulator:
     def _classify(data: bytes) -> str:
         if not data or data[0] not in _MATCHING_OPCODES:
             return "unrelated"
+        if data[0] == 0x45:
+            if len(data) < 2:
+                return "unrelated"
+            if data[1] not in _CLASSIC_SELECTORS:
+                return "unrelated"
         return "accepted" if len(data) == 20 else "malformed"
 
     @staticmethod
@@ -415,6 +435,18 @@ class FakeVendorMainEventSimulator:
             return MainPassiveEvent(
                 MainEventKind.CUMULATIVE_STEP,
                 parse_vendor_step_counter(data),
+            )
+        if opcode == 0x45:
+            kind = (
+                Static45Notification.CLASSIC_INFO
+                if data[1] == 0x00
+                else Static45Notification.CLASSIC_NAME
+            )
+            return MainPassiveEvent(
+                MainEventKind.CLASSIC_INFO
+                if kind is Static45Notification.CLASSIC_INFO
+                else MainEventKind.CLASSIC_NAME,
+                parse_vendor_45_notification(data, expected_kind=kind),
             )
         return MainPassiveEvent(
             MainEventKind.PHONE_VOLUME_REQUEST,

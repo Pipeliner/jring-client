@@ -179,9 +179,10 @@ AI/speech, Wi-Fi, device-system, EQ/media/dial, touch, and screen-light surfaces
 Every item carries evidence, maturity, neutral meaning, privacy classes, recovered
 request/callback operation names, runnable/hardware-eligibility, hardware-verification,
 live, candidate, scripted-fake-decoder coverage, and input-eligibility states. All
-runnable, hardware-eligible, hardware-verified, live, and input-eligible states are false. The
-device-action, cumulative-step, and host-volume rows alone say that passive scripted
-fake event decoding is covered. This does not make media, volume, or shutter actions
+runnable, hardware-eligible, hardware-verified, live, and input-eligible states are
+false. The device-action, cumulative-step, Classic info/name, and host-volume rows alone
+say that passive scripted fake event decoding is covered. This does not make media,
+volume, or shutter actions
 previewable or mappable, and the separate input simulator generates only a synthetic
 step event. Every operation link
 must still exist in the recovered codec or callback-behavior ledger.
@@ -559,16 +560,23 @@ owner-hardware evidence first. The closed synthetic pair above demonstrates poli
 mapping UX only; it establishes no physical step or gesture meaning.
 
 Given the exact scripted MAIN fake, passive event collection subscribes without any
-write and accepts only `06`/`22` device actions, `51` cumulative steps, and `49`
-host-volume requests. Quiet and limits remain unknown; every matching malformed frame,
-overflow, deadline, disconnect, or cleanup failure aborts. Values remain redacted,
+write and accepts only `06`/`22` device actions, `51` cumulative steps, `45/00`
+Classic info, `45/01` redacted Classic name, and `49` host-volume requests. App-ID
+`45/02` is a known protocol selector intentionally outside this collector and is
+counted as unrelated here; selectorless and unknown `45` traffic is also unrelated.
+Quiet and limits remain unknown; every
+matching malformed frame, overflow, deadline, disconnect, or cleanup failure aborts.
+Values remain redacted,
 `78` collisions remain unrelated, and no event is hardware- or input-eligible. A shared
 fake-transport lease rejects caller-preconnected transports and competing coordinators
 before I/O; cleanup therefore never closes a connection owned outside the attempt.
+Classic metadata never claims profile attachment, bonding, RFCOMM, HID, or live
+support, and private name content never enters the result.
 
 Given the separate exact scripted host-volume coordinator and a closed request with
-explicitly caller-supplied offline values, one valid `49` request may produce one targeted fake write. Output must say
-that the fake write call returned while protocol completeness remains unknown; it must
+explicitly caller-supplied offline values, one valid `49` request may produce one
+targeted fake write. Output must say that the fake write call returned while protocol
+completeness remains unknown; it must
 never say the device accepted, applied, acknowledged, or completed the projection.
 The result contains no volume values, inbound body, frame, endpoint, or exception
 detail and states that host audio was neither read nor modified. Quiet causes zero
@@ -809,7 +817,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_payload_projection_zero_fills_short_and_ignores_extra`, `test_raw_generic_callback_and_typed_projection_are_separate`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
-| Zero-write passive MAIN event simulation | `test_collects_only_closed_passive_main_events_without_any_write`, `test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown`, `test_queue_overflow_aborts_and_discards_partial_projection`, `test_preconnected_transport_is_rejected_without_closing_caller_connection`, `test_transport_lease_blocks_a_different_fake_coordinator_without_interference`, `test_cancellation_cleans_up_releases_single_flight_and_stales_callback` |
+| Zero-write passive MAIN event simulation | `test_collects_only_closed_passive_main_events_without_any_write`, `test_collects_redacted_classic_info_and_name_without_attachment_or_write`, `test_excluded_app_id_and_unknown_45_selectors_count_as_unrelated`, `test_selectorless_45_cannot_be_attributed_to_classic_and_does_not_rollback`, `test_overlong_matching_classic_event_aborts_without_private_projection`, `test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown`, `test_queue_overflow_aborts_and_discards_partial_projection`, `test_preconnected_transport_is_rejected_without_closing_caller_connection`, `test_transport_lease_blocks_a_different_fake_coordinator_without_interference`, `test_cancellation_cleans_up_releases_single_flight_and_stales_callback` |
 | Fake-only host-volume reverse pipeline | `test_exact_device_request_projects_one_closed_response_without_claiming_ack`, `test_write_failure_is_uncertain_and_never_retried`, `test_disconnect_after_write_invocation_is_uncertain_without_retry`, `test_inbound_body_is_discarded_and_duplicate_request_cannot_change_projection`, `test_early_request_is_discarded_if_subscription_never_confirms`, `test_cancellation_after_write_invocation_taints_and_cleans_up`, `test_stale_callback_and_busy_or_wrong_types_cannot_project` |
 | Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_all_thirteen_statically_mapped_device_actions_are_discoverable_once`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors`, `test_guided_capabilities_selects_ephemerally_and_reads_metadata_only`, `test_guided_capabilities_default_no_never_constructs_transport` |
 | Owned-scope Android Bluetooth instruction inventory | `test_owned_scope_direct_instruction_aggregates_are_closed_and_reconciled`, `test_direct_instruction_family_counts_are_overlapping_not_old_reference_counts`, `test_direct_instruction_category_rows_preserve_fine_counts_and_absence_boundary` |

@@ -1107,6 +1107,7 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "Classic RFCOMM socket lifecycle reference" in output
     assert "Host volume-state request" in output
     assert "Developer-test scripted fake decoder coverage" in output
+    assert "Classic information and redacted-name metadata" in output
     assert "scripted fake decoder: yes" in output
     assert output.count("Global state for every row:") == 1
     assert "Possible future input candidates" in output
@@ -1180,6 +1181,20 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     assert all(item["runnable"] is False for item in result["capabilities"])
     assert all(item["hardware_eligible"] is False for item in result["capabilities"])
     assert all(item["input_eligible"] is False for item in result["capabilities"])
+    classic = {
+        item["name"]: item
+        for item in result["capabilities"]
+        if item["name"] in {"classic_bt_info_callback", "classic_bt_name_callback"}
+    }
+    assert set(classic) == {"classic_bt_info_callback", "classic_bt_name_callback"}
+    for item in classic.values():
+        assert item["scripted_fake_decoder_available"] is True
+        assert item["runnable"] is False
+        assert item["hardware_eligible"] is False
+        assert item["hardware_verified"] is False
+        assert item["live_available"] is False
+        assert item["input_eligible"] is False
+        assert not {"bonding", "rfcomm", "hid"} & set(item)
     serialized = json.dumps(result).lower()
     assert "payload_bytes" not in serialized
     assert '"frame"' not in serialized

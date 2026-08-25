@@ -1,5 +1,5 @@
 import asyncio
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 import pytest
 
@@ -90,6 +90,88 @@ def test_collects_only_closed_passive_main_events_without_any_write():
     assert "volume_up" not in repr(events[0])
 
 
+def test_collects_redacted_classic_info_and_name_without_attachment_or_write():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    private_name = b"private-ring-name"
+
+    def emit(fake, _call):
+        fake.emit(
+            VENDOR_CHARACTERISTIC_33F4,
+            _frame(0x45, bytes((0x00, 7, 8)) + bytes(range(3, 19))),
+        )
+        fake.emit(
+            VENDOR_CHARACTERISTIC_33F4,
+            _frame(0x45, bytes((0x01,)) + private_name),
+        )
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=2,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LIMIT_REACHED
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.event_kinds == (
+        MainEventKind.CLASSIC_INFO,
+        MainEventKind.CLASSIC_NAME,
+    )
+    events = result.events_for_test()
+    assert events[0].value_for_test().values == (7, 8)
+    assert events[0].value_for_test().identifiers_redacted is True
+    assert events[1].value_for_test().content_redacted is True
+    assert not hasattr(events[1].value_for_test(), "content")
+    assert private_name.decode() not in repr(result)
+    assert private_name.decode() not in repr(events[1])
+    assert private_name.decode() not in repr(asdict(events[1].value_for_test()))
+    assert transport.write_count == 0
+    assert transport.targeted_write_count == 0
+    assert transport.generic_write_count == 0
+    assert transport.write_with_response_count == 0
+
+
+@pytest.mark.parametrize("selector", (0x02, 0x03, 0xFF))
+def test_excluded_app_id_and_unknown_45_selectors_count_as_unrelated(selector):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        _frame(0x45, bytes((selector,)) + bytes(18)),
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        quiet_timeout=0.01,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LOCAL_QUIET
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.event_count == 0
+    assert result.unrelated_frame_count == 1
+    assert transport.write_count == 0
+
+
+def test_selectorless_45_cannot_be_attributed_to_classic_and_does_not_rollback():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(
+            VENDOR_CHARACTERISTIC_33F4,
+            _frame(0x45, bytes((0x00, 7, 8))),
+        )
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, bytes((0x45,)))
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=2,
+        quiet_timeout=0.01,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LOCAL_QUIET
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.event_kinds == (MainEventKind.CLASSIC_INFO,)
+    assert result.unrelated_frame_count == 1
+    assert transport.write_count == 0
+
+
 def test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown():
     transport = ScriptedVendorFakeTransport.vendor_route()
     transport.before_subscribe = lambda fake, _call: fake.emit(
@@ -109,12 +191,31 @@ def test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown():
     assert transport.write_count == 0
 
 
-@pytest.mark.parametrize("opcode", (0x06, 0x22, 0x51, 0x49))
+@pytest.mark.parametrize("opcode", (0x06, 0x22, 0x45, 0x51, 0x49))
 def test_malformed_matching_event_aborts_without_exposing_a_value(opcode):
     transport = ScriptedVendorFakeTransport.vendor_route()
     transport.before_subscribe = lambda fake, _call: fake.emit(
         VENDOR_CHARACTERISTIC_33F4,
         bytes((opcode,)) + bytes(18),
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.MALFORMED_EVENT
+    assert result.completeness is MainEventCollectionCompleteness.ABORTED
+    assert result.event_count == 0
+    assert result.events_for_test() == ()
+    assert transport.write_count == 0
+
+
+@pytest.mark.parametrize("selector", (0x00, 0x01))
+def test_overlong_matching_classic_event_aborts_without_private_projection(selector):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((0x45, selector)) + bytes(19),
     )
 
     result = run(FakeVendorMainEventSimulator(transport).collect(

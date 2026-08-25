@@ -31,6 +31,7 @@ Date: 2026-08-24
 | Interface count was inflated by helper and call-site methods | Whole-artifact output reconciles exact AIDL rows and labels 903 classified methods as supplemental |
 | Embedded-SDK classic socket references were omitted | The artifact inventory includes socket creation and close in one OTA helper, labels them as lifecycle references rather than a transport, and notes that actual transfer uses GATT |
 | An input-first inventory hid classic and host integration surfaces | Five task-first rows expose classic attachment, an RFCOMM socket lifecycle reference, two metadata callbacks, and the host volume request without promoting them to HID/input support |
+| Decoded Classic info/name notifications looked like profile attachment or pairing | The zero-write fake accepts only exact `45/00` and `45/01`, redacts name content, intentionally excludes known App-ID `45/02`, counts excluded/unknown traffic as unrelated only to this collector, and grants no bonding, RFCOMM, HID, live, hardware, or input state |
 | Disabled source scan filtering was reported as a callback-silence cause | Scan evidence lists null or malformed advertisements, callback exceptions, and a dead callback Binder instead |
 | A client name match looked like device identity evidence | Human and JSON discovery output explicitly label `likely_jring` as a client-side name heuristic |
 | SDK callbacks implied app consumption | Unknown-motion and both raw callback rows say that the reviewed app bodies discard their arguments |

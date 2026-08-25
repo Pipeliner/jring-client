@@ -317,11 +317,14 @@ jring non-health-capabilities
 jring non-health-capabilities --json
 ```
 
-That inventory now labels the device-action, cumulative-step, and host-volume rows
-whose passive MAIN notifications can be exercised with the exact scripted fake. The
-fake collector subscribes to its instance-bound synthetic response target, performs
-zero writes, ignores ambiguous `78` motion traffic, redacts decoded values, and remains
-hardware- and input-ineligible. It is a library test surface, not a live-ring command.
+That inventory now labels the device-action, cumulative-step, Classic info/name, and
+host-volume rows whose passive MAIN notifications can be exercised with the exact
+scripted fake. The fake collector subscribes to its instance-bound synthetic response
+target, performs zero writes, ignores ambiguous `78` motion traffic and unrelated
+`45` traffic, redacts decoded values, and remains hardware- and input-ineligible.
+The known App-ID selector `45/02` is intentionally outside this collector and is
+counted as unrelated here; it is not an unknown protocol selector.
+It is a library test surface, not a live-ring or Classic-attachment command.
 
 A separate library-only fake coordinator exercises the proven host-volume reverse
 pipeline: one exact fake `49` request can cause one closed projection of explicitly
