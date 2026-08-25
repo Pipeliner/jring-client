@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import replace
 
 from jring.uuids import VENDOR_CHARACTERISTIC_33F6
 from jring.vendor_raw_protocol import encode_raw_ai_state
@@ -39,8 +40,41 @@ def test_raw_fake_collects_typed_event_without_claiming_command_acknowledgement(
     assert transport.write_count == 1
     assert transport.subscribe_count == 1
     assert transport.unsubscribe_count == 1
+    assert transport.targeted_write_count == 1
+    assert transport.targeted_subscribe_count == 1
+    assert transport.targeted_unsubscribe_count == 1
+    assert transport.response_write_calls[0].target_instance_id is not None
+    assert (
+        transport.subscription_calls[0].target_instance_id
+        == transport.unsubscribe_calls[0].target_instance_id
+    )
     assert transport.close_count == 1
     assert notification.hex() not in repr(result)
+
+
+def test_missing_connection_scoped_raw_target_fails_before_subscription_or_write():
+    transport = ScriptedVendorFakeTransport.raw_vendor_route()
+    real_inventory = transport.gatt_characteristics
+
+    async def inventory_without_response_target():
+        records = await real_inventory()
+        return tuple(
+            replace(record, target=None)
+            if record.uuid == VENDOR_CHARACTERISTIC_33F6
+            else record
+            for record in records
+        )
+
+    transport.gatt_characteristics = inventory_without_response_target
+
+    result = run(FakeRawEventSimulator(transport).collect(
+        command=encode_raw_ai_state(True), event_limit=1, quiet_timeout=0.01
+    ))
+
+    assert result.reason is RawSimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is RawCollectionCompleteness.ABORTED
+    assert transport.targeted_subscribe_count == 0
+    assert transport.targeted_write_count == 0
 
 
 def test_raw_local_quiet_is_unknown_not_success_or_terminal():

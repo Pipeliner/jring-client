@@ -201,6 +201,9 @@ Desired outcomes:
 - Keep originals local and derive deterministic reviewable output without uploading it.
 - Route sensitive security reports to a verified private channel.
 - Prevent capture files, app archives, and unsafe evidence data from entering Git.
+- Resolve vendor routes by exact connection-scoped service/characteristic instance and
+  reject duplicate UUIDs, stale identities, or missing response/notification metadata
+  before any future operation can subscribe or write.
 
 ### Understand what environments are actually supported
 

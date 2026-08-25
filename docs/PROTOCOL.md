@@ -763,14 +763,21 @@ This is simulator state only: every operation, intent, token, closure, and engin
 hardware-ineligible and hides frame bytes from representations. It is not imported by
 the BLE transport or client. A dedicated fake-only coordinator now proves race,
 deadline, disconnect, bounded-queue, cleanup, and no-retry behavior without accepting
-Bleak or arbitrary transport implementations. Its results always say synthetic and
+Bleak or arbitrary transport implementations. A shared pure resolver prepares only the
+closed main and raw endpoint pairs from connection-scoped characteristic targets. It
+rejects duplicate UUIDs across services, inconsistent target metadata, property gaps,
+and CCCD ambiguity. The exact scripted fake then separately rejects reconstructed,
+stale, or unowned target objects before fake I/O. Bleak maps opaque targets to exact
+enumerated characteristic objects only to check current-snapshot identity and
+invalidates that map on refresh or disconnect; it exposes no live target I/O, and its
+only enabled direct write requires one writable standard Current Time characteristic
+under the Current Time service plus a canonical payload. No vendor operation is wired
+to Bleak or `JRingClient`. Results always say synthetic and
 hardware-unverified; an uncertain result explains that the command may have been
 received, was not repeated, and requires a fresh simulator. A live adapter remains
-blocked on surfaced ATT write outcomes, disconnect generations, endpoint/model
-evidence, owner authorization state,
-and read-only hardware canaries. It must also refuse duplicate UUID instances, select
-characteristics by service/handle rather than UUID alone, require the response-write
-property, serialize callbacks through a bounded generation-tagged queue, buffer any
+blocked on endpoint/model evidence, operation-specific owner authorization, and
+read-only hardware canaries. The coordinator must serialize callbacks through a
+bounded generation-tagged queue, buffer any
 response arriving before write completion, bound unsubscribe cleanup, and taint the
 session after cancellation or an unknown write outcome. Bleak/BlueZ notification
 activation is not promoted to direct CCCD evidence.

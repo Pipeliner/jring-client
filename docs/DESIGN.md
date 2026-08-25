@@ -66,9 +66,17 @@ does not claim an explicit CCCD write or peripheral descriptor acknowledgement. 
 model has no BLE/client import and cannot make an operation hardware-eligible.
 `jring.vendor_runtime_fake` and `jring.vendor_runtime_simulator` exercise that ordering
 against one exact scripted in-memory transport. The coordinator refuses subclasses and
-real transports, performs route preflight, calls only the explicit response-write
-boundary, binds callbacks to a connection generation, buffers response-before-write
-races, and poisons reuse after uncertain delivery or cleanup. It is synthetic test
+real transports. `jring.vendor_gatt_preflight` is the shared pure resolver for only the
+main and raw endpoint pairs. It requires one service-bound request and response
+instance, response-capable write, notify, one advertised CCCD, and consistent
+connection-generation metadata; that is structural validation, not transport
+ownership. Each exact fake coordinator separately calls `owns_target` before using its
+instance-targeted subscribe, response-write, and unsubscribe boundaries. Bleak keeps a
+current-snapshot identity map but exposes no live target I/O, and its generic write
+boundary resolves exactly one writable standard Current Time characteristic beneath
+the Current Time service and accepts only a canonical payload. The fake runtime binds
+callbacks to a connection generation, buffers response-before-write races, and poisons
+reuse after uncertain delivery or cleanup. It is synthetic test
 infrastructure—not a `JRingClient` feature or evidence of device support.
 `jring.vendor_behavior_settings`, `jring.vendor_settings`, and
 `jring.vendor_personal_settings` hold closed, strict synthetic mutation encoders. They

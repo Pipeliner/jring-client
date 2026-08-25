@@ -413,8 +413,17 @@ model has no hardware transport/client integration and all objects remain static
 and hardware-ineligible.
 
 Given the fake-only vendor coordinator, only the exact scripted transport type is
-accepted. Route ambiguity, missing properties, or setup failure sends no vendor
-command. A callback received during the response-write await is buffered and cannot
+accepted. The shared pure route resolver accepts only the closed main and raw pairs,
+requires one connection-scoped target per endpoint, and rejects duplicate UUIDs across
+the complete metadata snapshot, inconsistent target fields, missing response-capable
+write/notify properties, and absent or repeated CCCD metadata. The exact scripted fake
+then separately proves object identity and current-snapshot ownership, so reconstructed,
+stale, or otherwise unowned targets fail before fake I/O. Route ambiguity, missing
+properties, or setup failure sends no vendor command. Every fake coordinator uses the
+resolved fake targets rather than UUID-only I/O. Bleak exposes no target I/O and keeps
+vendor writes disabled; its standard Current Time write is service-bound, unambiguous,
+writable, and payload-validated. A callback received during the response-write await is
+buffered and cannot
 complete the operation until that write returns; a write exception, disconnect,
 timeout, cancellation, malformed response, queue overflow, or cleanup failure never
 retries and poisons unsafe reuse. Results use plain language: “no vendor command was
@@ -668,6 +677,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Repeated HID Report metadata | `test_repeated_hid_reports_preserve_instance_and_descriptor_metadata`, `test_repeated_hid_aggregate_is_order_independent_and_preserves_malformed_peer`, `test_bleak_gatt_inventory_enumerates_metadata_without_reading_values`, `test_cli_capability_inventory_human_copy_is_honest` |
 | Fail-closed offline vendor transaction | `test_notification_subscription_confirmation_is_required_before_any_write_intent`, `test_late_subscription_confirmation_from_old_connection_cannot_ready_a_reconnect`, `test_unknown_write_outcome_is_uncertain_and_blocks_work_until_disconnect`, `test_notification_cannot_complete_before_characteristic_write_confirmation`, `test_success_requires_the_closed_operation_specific_parser`, `test_unrelated_frames_never_refresh_the_immutable_deadline`, `test_disconnect_closes_once_and_clears_every_pending_layer`, `test_operation_constructor_is_closed_over_typed_static_requests` |
 | Fake-only race coordinator | `test_success_discards_early_frames_and_processes_write_hook_frame_after_ack`, `test_preflight_requires_one_unambiguous_response_write_and_notify_cccd`, `test_write_error_after_invocation_is_uncertain_tainted_and_never_retried`, `test_retained_callback_from_old_generation_is_ignored`, `test_unsubscribe_failure_after_write_makes_cleanup_uncertain_and_taints` |
+| Instance-safe vendor route preparation | `test_closed_main_and_raw_routes_resolve_connection_scoped_targets`, `test_endpoint_absence_ambiguity_and_wrong_service_fail_closed`, `test_connection_scoped_target_identity_is_required`, `test_connection_scoped_targets_map_exact_characteristic_objects_without_io`, `test_forged_targets_fail_but_unchanged_reinventory_reuses_target`, `test_structurally_consistent_but_unowned_targets_fail_before_fake_io`, `test_bleak_exposes_target_ownership_but_no_live_target_io`, `test_current_time_write_rejects_wrong_ambiguous_nonwritable_or_malformed_route`, `test_failed_candidate_disconnect_cannot_alias_successful_retry`, `test_failed_connected_candidate_is_never_promoted_to_live_io`, `test_hardware_io_is_rejected_while_connecting_closing_or_disconnected`, `test_successful_bleak_snapshot_omission_revokes_removed_target_without_growth` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
 | Explicit simulator profiles | `test_simulator_profile_preserves_global_and_task_first_forms`, `test_simulator_profile_requires_simulation`, `test_simulator_profile_is_consistent_between_status_and_capabilities`, `test_input_profile_is_explicit_in_human_and_json_output`, `test_simulator_profiles_are_discoverable_in_help` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |

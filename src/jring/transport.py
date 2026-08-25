@@ -13,6 +13,21 @@ from .uuids import (
 )
 
 NotifyCallback = Callable[[bytes], None]
+DisconnectListener = Callable[[BaseException | None], None]
+
+
+@dataclass(frozen=True)
+class GattCharacteristicTarget:
+    """Opaque, connection-scoped identity for one enumerated characteristic.
+
+    Transport implementations must validate object identity as well as these public
+    fields.  Reconstructing an equal value must not grant access to a characteristic.
+    """
+
+    connection_generation: int
+    service_uuid: str
+    uuid: str
+    instance_id: str
 
 
 @dataclass(frozen=True)
@@ -23,6 +38,7 @@ class GattCharacteristicMetadata:
     descriptor_uuids: tuple[str, ...]
     instance_id: str | None = None
     descriptor_instance_ids: tuple[str, ...] = ()
+    target: GattCharacteristicTarget | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +90,19 @@ class BleTransport(Protocol):
     async def unsubscribe(self, characteristic: str) -> None: ...
     async def service_uuids(self) -> set[str]: ...
     async def gatt_characteristics(self) -> tuple[GattCharacteristicMetadata, ...]: ...
+
+
+class TargetedBleTransport(Protocol):
+    """Current-snapshot identity checks for a future reviewed vendor runtime.
+
+    This protocol deliberately exposes no target I/O.  It only lets pure route
+    preparation be followed by a separate transport-ownership check.
+    """
+
+    def add_disconnect_listener(
+        self, listener: DisconnectListener
+    ) -> Callable[[], None]: ...
+    def owns_target(self, target: GattCharacteristicTarget) -> bool: ...
 
 
 class FakeTransport:

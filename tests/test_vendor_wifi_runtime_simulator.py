@@ -73,6 +73,10 @@ def test_advertised_count_is_diagnostic_unknown_not_wire_completion():
     assert transport.response_write_calls[0].characteristic_uuid == VENDOR_CHARACTERISTIC_33F3
     assert transport.response_write_calls[0].data_for_test() == bytes((0x54, 0x08)) + bytes(18)
     assert transport.unsubscribe_count == 1
+    assert transport.targeted_write_count == 1
+    assert transport.targeted_subscribe_count == 1
+    assert transport.targeted_unsubscribe_count == 1
+    assert transport.response_write_calls[0].target_instance_id is not None
     assert transport.close_count == 1
 
     ssid = result.ssids_for_explicit_local_test_use()[0]

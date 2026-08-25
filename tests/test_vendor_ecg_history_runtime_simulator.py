@@ -69,6 +69,10 @@ def test_metadata_events_and_samples_preserve_wire_order_but_never_confirm_end()
     assert result.metadata_received is True
     assert result.wire_terminal_observed is False
     assert result.quiet_means_success is False
+    assert transport.targeted_write_count == 1
+    assert transport.targeted_subscribe_count == 1
+    assert transport.targeted_unsubscribe_count == 1
+    assert transport.response_write_calls[0].target_instance_id is not None
 
 
 @pytest.mark.parametrize("frame", [_event(), _samples()])

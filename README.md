@@ -143,8 +143,8 @@ candidates, callback-silent failures, and explicit unknowns remain distinct. Nin
 rows are wholly unclosed, while 58 of 85 retain at least one explicit caveat. The phone
 volume path is modeled as an inbound device request followed by an outbound host-state
 projection, never as an acknowledgement. Terminal rules comprise 36 single matched
-responses, 29 with no proven terminal, 17 per-frame
-only, two local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown.
+responses, 29 with no proven terminal, 17 per-frame only, two local-quiet-unknown, and
+one metadata-or-marker-else-local-quiet-unknown.
 Local quiet is never promoted to success, and matching requires an operation token
 plus connection generation.
 The fake-only transaction simulator can now compose all seven query families, the
@@ -156,6 +156,16 @@ their private input stays hidden and absence of a proven failure opcode remains 
 Eight single-frame behavior mutations are also composable with paired acknowledgements.
 Alarm batches are deliberately rejected by this factory because their multi-frame,
 source-sequential semantics require a separate state machine.
+All fake transaction and stream coordinators now share one pure main/raw GATT resolver.
+It checks that connection-scoped characteristic metadata is structurally consistent
+and refuses UUID ambiguity, missing response-write/notify properties, and CCCD metadata
+gaps. Each exact fake coordinator then separately verifies that the resolved targets
+belong to its current transport snapshot before synthetic I/O. Bleak retains an opaque
+target-to-characteristic map only for current-identity checks and exposes no live target
+I/O; its direct write boundary accepts only the guarded standard Current Time
+characteristic when exactly one writable instance exists under the Current Time
+service and the payload is canonical. Vendor writes and hardware eligibility remain
+zero.
 Seven additional no-argument main queries and the typed screen-light request use
 subcommand-aware fake matchers. Streaming Wi-Fi scan is rejected rather than being
 misrepresented as a singleton response.

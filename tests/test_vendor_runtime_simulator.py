@@ -1,8 +1,9 @@
 import asyncio
+from dataclasses import replace
 
 import pytest
 
-from jring.transport import GattCharacteristicMetadata
+from jring.transport import GattCharacteristicMetadata, GattCharacteristicTarget
 from jring.uuids import (
     VENDOR_CHARACTERISTIC_33F3,
     VENDOR_CHARACTERISTIC_33F4,
@@ -58,8 +59,12 @@ def test_success_discards_early_frames_and_processes_write_hook_frame_after_ack(
     assert result.write_invoked is True
     assert result.parsed_value_for_test().percent == 64
     assert transport.write_count == 1
-    assert transport.write_with_response_count == 1
+    assert transport.targeted_write_count == 1
+    assert transport.write_with_response_count == 0
     assert transport.generic_write_count == 0
+    assert transport.targeted_subscribe_count == 1
+    assert transport.targeted_unsubscribe_count == 1
+    assert transport.response_write_calls[0].target_instance_id is not None
     assert transport.subscribe_count == 1
     assert transport.unsubscribe_count == 1
     assert transport.close_count == 1
@@ -139,6 +144,36 @@ def test_preflight_requires_one_unambiguous_response_write_and_notify_cccd(trans
     assert transport.write_count == 0
     assert transport.close_count == 1
     assert simulator.tainted is False
+
+
+def test_structurally_consistent_but_unowned_targets_fail_before_fake_io():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    original_inventory = transport.gatt_characteristics
+
+    async def forged_inventory():
+        records = await original_inventory()
+        return tuple(
+            replace(
+                record,
+                target=GattCharacteristicTarget(
+                    record.target.connection_generation,
+                    record.target.service_uuid,
+                    record.target.uuid,
+                    record.target.instance_id,
+                ),
+            )
+            for record in records
+        )
+
+    transport.gatt_characteristics = forged_inventory
+    simulator = FakeVendorRuntimeSimulator(transport)
+
+    result = run(simulator.execute(operation(), timeout=0.2))
+
+    assert result.reason is SimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is TransactionCompleteness.ABORTED
+    assert transport.subscribe_count == 0
+    assert transport.write_count == 0
 
 
 def test_exact_scripted_fake_type_is_required():

@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 
+from jring.transport import GattCharacteristicMetadata, GattCharacteristicTarget
 from jring.uuids import (
     VENDOR_CHARACTERISTIC_33F3,
     VENDOR_CHARACTERISTIC_33F4,
@@ -61,6 +62,202 @@ def test_raw_route_is_explicitly_separate_and_simulation_only():
     run(scenario())
     assert transport.simulation_only is True
     assert transport.hardware_eligible is False
+
+
+def test_targeted_fake_io_uses_connection_scoped_instances_not_generic_paths():
+    transport = ScriptedVendorFakeTransport.vendor_route(
+        values={VENDOR_CHARACTERISTIC_33F3: b"existing"}
+    )
+    received = []
+
+    async def scenario():
+        await transport.connect()
+        metadata = await transport.gatt_characteristics()
+        request_target = metadata[0].target
+        response_target = metadata[1].target
+        assert request_target is not None
+        assert response_target is not None
+        assert await transport.read_target(request_target) == b"existing"
+        await transport.subscribe_target(response_target, received.append)
+        await transport.write_target_with_response(request_target, b"request")
+        transport.emit(VENDOR_CHARACTERISTIC_33F4, b"response")
+        await transport.unsubscribe_target(response_target)
+
+    run(scenario())
+    assert received == [b"response"]
+    assert transport.targeted_read_count == 1
+    assert transport.targeted_write_count == 1
+    assert transport.targeted_subscribe_count == 1
+    assert transport.targeted_unsubscribe_count == 1
+    assert transport.generic_write_count == 0
+    assert transport.write_with_response_count == 0
+    assert transport.response_write_calls[0].target_instance_id is not None
+    assert transport.subscription_calls[0].target_instance_id is not None
+    assert transport.unsubscribe_calls[0].target_instance_id is not None
+
+
+def test_forged_targets_fail_but_unchanged_reinventory_reuses_target():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    async def scenario():
+        await transport.connect()
+        target = (await transport.gatt_characteristics())[0].target
+        assert target is not None
+        forged = GattCharacteristicTarget(
+            target.connection_generation,
+            target.service_uuid,
+            target.uuid,
+            target.instance_id,
+        )
+        with pytest.raises(LookupError, match="stale or unavailable"):
+            await transport.write_target_with_response(forged, b"request")
+        refreshed = await transport.gatt_characteristics()
+        assert refreshed[0].target is target
+        assert transport.owns_target(target) is True
+        await transport.write_target_with_response(target, b"request")
+        current = (await transport.gatt_characteristics())[0].target
+        assert current is not None
+        transport.emit_disconnect()
+        with pytest.raises(ConnectionError, match="not connected"):
+            await transport.write_target_with_response(current, b"request")
+
+    run(scenario())
+    assert transport.write_count == 1
+    assert transport.targeted_write_count == 1
+
+
+def test_failed_fake_metadata_refresh_revokes_previous_snapshot_target():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    async def scenario():
+        await transport.connect()
+        target = (await transport.gatt_characteristics())[0].target
+        assert target is not None
+        transport._metadata_error = LookupError("metadata failed")
+        with pytest.raises(LookupError, match="metadata failed"):
+            await transport.gatt_characteristics()
+        assert transport.owns_target(target) is False
+        with pytest.raises(LookupError, match="stale or unavailable"):
+            await transport.write_target_with_response(target, b"request")
+
+    run(scenario())
+    assert transport.write_count == 0
+
+
+def test_successful_fake_snapshot_omission_revokes_removed_target_without_growth():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    original_metadata = transport.metadata_snapshot_for_test()
+
+    async def scenario():
+        await transport.connect()
+        original = await transport.gatt_characteristics()
+        request_target = original[0].target
+        removed_target = original[1].target
+        assert request_target is not None
+        assert removed_target is not None
+        assert len(transport._targets) == 2
+        assert len(transport._targets_by_metadata_id) == 2
+
+        transport._metadata = original_metadata[:1]
+        for _attempt in range(3):
+            reduced = await transport.gatt_characteristics()
+            assert len(reduced) == 1
+            assert reduced[0].target is request_target
+            assert transport.owns_target(request_target) is True
+            assert transport.owns_target(removed_target) is False
+            assert len(transport._targets) == 1
+            assert len(transport._targets_by_metadata_id) == 1
+            assert transport._target_uuid_counts == {
+                VENDOR_CHARACTERISTIC_33F3: 1
+            }
+        with pytest.raises(LookupError, match="stale or unavailable"):
+            await transport.subscribe_target(removed_target, lambda _data: None)
+
+        transport._metadata = original_metadata
+        restored = await transport.gatt_characteristics()
+        assert restored[0].target is request_target
+        assert restored[1].target is not removed_target
+        assert transport.owns_target(removed_target) is False
+        assert len(transport._targets) == 2
+        assert len(transport._targets_by_metadata_id) == 2
+
+    run(scenario())
+    assert transport.targeted_subscribe_count == 0
+
+
+def test_duplicate_uuid_targets_are_inspectable_but_fake_io_is_unavailable():
+    duplicate = GattCharacteristicMetadata(
+        VENDOR_SERVICE_56FF,
+        VENDOR_CHARACTERISTIC_33F3,
+        ("write",),
+        (),
+    )
+    transport = ScriptedVendorFakeTransport(
+        services={VENDOR_SERVICE_56FF},
+        metadata=(duplicate, duplicate),
+    )
+
+    async def scenario():
+        await transport.connect()
+        metadata = await transport.gatt_characteristics()
+        assert metadata[0].target is not None
+        assert metadata[1].target is not None
+        for record in metadata:
+            with pytest.raises(LookupError, match="stale or unavailable"):
+                await transport.write_target_with_response(record.target, b"request")
+
+    run(scenario())
+    assert transport.write_count == 0
+
+
+def test_concurrent_fake_connect_is_single_flight():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(connect_gate=gate)
+
+    async def scenario():
+        first = asyncio.create_task(transport.connect())
+        await gate.wait_until_entered()
+        with pytest.raises(ConnectionError, match="connecting or connected"):
+            await transport.connect()
+        with pytest.raises(ConnectionError, match="lifecycle operation"):
+            await transport.close()
+        gate.release()
+        await first
+
+    run(scenario())
+    assert transport.connect_count == 1
+    assert transport.connection_generation == 1
+
+
+@pytest.mark.parametrize("phase", ["write", "subscribe"])
+def test_targeted_fake_detects_reconnect_during_awaited_io(phase):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    async def reconnect(fake, _call):
+        fake.emit_disconnect()
+        await fake.connect()
+
+    if phase == "write":
+        transport.before_write = reconnect
+    else:
+        transport.before_subscribe = reconnect
+
+    async def scenario():
+        await transport.connect()
+        metadata = await transport.gatt_characteristics()
+        target = metadata[0].target if phase == "write" else metadata[1].target
+        assert target is not None
+        action = (
+            transport.write_target_with_response(target, b"request")
+            if phase == "write"
+            else transport.subscribe_target(target, lambda _data: None)
+        )
+        with pytest.raises(ConnectionError, match="connection changed"):
+            await action
+
+    run(scenario())
+    assert transport.connection_generation == 2
+    assert transport.active_callback_count == 0
 
 
 def test_subscribe_installs_callback_before_the_call_is_allowed_to_finish():
@@ -287,7 +484,7 @@ def test_duplicate_connect_is_rejected_without_advancing_generation():
 
     async def scenario():
         await transport.connect()
-        with pytest.raises(ConnectionError, match="already connected"):
+        with pytest.raises(ConnectionError, match="connecting or connected"):
             await transport.connect()
 
     run(scenario())

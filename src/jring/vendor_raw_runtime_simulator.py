@@ -13,11 +13,11 @@ from enum import Enum
 import math
 
 from .protocol import ProtocolError
-from .uuids import (
-    VENDOR_CHARACTERISTIC_33F5,
-    VENDOR_CHARACTERISTIC_33F6,
-    VENDOR_SERVICE_56FF,
-    uuid16,
+from .transport import GattCharacteristicTarget
+from .vendor_gatt_preflight import (
+    VendorGattPreflightResult,
+    VendorGattRoute,
+    resolve_vendor_gatt_route,
 )
 from .vendor_raw_protocol import (
     RawVendorNotification,
@@ -128,22 +128,40 @@ class FakeRawEventSimulator:
         events: list[RawVendorNotification] = []
         command_written = False
         subscribed = False
+        request_target: GattCharacteristicTarget | None = None
+        response_target: GattCharacteristicTarget | None = None
         reason = RawSimulationReason.LOCAL_QUIET
         completeness = RawCollectionCompleteness.UNKNOWN
 
         try:
             await self._transport.connect()
-            if not await self._preflight():
+            preflight = await self._preflight()
+            if not preflight.structurally_ready:
                 reason = RawSimulationReason.PREFLIGHT_FAILURE
                 completeness = RawCollectionCompleteness.ABORTED
             else:
-                await self._transport.subscribe(
-                    VENDOR_CHARACTERISTIC_33F6, queue.put_nowait
-                )
+                request_target = preflight.request_target
+                response_target = preflight.response_target
+                if (
+                    request_target is None
+                    or response_target is None
+                    or not self._transport.owns_target(request_target)
+                    or not self._transport.owns_target(response_target)
+                ):
+                    reason = RawSimulationReason.PREFLIGHT_FAILURE
+                    completeness = RawCollectionCompleteness.ABORTED
+                    return self._result(
+                        operation,
+                        reason,
+                        completeness,
+                        events,
+                        write_invoked=False,
+                    )
+                await self._transport.subscribe_target(response_target, queue.put_nowait)
                 subscribed = True
                 if command is not None:
-                    await self._transport.write_with_response(
-                        VENDOR_CHARACTERISTIC_33F5,
+                    await self._transport.write_target_with_response(
+                        request_target,
                         command.synthetic_bytes_for_test(),
                     )
                     command_written = True
@@ -185,7 +203,7 @@ class FakeRawEventSimulator:
             )
             completeness = RawCollectionCompleteness.ABORTED
         finally:
-            cleanup_succeeded = await self._cleanup(subscribed)
+            cleanup_succeeded = await self._cleanup(subscribed, response_target)
 
         if not cleanup_succeeded:
             reason = RawSimulationReason.CLEANUP_FAILURE
@@ -194,35 +212,28 @@ class FakeRawEventSimulator:
             reason, completeness, events, command_written, cleanup_succeeded
         )
 
-    async def _preflight(self) -> bool:
+    async def _preflight(self) -> VendorGattPreflightResult:
         services = await self._transport.service_uuids()
-        if VENDOR_SERVICE_56FF not in {item.lower() for item in services}:
-            return False
         metadata = await self._transport.gatt_characteristics()
-        tx = [
-            item for item in metadata
-            if item.service_uuid.lower() == VENDOR_SERVICE_56FF
-            and item.uuid.lower() == VENDOR_CHARACTERISTIC_33F5
-        ]
-        rx = [
-            item for item in metadata
-            if item.service_uuid.lower() == VENDOR_SERVICE_56FF
-            and item.uuid.lower() == VENDOR_CHARACTERISTIC_33F6
-        ]
-        return (
-            len(tx) == 1
-            and len(rx) == 1
-            and "write" in tx[0].properties
-            and "notify" in rx[0].properties
-            and uuid16(0x2902) in rx[0].descriptor_uuids
+        return resolve_vendor_gatt_route(
+            VendorGattRoute.RAW,
+            services=services,
+            metadata=metadata,
+            connection_generation=self._transport.connection_generation,
         )
 
-    async def _cleanup(self, subscribed: bool) -> bool:
+    async def _cleanup(
+        self,
+        subscribed: bool,
+        response_target: GattCharacteristicTarget | None,
+    ) -> bool:
         succeeded = True
         if subscribed and self._transport.connected:
             try:
-                await self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F6)
-            except (ConnectionError, OSError):
+                if response_target is None:
+                    raise RuntimeError("subscription target is unavailable")
+                await self._transport.unsubscribe_target(response_target)
+            except (ConnectionError, LookupError, OSError, RuntimeError):
                 succeeded = False
         try:
             await self._transport.close()

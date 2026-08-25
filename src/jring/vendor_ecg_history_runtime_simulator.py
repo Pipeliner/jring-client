@@ -13,11 +13,11 @@ from enum import Enum
 import math
 
 from .protocol import ProtocolError
-from .uuids import (
-    VENDOR_CHARACTERISTIC_33F3,
-    VENDOR_CHARACTERISTIC_33F4,
-    VENDOR_SERVICE_56FF,
-    uuid16,
+from .transport import GattCharacteristicTarget
+from .vendor_gatt_preflight import (
+    VendorGattPreflightResult,
+    VendorGattRoute,
+    resolve_vendor_gatt_route,
 )
 from .vendor_main_commands import EcgHistoryRequest
 from .vendor_protocol import (
@@ -203,6 +203,8 @@ class FakeVendorEcgHistorySimulator:
         overflowed = False
         receiving = True
         subscribed = False
+        request_target: GattCharacteristicTarget | None = None
+        response_target: GattCharacteristicTarget | None = None
         write_issued = False
         command_written = False
         reason = EcgHistorySimulationReason.LOCAL_QUIET
@@ -220,19 +222,39 @@ class FakeVendorEcgHistorySimulator:
 
         try:
             await asyncio.wait_for(self._transport.connect(), timeout=stage)
-            if not await asyncio.wait_for(self._preflight(), timeout=stage):
+            preflight = await asyncio.wait_for(self._preflight(), timeout=stage)
+            if not preflight.structurally_ready:
                 reason = EcgHistorySimulationReason.PREFLIGHT_FAILURE
                 completeness = EcgHistoryCollectionCompleteness.ABORTED
             else:
+                request_target = preflight.request_target
+                response_target = preflight.response_target
+                if (
+                    request_target is None
+                    or response_target is None
+                    or not self._transport.owns_target(request_target)
+                    or not self._transport.owns_target(response_target)
+                ):
+                    reason = EcgHistorySimulationReason.PREFLIGHT_FAILURE
+                    completeness = EcgHistoryCollectionCompleteness.ABORTED
+                    return self._result(
+                        request,
+                        reason,
+                        completeness,
+                        descriptor,
+                        events,
+                        samples,
+                        write_invoked=False,
+                    )
                 await asyncio.wait_for(
-                    self._transport.subscribe(VENDOR_CHARACTERISTIC_33F4, receive),
+                    self._transport.subscribe_target(response_target, receive),
                     timeout=stage,
                 )
                 subscribed = True
                 write_issued = True
                 await asyncio.wait_for(
-                    self._transport.write_with_response(
-                        VENDOR_CHARACTERISTIC_33F3,
+                    self._transport.write_target_with_response(
+                        request_target,
                         request.frames()[0].synthetic_bytes_for_test(),
                     ),
                     timeout=stage,
@@ -339,7 +361,9 @@ class FakeVendorEcgHistorySimulator:
                     queue.get_nowait()
                 except asyncio.QueueEmpty:
                     break
-            cleanup_succeeded = await self._cleanup(subscribed, timeout=stage)
+            cleanup_succeeded = await self._cleanup(
+                subscribed, response_target, timeout=stage
+            )
 
         if not cleanup_succeeded:
             reason = EcgHistorySimulationReason.CLEANUP_FAILURE
@@ -368,40 +392,40 @@ class FakeVendorEcgHistorySimulator:
             return "unrelated"
         return "accepted" if len(data) == 20 else "malformed"
 
-    async def _preflight(self) -> bool:
+    async def _preflight(self) -> VendorGattPreflightResult:
         services = await self._transport.service_uuids()
-        if VENDOR_SERVICE_56FF not in {item.lower() for item in services}:
-            return False
         metadata = await self._transport.gatt_characteristics()
-        tx = [
-            item
-            for item in metadata
-            if item.service_uuid.lower() == VENDOR_SERVICE_56FF
-            and item.uuid.lower() == VENDOR_CHARACTERISTIC_33F3
-        ]
-        rx = [
-            item
-            for item in metadata
-            if item.service_uuid.lower() == VENDOR_SERVICE_56FF
-            and item.uuid.lower() == VENDOR_CHARACTERISTIC_33F4
-        ]
-        return (
-            len(tx) == 1
-            and len(rx) == 1
-            and "write" in tx[0].properties
-            and "notify" in rx[0].properties
-            and uuid16(0x2902) in rx[0].descriptor_uuids
+        return resolve_vendor_gatt_route(
+            VendorGattRoute.MAIN,
+            services=services,
+            metadata=metadata,
+            connection_generation=self._transport.connection_generation,
         )
 
-    async def _cleanup(self, subscribed: bool, *, timeout: float) -> bool:
+    async def _cleanup(
+        self,
+        subscribed: bool,
+        response_target: GattCharacteristicTarget | None,
+        *,
+        timeout: float,
+    ) -> bool:
         succeeded = True
         if subscribed and self._transport.connected:
             try:
+                if response_target is None:
+                    raise RuntimeError("subscription target is unavailable")
                 await asyncio.wait_for(
-                    self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F4),
+                    self._transport.unsubscribe_target(response_target),
                     timeout=timeout,
                 )
-            except (ConnectionError, OSError, TimeoutError, asyncio.TimeoutError):
+            except (
+                ConnectionError,
+                LookupError,
+                OSError,
+                RuntimeError,
+                TimeoutError,
+                asyncio.TimeoutError,
+            ):
                 succeeded = False
         try:
             await asyncio.wait_for(self._transport.close(), timeout=timeout)

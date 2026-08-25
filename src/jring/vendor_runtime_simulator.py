@@ -15,12 +15,10 @@ import math
 import time
 from typing import Any, TypeVar
 
-from .transport import GattCharacteristicMetadata, NotifyCallback
-from .uuids import (
-    VENDOR_CHARACTERISTIC_33F3,
-    VENDOR_CHARACTERISTIC_33F4,
-    VENDOR_SERVICE_56FF,
-    uuid16,
+from .transport import GattCharacteristicTarget, NotifyCallback
+from .vendor_gatt_preflight import (
+    VendorGattRoute,
+    resolve_vendor_gatt_route,
 )
 from .vendor_runtime_fake import ScriptedVendorFakeTransport
 from .vendor_transport import (
@@ -142,6 +140,8 @@ class _Attempt:
     remove_disconnect_listener: Callable[[], None] | None = None
     engine: OfflineVendorTransactionEngine | None = None
     token: VendorOperationToken | None = None
+    request_target: GattCharacteristicTarget | None = None
+    response_target: GattCharacteristicTarget | None = None
 
 
 class _DeadlineExpired(Exception):
@@ -323,7 +323,27 @@ class FakeVendorRuntimeSimulator:
         metadata = await self._await_boundary(
             self._transport.gatt_characteristics(), attempt
         )
-        if not self._valid_route(services, metadata):
+        preflight = resolve_vendor_gatt_route(
+            VendorGattRoute.MAIN,
+            services=services,
+            metadata=metadata,
+            connection_generation=self._transport.connection_generation,
+        )
+        if not preflight.structurally_ready:
+            return self._result(
+                operation,
+                reason=SimulationReason.PREFLIGHT_FAILURE,
+                completeness=TransactionCompleteness.ABORTED,
+                write_invoked=False,
+            )
+        attempt.request_target = preflight.request_target
+        attempt.response_target = preflight.response_target
+        if (
+            attempt.request_target is None
+            or attempt.response_target is None
+            or not self._transport.owns_target(attempt.request_target)
+            or not self._transport.owns_target(attempt.response_target)
+        ):
             return self._result(
                 operation,
                 reason=SimulationReason.PREFLIGHT_FAILURE,
@@ -347,7 +367,7 @@ class FakeVendorRuntimeSimulator:
         if callback is None:
             raise RuntimeError("attempt notification callback was not installed")
         await self._await_boundary(
-            self._transport.subscribe(subscription.characteristic_uuid, callback),
+            self._transport.subscribe_target(attempt.response_target, callback),
             attempt,
         )
         now = time.monotonic()
@@ -375,8 +395,8 @@ class FakeVendorRuntimeSimulator:
         attempt.stage = _Stage.WRITE
         attempt.write_invoked = True
         await self._await_boundary(
-            self._transport.write_with_response(
-                update.write_intent.endpoint_uuid,
+            self._transport.write_target_with_response(
+                attempt.request_target,
                 update.write_intent.synthetic_bytes_for_test(),
             ),
             attempt,
@@ -402,7 +422,7 @@ class FakeVendorRuntimeSimulator:
             while attempt.frames:
                 notification = engine.receive(
                     token,
-                    endpoint_uuid=VENDOR_CHARACTERISTIC_33F4,
+                    endpoint_uuid=attempt.response_target.uuid,
                     data=attempt.frames.popleft(),
                     now=time.monotonic(),
                 )
@@ -448,41 +468,14 @@ class FakeVendorRuntimeSimulator:
                 operation_task, disconnect_task, return_exceptions=True
             )
 
-    @staticmethod
-    def _valid_route(
-        services: set[str],
-        metadata: tuple[GattCharacteristicMetadata, ...],
-    ) -> bool:
-        if VENDOR_SERVICE_56FF not in {item.lower() for item in services}:
-            return False
-        requests = [
-            item
-            for item in metadata
-            if item.uuid.lower() == VENDOR_CHARACTERISTIC_33F3
-        ]
-        responses = [
-            item
-            for item in metadata
-            if item.uuid.lower() == VENDOR_CHARACTERISTIC_33F4
-        ]
-        if len(requests) != 1 or len(responses) != 1:
-            return False
-        request = requests[0]
-        response = responses[0]
-        return (
-            request.service_uuid.lower() == VENDOR_SERVICE_56FF
-            and request.properties.count("write") == 1
-            and response.service_uuid.lower() == VENDOR_SERVICE_56FF
-            and response.properties.count("notify") == 1
-            and response.descriptor_uuids.count(uuid16(0x2902)) == 1
-        )
-
     async def _cleanup(self, attempt: _Attempt) -> bool:
         succeeded = True
         if attempt.subscribe_invoked:
             try:
+                if attempt.response_target is None:
+                    raise RuntimeError("subscription target is unavailable")
                 await asyncio.wait_for(
-                    self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F4),
+                    self._transport.unsubscribe_target(attempt.response_target),
                     timeout=self._cleanup_timeout,
                 )
             except BaseException:

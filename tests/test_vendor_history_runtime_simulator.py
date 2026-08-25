@@ -1,6 +1,12 @@
 import asyncio
 
-from jring.uuids import VENDOR_CHARACTERISTIC_33F4
+from jring.transport import GattCharacteristicMetadata
+from jring.uuids import (
+    VENDOR_CHARACTERISTIC_33F3,
+    VENDOR_CHARACTERISTIC_33F4,
+    VENDOR_SERVICE_56FF,
+    uuid16,
+)
 from jring.vendor_history_runtime_simulator import (
     FakeVendorHistorySimulator,
     HistoryCollectionCompleteness,
@@ -46,8 +52,45 @@ def test_oxygen_history_preserves_shared_projection_multiplicity_without_termina
     assert result.hardware_eligible is False
     assert transport.write_count == 1
     assert transport.unsubscribe_count == 1
+    assert transport.targeted_write_count == 1
+    assert transport.targeted_subscribe_count == 1
+    assert transport.targeted_unsubscribe_count == 1
+    assert transport.response_write_calls[0].target_instance_id is not None
+    assert (
+        transport.subscription_calls[0].target_instance_id
+        == transport.unsubscribe_calls[0].target_instance_id
+    )
+    assert (
+        transport.response_write_calls[0].target_instance_id
+        != transport.subscription_calls[0].target_instance_id
+    )
     assert transport.close_count == 1
     assert response.hex() not in repr(result)
+
+
+def test_cross_service_request_uuid_duplicate_fails_before_subscription_or_write():
+    exact = ScriptedVendorFakeTransport.vendor_route()
+    transport = ScriptedVendorFakeTransport(
+        services={VENDOR_SERVICE_56FF, uuid16(0x180A)},
+        metadata=exact.metadata_snapshot_for_test() + (
+            GattCharacteristicMetadata(
+                uuid16(0x180A),
+                VENDOR_CHARACTERISTIC_33F3,
+                ("write",),
+                (),
+            ),
+        ),
+    )
+
+    result = run(FakeVendorHistorySimulator(transport).collect(
+        request=encode_day_query(StaticQuery.OXYGEN_DAY, day_offset=0),
+        quiet_timeout=0.01,
+    ))
+
+    assert result.reason is HistorySimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is HistoryCollectionCompleteness.ABORTED
+    assert transport.targeted_subscribe_count == 0
+    assert transport.targeted_write_count == 0
 
 
 def test_unrelated_main_event_does_not_become_history_or_success():

@@ -61,6 +61,10 @@ def test_daily_frames_project_samples_then_local_unknown_end():
     assert result.accepted_frame_count == 2
     assert result.local_end_arguments_for_explicit_test_use() == (2, 1_840)
     assert "1840" not in repr(result)
+    assert transport.targeted_write_count == 1
+    assert transport.targeted_subscribe_count == 1
+    assert transport.targeted_unsubscribe_count == 1
+    assert transport.response_write_calls[0].target_instance_id is not None
 
 
 def test_detail_ff_is_confirmed_wire_terminal_without_invented_samples():
