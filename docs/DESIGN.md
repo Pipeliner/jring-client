@@ -121,6 +121,14 @@ High-level notification activation is never described as a peripheral CCCD
 acknowledgement. Cloud denial, local binding, and Android bond state cannot promote any
 of those transport facts.
 
+Decompiler recovery is represented by aggregate-only, closed static evidence. Run-level
+failure telemetry, emitted failed-method stubs, marker occurrences, warning-bearing
+files, and package-scope denominators remain separate measurements. A completed
+fallback-mode output pass does not become complete semantic review, complete smali
+review, complete DEX coverage, protocol parity, or hardware support. The public model
+contains no rendered source, class or method locator, stack trace, log, bytecode, or
+private artifact path.
+
 `status --select --active-scan` retains the scan's private address association only in
 an in-process selection candidate whose representation and public summary omit it.
 Aliases use a new cryptographic salt for each discovery call. A numbered choice is

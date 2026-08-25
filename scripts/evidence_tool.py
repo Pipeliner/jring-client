@@ -103,10 +103,17 @@ _FORBIDDEN_MAGIC_PREFIXES = (
 )
 _DECOMPILER_MARKERS = (
     b"/* " + b"JADX INFO:",
+    b"/*  " + b"JADX ERROR:",
+    b"/* " + b"JADX WARN:",
+    b"Method not " + b"decompiled:",
+    b"Code decompiled " + b"incorrectly, please refer to instructions dump.",
     b"." + b"class public L",
     b"." + b"super Ljava/",
 )
-_VENDOR_JAVA_PACKAGE = b"package com.sxr.sdk.ble." + b"keepfit;"
+_VENDOR_JAVA_PACKAGES = (
+    b"package com.sxr.sdk.ble." + b"keepfit;",
+    b"package com.jaga.ibraceletplus." + b"jyring;",
+)
 
 
 class EvidenceError(ValueError):
@@ -350,7 +357,9 @@ def _validate_repository_files(paths: list[Path]) -> list[Path]:
                 _reject("forbidden_artifact", "repository file")
             if any(marker in content for marker in _DECOMPILER_MARKERS):
                 _reject("forbidden_artifact", "repository file")
-            if _VENDOR_JAVA_PACKAGE in content and b"public class " in content:
+            if any(package in content for package in _VENDOR_JAVA_PACKAGES) and (
+                b"public class " in content
+            ):
                 _reject("forbidden_artifact", "repository file")
             if header.startswith(b"PK") and zipfile.is_zipfile(path):
                 _reject("forbidden_artifact", "repository file")

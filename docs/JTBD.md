@@ -109,6 +109,25 @@ Desired outcomes:
 - Make cancellation and cleanup bounded; explain whether work stopped before or after
   possible dispatch without printing frame bytes or identifiers.
 
+### Understand static recovery gaps without false completeness
+
+When I review the recovered protocol evidence, I want decompiler run failures, emitted
+hard-failure markers, warning-bearing scopes, and fallback output reported as distinct
+facts, so I can decide what still needs instruction-level review without mistaking a
+clean count for semantic or hardware proof.
+
+Desired outcomes:
+
+- Pair every zero scoped-marker count with a nonzero output denominator.
+- Keep run-reported failures, failed-method stubs, marker occurrences, and affected-file
+  counts separate; never manufacture a difference or success percentage.
+- Lead screen-reader-friendly output with `source recovery completeness: not established`.
+- State that warning-bearing application and embedded-SDK files still exist.
+- Describe fallback-mode completion as output availability, not complete source
+  validation, complete smali review, complete DEX coverage, protocol parity, or ring
+  compatibility.
+- Publish aggregates only; keep rendered source, locators, logs, and bytecode private.
+
 ### Select my ring without exposing its address
 
 When I want to inspect a nearby ring, I want to select it by a temporary identity cue

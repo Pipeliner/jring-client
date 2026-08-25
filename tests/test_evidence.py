@@ -154,6 +154,22 @@ def test_repository_scan_rejects_health_data_in_text(tmp_path):
             "package com.sxr.sdk.ble." + "keepfit;\npublic class Copy {}\n",
         ),
         (
+            "app-helper.py",
+            "package com.jaga.ibraceletplus." + "jyring;\npublic class Copy {}\n",
+        ),
+        (
+            "warning.txt",
+            "/* " + "JADX WARN: reconstructed output */\n",
+        ),
+        (
+            "failed.txt",
+            "Method not " + "decompiled: dependency method\n",
+        ),
+        (
+            "incorrect.txt",
+            "Code decompiled " + "incorrectly, please refer to instructions dump.\n",
+        ),
+        (
             "SOURCE",
             "." + "class public Lcom/vendor/Copy;\n." + "super Ljava/lang/Object;\n",
         ),

@@ -258,6 +258,19 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     output = capsys.readouterr().out
 
     assert "OFFLINE PROTOCOL COVERAGE — no ring contacted" in output
+    assert "Static source recovery completeness: not established." in output
+    assert "Decompiler run: 6,705 classes processed; 89 run-reported failures." in output
+    assert "Structured output: 88 failed-method stubs across 52 files." in output
+    assert "Emitted error or incorrect-code markers: 87." in output
+    assert "JRing application scope: 0 hard-failure files among 268 outputs scanned." in output
+    assert "Embedded BLE SDK scope: 0 hard-failure files among 47 outputs scanned." in output
+    assert "Warning-bearing files remain: 23 application; 21 embedded SDK." in output
+    assert "Fallback-mode decompiler pass: completed" in output
+    assert "Complete semantic source review: not performed." in output
+    assert "Complete smali/instruction review: not performed." in output
+    assert "Complete DEX coverage: not claimed." in output
+    assert "missing failure" not in output.lower()
+    assert "success rate" not in output.lower()
     assert "Requests: 112" in output
     assert "Callbacks: 105" in output
     assert "Offline request codecs: 85" in output
@@ -274,6 +287,9 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Hardware-verified vendor operations: 0" in output
     assert "Static coverage never authorizes Bluetooth writes or subscriptions." in output
     assert "Supplemental session evidence is static and non-runnable." in output
+    assert output.rstrip().endswith(
+        "Hardware status remains: 0 hardware-verified vendor operations."
+    )
 
 
 def test_protocol_coverage_json_accounts_for_every_entry(capsys):
@@ -291,6 +307,11 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["supplemental_session_transitions"] == 33
     assert result["summary"]["supplemental_session_races"] == 22
     assert result["summary"]["supplemental_binding_reactions"] == 6
+    assert result["summary"]["decompiler_processed_classes"] == 6_705
+    assert result["summary"]["decompiler_run_reported_failures"] == 89
+    assert result["summary"]["decompiler_failed_method_stubs"] == 88
+    assert result["summary"]["decompiler_hard_failure_files"] == 52
+    assert result["summary"]["decompiler_error_or_incorrect_markers"] == 87
     assert result["summary"]["offline_control_models"] == 1
     assert result["summary"]["offline_behavior_evidence"] == 26
     assert result["summary"]["unclassified_requests"] == 0
@@ -308,6 +329,24 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert len(session["transitions"]) == 33
     assert len(session["races"]) == 22
     assert len(session["binding_reactions"]) == 6
+    decompilation = result["supplemental"]["decompilation_coverage"]
+    assert decompilation["interface_entries"] is False
+    assert decompilation["source_recovery_completeness"] == "not_established"
+    assert decompilation["count_reconciliation"] == "different_observables"
+    assert decompilation["run_to_marker_mapping_established"] is False
+    assert decompilation["primary_pass"]["run_reported_failure_count"] == 89
+    assert decompilation["primary_pass"]["failed_method_stub_count"] == 88
+    assert decompilation["fallback_pass"]["run_reported_failure_count"] is None
+    assert decompilation["fallback_pass"]["run_failure_count_available"] is False
+    assert decompilation["semantic_correctness_established"] is False
+    assert decompilation["complete_semantic_source_review_completed"] is False
+    assert decompilation["complete_smali_review_completed"] is False
+    assert decompilation["complete_dex_instruction_review_completed"] is False
+    assert decompilation["complete_dex_coverage"] is False
+    assert decompilation["hardware_authority"] is False
+    assert decompilation["hardware_verified"] is False
+    assert "missing_error_count" not in json.dumps(decompilation)
+    assert "success_rate" not in json.dumps(decompilation)
     assert "frame" not in json.dumps(result).lower()
 
 

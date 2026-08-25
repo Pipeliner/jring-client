@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 import copy
 import gzip
 import hashlib
@@ -18,6 +19,20 @@ from pathlib import Path, PurePosixPath
 
 _VERSION = re.compile(r'^version\s*=\s*"([^"]+)"$', re.MULTILINE)
 _FORBIDDEN = {".env", ".pcap", ".pcapng", ".apk", ".xapk", ".har", "capture"}
+_MAX_MEMBER_BYTES = 16 * 1024 * 1024
+_MAX_TOTAL_CONTENT_BYTES = 64 * 1024 * 1024
+_FORBIDDEN_CONTENT_MARKERS = (
+    b"dex" + b"\n035\x00",
+    b"/* " + b"JADX INFO:",
+    b"/*  " + b"JADX ERROR:",
+    b"/* " + b"JADX WARN:",
+    b"Method not " + b"decompiled:",
+    b"Code decompiled " + b"incorrectly, please refer to instructions dump.",
+    b"." + b"class public L",
+    b"." + b"super Ljava/",
+    b"package com.sxr.sdk.ble." + b"keepfit;",
+    b"package com.jaga.ibraceletplus." + b"jyring;",
+)
 
 
 class ReleaseError(ValueError):
@@ -41,6 +56,16 @@ def _safe_members(names: list[str]) -> None:
             raise ReleaseError("artifact contains a forbidden member")
 
 
+def _safe_content(contents: Iterable[bytes]) -> None:
+    total = 0
+    for content in contents:
+        total += len(content)
+        if len(content) > _MAX_MEMBER_BYTES or total > _MAX_TOTAL_CONTENT_BYTES:
+            raise ReleaseError("artifact content exceeds the inspection limit")
+        if any(marker in content for marker in _FORBIDDEN_CONTENT_MARKERS):
+            raise ReleaseError("artifact contains forbidden content")
+
+
 def _metadata_field(content: str, field: str) -> str:
     prefix = f"{field}: "
     for line in content.splitlines():
@@ -62,8 +87,14 @@ def inspect_artifacts(directory: Path, version: str) -> list[Path]:
         raise ReleaseError("artifact directory contains undeclared files")
 
     with zipfile.ZipFile(wheel) as archive:
-        names = archive.namelist()
+        members = archive.infolist()
+        names = [member.filename for member in members]
         _safe_members(names)
+        if any(member.file_size > _MAX_MEMBER_BYTES for member in members):
+            raise ReleaseError("artifact content exceeds the inspection limit")
+        _safe_content(
+            archive.read(member) for member in members if not member.is_dir()
+        )
         metadata_names = [name for name in names if name.endswith(".dist-info/METADATA")]
         if len(metadata_names) != 1:
             raise ReleaseError("wheel metadata is ambiguous")
@@ -84,6 +115,18 @@ def inspect_artifacts(directory: Path, version: str) -> list[Path]:
         members = archive.getmembers()
         names = [member.name for member in members]
         _safe_members(names)
+        if any(member.size > _MAX_MEMBER_BYTES for member in members if member.isfile()):
+            raise ReleaseError("artifact content exceeds the inspection limit")
+        def regular_contents() -> Iterable[bytes]:
+            for member in members:
+                if not member.isfile():
+                    continue
+                inspected = archive.extractfile(member)
+                if inspected is None:
+                    raise ReleaseError("artifact member is unreadable")
+                yield inspected.read()
+
+        _safe_content(regular_contents())
         if any(member.issym() or member.islnk() for member in members):
             raise ReleaseError("source archive contains a link")
         pkg_info = [

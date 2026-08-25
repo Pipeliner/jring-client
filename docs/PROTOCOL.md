@@ -30,9 +30,27 @@ a standards-based compatibility attempt, not vendor verification.
 ## Static parity boundary
 
 A second, owner-authorized clean-room pass used JADX 1.5.6 on the same digest-verified
-archive in a mode-0700 temporary directory. It recovered 10,185 Java source renderings;
-JADX reported errors for 89 of 6,705 processed classes. None of the APK, DEX, rendered
-source, logs, assets, or native code is part of this repository.
+archive in a mode-0700 temporary directory. Its structured pass processed 6,705 class
+units and emitted 10,185 Java renderings. The run reported 89 failures; an exhaustive
+rendered-output audit separately found 88 failed-method stubs in 52 files and 87
+error-or-incorrect-code markers. These are different observables and no one-to-one
+mapping or inferred difference is claimed.
+
+All 52 hard-failure files were classified as third-party dependencies. Zero recognized
+hard-failure files occurred among the 268 application outputs or 47 embedded BLE-SDK
+outputs, and none of the hard-failure files directly referenced Bluetooth, GATT, HID,
+or the embedded SDK. Warning-only output remains material: 23 application files and 21
+embedded-SDK files contain warnings, including Bluetooth-related code. Marker absence
+therefore does not establish correct control flow or semantic parity.
+
+A fresh fallback-mode pass completed normally over 6,705 units, emitted 10,267 Java
+outputs, retained the same 268 application and 47 embedded-SDK output counts, and had
+zero recognized hard-failure markers. Its console did not provide a numeric run-failure
+count, so that value remains unavailable rather than being changed to zero. This proves
+fallback output availability only: complete semantic source review, complete smali
+review, exhaustive DEX instruction coverage, native/resource/reflection coverage, and
+hardware behavior remain not established. None of the APK, DEX, rendered source, logs,
+assets, or native code is part of this repository.
 
 The SDK interface exposes more than one hundred entry points and corresponding event
 callbacks. The public capability groups are:

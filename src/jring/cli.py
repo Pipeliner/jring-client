@@ -39,6 +39,7 @@ from .vendor_coverage import (
     static_vendor_callback_coverage,
     static_vendor_operation_coverage,
 )
+from .vendor_decompilation_evidence import recovered_decompilation_coverage
 from .vendor_session_evidence import recovered_session_evidence
 
 
@@ -256,6 +257,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     requests = static_vendor_operation_coverage()
     callbacks = static_vendor_callback_coverage()
     session = recovered_session_evidence()
+    decompilation = recovered_decompilation_coverage()
     return {
         "summary": {
             "request_total": len(requests),
@@ -295,6 +297,21 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "supplemental_session_transitions": len(session.transitions),
             "supplemental_session_races": len(session.races),
             "supplemental_binding_reactions": len(session.binding_reactions),
+            "decompiler_processed_classes": (
+                decompilation.primary_pass.processed_class_count
+            ),
+            "decompiler_run_reported_failures": (
+                decompilation.primary_pass.run_reported_failure_count
+            ),
+            "decompiler_failed_method_stubs": (
+                decompilation.primary_pass.failed_method_stub_count
+            ),
+            "decompiler_hard_failure_files": (
+                decompilation.primary_pass.hard_failure_file_count
+            ),
+            "decompiler_error_or_incorrect_markers": (
+                decompilation.primary_pass.error_or_incorrect_marker_count
+            ),
             "request_routes": dict(sorted(Counter(
                 entry.route for entry in requests
             ).items())),
@@ -319,13 +336,101 @@ def _protocol_coverage_payload() -> dict[str, object]:
                     asdict(item) for item in session.binding_reactions
                 ],
             },
+            "decompilation_coverage": {
+                "interface_entries": decompilation.interface_entries,
+                "maturity": decompilation.maturity,
+                "evidence_scope": decompilation.evidence_scope,
+                "artifact_ref": decompilation.artifact_ref,
+                "tool_family": decompilation.tool_family,
+                "tool_version": decompilation.tool_version,
+                "structured_configuration_ref": (
+                    decompilation.structured_configuration_ref
+                ),
+                "fallback_configuration_ref": (
+                    decompilation.fallback_configuration_ref
+                ),
+                "namespace_classifier_version": (
+                    decompilation.namespace_classifier_version
+                ),
+                "marker_rule_version": decompilation.marker_rule_version,
+                "primary_pass": asdict(decompilation.primary_pass),
+                "fallback_pass": asdict(decompilation.fallback_pass),
+                "scopes": [asdict(item) for item in decompilation.scopes],
+                "count_reconciliation": decompilation.count_reconciliation,
+                "run_to_marker_mapping_established": (
+                    decompilation.run_to_marker_mapping_established
+                ),
+                "source_recovery_completeness": (
+                    decompilation.source_recovery_completeness
+                ),
+                "semantic_correctness_established": (
+                    decompilation.semantic_correctness_established
+                ),
+                "complete_semantic_source_review_completed": (
+                    decompilation.complete_semantic_source_review_completed
+                ),
+                "complete_smali_review_completed": (
+                    decompilation.complete_smali_review_completed
+                ),
+                "complete_dex_instruction_review_completed": (
+                    decompilation.complete_dex_instruction_review_completed
+                ),
+                "complete_dex_coverage": decompilation.complete_dex_coverage,
+                "no_recognized_owned_scope_markers": (
+                    decompilation.no_recognized_owned_scope_markers
+                ),
+                "static_review_authorized": (
+                    decompilation.static_review_authorized
+                ),
+                "hardware_authority": decompilation.hardware_authority,
+                "runnable": decompilation.runnable,
+                "python_callable": decompilation.python_callable,
+                "hardware_eligible": decompilation.hardware_eligible,
+                "hardware_verified": decompilation.hardware_verified,
+                "limitations": decompilation.limitations,
+            },
         },
     }
 
 
 def _print_protocol_coverage(payload: dict[str, object]) -> None:
     summary = payload["summary"]
+    decompilation = payload["supplemental"]["decompilation_coverage"]
+    scopes = {item["scope"]: item for item in decompilation["scopes"]}
     print("OFFLINE PROTOCOL COVERAGE — no ring contacted")
+    print("Static source recovery completeness: not established.")
+    print(
+        "Decompiler run: "
+        f"{summary['decompiler_processed_classes']:,} classes processed; "
+        f"{summary['decompiler_run_reported_failures']} run-reported failures."
+    )
+    print(
+        "Structured output: "
+        f"{summary['decompiler_failed_method_stubs']} failed-method stubs across "
+        f"{summary['decompiler_hard_failure_files']} files."
+    )
+    print(
+        "Emitted error or incorrect-code markers: "
+        f"{summary['decompiler_error_or_incorrect_markers']}."
+    )
+    print(
+        "JRing application scope: 0 hard-failure files among "
+        f"{scopes['jring_application']['structured_files_scanned']} outputs scanned."
+    )
+    print(
+        "Embedded BLE SDK scope: 0 hard-failure files among "
+        f"{scopes['embedded_ble_sdk']['structured_files_scanned']} outputs scanned."
+    )
+    print(
+        "Warning-bearing files remain: "
+        f"{scopes['jring_application']['structured_warning_files']} application; "
+        f"{scopes['embedded_ble_sdk']['structured_warning_files']} embedded SDK."
+    )
+    print("Fallback-mode decompiler pass: completed; run failure count unavailable.")
+    print("Run failures, failed-method stubs, and markers are different measurements.")
+    print("Complete semantic source review: not performed.")
+    print("Complete smali/instruction review: not performed.")
+    print("Complete DEX coverage: not claimed.")
     print(f"Requests: {summary['request_total']}")
     print(f"Callbacks: {summary['callback_total']}")
     print(f"Offline request codecs: {summary['offline_request_codecs']}")
@@ -354,6 +459,11 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     )
     print("Static coverage never authorizes Bluetooth writes or subscriptions.")
     print("Supplemental session evidence is static and non-runnable.")
+    print(
+        "These are static-analysis measurements; they do not show that a feature "
+        "works on your ring."
+    )
+    print("Hardware status remains: 0 hardware-verified vendor operations.")
 
 
 def _non_health_payload() -> dict[str, object]:

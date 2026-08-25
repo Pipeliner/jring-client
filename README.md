@@ -106,8 +106,9 @@ repository does not currently publish to a package index or create GitHub releas
 The tokenless, owner-gated release design and remaining PyPI trust step are documented
 in [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
-Inspect the complete static interface accounting without Bluetooth, a ring, or optional
-dependencies:
+Inspect the complete accounting of the recovered interface declarations—without
+claiming complete decompilation, protocol parity, or hardware support—and without
+Bluetooth, a ring, or optional dependencies:
 
 ```sh
 jring protocol-coverage

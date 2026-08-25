@@ -22,6 +22,8 @@ def make_artifacts(
     directory,
     version="0.5.0",
     extra_member=None,
+    extra_member_content="unsafe",
+    readme_content="README.md",
     license_expression="MIT",
     include_license=True,
 ):
@@ -40,10 +42,11 @@ def make_artifacts(
                 f"jring_client-{version}.dist-info/licenses/LICENSE", "MIT License"
             )
         if extra_member:
-            archive.writestr(extra_member, "unsafe")
+            archive.writestr(extra_member, extra_member_content)
     source_root = directory / f"jring_client-{version}"
     (source_root / "scripts").mkdir(parents=True)
-    for name in ("README.md", "SECURITY.md", "CONTRIBUTING.md"):
+    (source_root / "README.md").write_text(readme_content)
+    for name in ("SECURITY.md", "CONTRIBUTING.md"):
         (source_root / name).write_text(name)
     if include_license:
         (source_root / "LICENSE").write_text("MIT License")
@@ -87,6 +90,34 @@ def test_artifact_inspection_rejects_secret_or_undeclared_members(tmp_path):
     make_artifacts(tmp_path, extra_member="jring/.env")
     with pytest.raises(ReleaseError, match="forbidden"):
         inspect_artifacts(tmp_path, __version__)
+
+
+def test_artifact_inspection_rejects_disguised_decompiler_content_in_wheel(tmp_path):
+    marker = "/* " + "JADX INFO:"
+    make_artifacts(
+        tmp_path,
+        extra_member="jring/recovery_notes.py",
+        extra_member_content=marker,
+    )
+
+    with pytest.raises(ReleaseError) as raised:
+        inspect_artifacts(tmp_path, __version__)
+
+    assert str(raised.value) == "artifact contains forbidden content"
+    assert "recovery_notes" not in str(raised.value)
+    assert marker not in str(raised.value)
+
+
+def test_artifact_inspection_rejects_disguised_decompiler_content_in_sdist(tmp_path):
+    marker = "." + "class public L"
+    make_artifacts(tmp_path, readme_content=marker)
+
+    with pytest.raises(ReleaseError) as raised:
+        inspect_artifacts(tmp_path, __version__)
+
+    assert str(raised.value) == "artifact contains forbidden content"
+    assert "README" not in str(raised.value)
+    assert marker not in str(raised.value)
 
 
 def test_artifact_inspection_rejects_inconsistent_license(tmp_path):
