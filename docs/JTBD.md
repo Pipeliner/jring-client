@@ -298,10 +298,10 @@ Desired outcomes:
 - Exercise the full mapping path from two closed synthetic cumulative-counter frames,
   through exact decoding, baseline and isolated-increment policy, into a simulated
   `step` preview while hardware motion packets remain unverified.
-- Exercise device-action, cumulative-step, Classic info/name, and host-volume-request
-  decoding through an exact subscribe-only fake that performs zero writes, redacts
-  private values, and grants no live subscription, Classic attachment, or input
-  authority.
+- Exercise device-action, cumulative-step, Classic info/name, redacted App-ID, and
+  host-volume-request decoding through an exact subscribe-only fake that performs zero
+  writes, redacts private values, and grants no live subscription, setter-correlation,
+  Classic attachment, or input authority.
 - Exercise the proven host-volume reverse pipeline separately: one exact fake request
   may trigger one closed projection of explicitly caller-supplied offline values on
   the same connection generation. Never read or change host audio, retry an uncertain

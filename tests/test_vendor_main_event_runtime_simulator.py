@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import asdict, replace
+import json
 
 import pytest
 
@@ -12,7 +13,7 @@ from jring.vendor_main_event_runtime_simulator import (
     MainEventSimulationReason,
 )
 from jring.vendor_runtime_fake import ScriptGate, ScriptedVendorFakeTransport
-from jring.vendor_protocol import StaticQuery, encode_day_query
+from jring.vendor_protocol import Static45Notification, StaticQuery, encode_day_query
 
 
 def run(coro):
@@ -130,8 +131,41 @@ def test_collects_redacted_classic_info_and_name_without_attachment_or_write():
     assert transport.write_with_response_count == 0
 
 
-@pytest.mark.parametrize("selector", (0x02, 0x03, 0xFF))
-def test_excluded_app_id_and_unknown_45_selectors_count_as_unrelated(selector):
+def test_collects_redacted_app_id_without_correlating_setter_or_writing():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    private_app_id = b"private-app-id-12"
+    ignored_trailing_byte = b"Z"
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((0x45, 0x02)) + private_app_id + ignored_trailing_byte,
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=1,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LIMIT_REACHED
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.event_kinds == (MainEventKind.APP_ID,)
+    event = result.events_for_test()[0]
+    assert event.value_for_test().kind is Static45Notification.APP_ID
+    assert event.value_for_test().consumed_content_bytes == 17
+    assert event.value_for_test().trailing_byte_ignored_by_sdk is True
+    assert event.value_for_test().content_redacted is True
+    assert not hasattr(event.value_for_test(), "content")
+    assert private_app_id.decode() not in repr(result)
+    assert private_app_id.decode() not in repr(event)
+    assert private_app_id.decode() not in repr(asdict(event.value_for_test()))
+    assert private_app_id.decode() not in json.dumps(asdict(result), default=str)
+    assert transport.write_count == 0
+    assert transport.targeted_write_count == 0
+    assert transport.generic_write_count == 0
+    assert transport.write_with_response_count == 0
+
+
+@pytest.mark.parametrize("selector", (0x03, 0xFF))
+def test_unknown_45_selectors_count_as_unrelated(selector):
     transport = ScriptedVendorFakeTransport.vendor_route()
     transport.before_subscribe = lambda fake, _call: fake.emit(
         VENDOR_CHARACTERISTIC_33F4,
@@ -210,8 +244,8 @@ def test_malformed_matching_event_aborts_without_exposing_a_value(opcode):
     assert transport.write_count == 0
 
 
-@pytest.mark.parametrize("selector", (0x00, 0x01))
-def test_overlong_matching_classic_event_aborts_without_private_projection(selector):
+@pytest.mark.parametrize("selector", (0x00, 0x01, 0x02))
+def test_overlong_matching_45_event_aborts_without_private_projection(selector):
     transport = ScriptedVendorFakeTransport.vendor_route()
     transport.before_subscribe = lambda fake, _call: fake.emit(
         VENDOR_CHARACTERISTIC_33F4,
@@ -219,6 +253,30 @@ def test_overlong_matching_classic_event_aborts_without_private_projection(selec
     )
 
     result = run(FakeVendorMainEventSimulator(transport).collect(
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.MALFORMED_EVENT
+    assert result.completeness is MainEventCollectionCompleteness.ABORTED
+    assert result.event_count == 0
+    assert result.events_for_test() == ()
+    assert transport.write_count == 0
+
+
+@pytest.mark.parametrize("length", (19, 21))
+def test_malformed_app_id_rolls_back_a_prior_valid_event(length):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x06, bytes((16,))))
+        fake.emit(
+            VENDOR_CHARACTERISTIC_33F4,
+            (bytes((0x45, 0x02)) + bytes(19))[:length],
+        )
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=3,
         quiet_timeout=0.1,
     ))
 
@@ -541,6 +599,51 @@ def test_cancellation_cleans_up_releases_single_flight_and_stales_callback():
     transport.emit_stale(0, _frame(0x06, bytes((68,))))
     assert retained_queues[0].qsize() == 0
     assert transport.write_count == 0
+
+
+def test_cancellation_during_postevent_unsubscribe_finishes_bounded_close():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(unsubscribe_gate=gate)
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((0x45, 0x02)) + b"private-app-id-12Z",
+    )
+    simulator = FakeVendorMainEventSimulator(transport)
+
+    async def scenario():
+        task = asyncio.create_task(simulator.collect(
+            event_limit=1,
+            cleanup_timeout=0.02,
+        ))
+        await gate.wait_until_entered()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    run(scenario())
+    assert transport.unsubscribe_count == 1
+    assert transport.close_count == 1
+    assert transport.connected is False
+
+
+def test_cancellation_during_preflight_close_remains_bounded():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(
+        connect_error=RuntimeError("private setup detail"),
+        close_gate=gate,
+    )
+    simulator = FakeVendorMainEventSimulator(transport)
+
+    async def scenario():
+        task = asyncio.create_task(simulator.collect(cleanup_timeout=0.02))
+        await gate.wait_until_entered()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    run(scenario())
+    assert transport.write_count == 0
+    assert transport.close_count == 1
 
 
 @pytest.mark.parametrize(

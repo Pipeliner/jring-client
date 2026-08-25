@@ -1,9 +1,10 @@
 """Bounded fake-only collector for passive events on the vendor MAIN route.
 
 The collector subscribes but never writes.  It recognizes only five statically
-discriminated notification opcodes and does not treat local quiet or a caller limit
-as a wire terminal.  In particular, opcode ``0x78`` is deliberately excluded because
-its recovered subcommands collide across unrelated operations.
+discriminated notification opcodes across six event kinds and does not treat local
+quiet or a caller limit as a wire terminal.  In particular, opcode ``0x78`` is
+deliberately excluded because its recovered subcommands collide across unrelated
+operations.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 import math
+from types import MappingProxyType
 
 from .protocol import ProtocolError
 from .transport import GattCharacteristicTarget
@@ -41,6 +43,7 @@ class MainEventKind(str, Enum):
     PHONE_VOLUME_REQUEST = "phone_volume_request"
     CLASSIC_INFO = "classic_info"
     CLASSIC_NAME = "classic_name"
+    APP_ID = "app_id"
 
 
 class MainEventSimulationReason(str, Enum):
@@ -160,7 +163,11 @@ class MainEventSimulationResult:
 
 _MAX_EVENT_LIMIT = 4_096
 _MATCHING_OPCODES = frozenset((0x06, 0x22, 0x45, 0x49, 0x51))
-_CLASSIC_SELECTORS = frozenset((0x00, 0x01))
+_STATIC_45_EVENTS = MappingProxyType({
+    0x00: (MainEventKind.CLASSIC_INFO, Static45Notification.CLASSIC_INFO),
+    0x01: (MainEventKind.CLASSIC_NAME, Static45Notification.CLASSIC_NAME),
+    0x02: (MainEventKind.APP_ID, Static45Notification.APP_ID),
+})
 
 
 class _StageTimeoutError(TimeoutError):
@@ -394,9 +401,18 @@ class FakeVendorMainEventSimulator:
                     queue.get_nowait()
                 except asyncio.QueueEmpty:
                     break
-            cleanup_succeeded = await self._cleanup(
-                subscribed, response_target, timeout=cleanup
+            cleanup_task = asyncio.create_task(
+                self._cleanup(subscribed, response_target, timeout=cleanup)
             )
+            try:
+                cleanup_succeeded = await asyncio.shield(cleanup_task)
+            except BaseException as interruption:
+                try:
+                    cleanup_succeeded = await asyncio.shield(cleanup_task)
+                except BaseException:
+                    cleanup_task.cancel()
+                    await asyncio.gather(cleanup_task, return_exceptions=True)
+                raise interruption
 
         if not cleanup_succeeded:
             reason = MainEventSimulationReason.CLEANUP_FAILURE
@@ -419,7 +435,7 @@ class FakeVendorMainEventSimulator:
         if data[0] == 0x45:
             if len(data) < 2:
                 return "unrelated"
-            if data[1] not in _CLASSIC_SELECTORS:
+            if data[1] not in _STATIC_45_EVENTS:
                 return "unrelated"
         return "accepted" if len(data) == 20 else "malformed"
 
@@ -437,16 +453,10 @@ class FakeVendorMainEventSimulator:
                 parse_vendor_step_counter(data),
             )
         if opcode == 0x45:
-            kind = (
-                Static45Notification.CLASSIC_INFO
-                if data[1] == 0x00
-                else Static45Notification.CLASSIC_NAME
-            )
+            event_kind, parser_kind = _STATIC_45_EVENTS[data[1]]
             return MainPassiveEvent(
-                MainEventKind.CLASSIC_INFO
-                if kind is Static45Notification.CLASSIC_INFO
-                else MainEventKind.CLASSIC_NAME,
-                parse_vendor_45_notification(data, expected_kind=kind),
+                event_kind,
+                parse_vendor_45_notification(data, expected_kind=parser_kind),
             )
         return MainPassiveEvent(
             MainEventKind.PHONE_VOLUME_REQUEST,
