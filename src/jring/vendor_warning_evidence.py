@@ -59,6 +59,8 @@ def _closed_instance(model: type, **values: object) -> object:
 @dataclass(frozen=True, init=False, repr=False)
 class WarningScopeEvidence:
     scope: WarningAuditScope
+    population_file_count: int | None
+    population_warning_count: int | None
     selected_file_count: int
     warning_occurrence_count: int | None
     retained_file_count: int | None
@@ -200,6 +202,8 @@ class RecoveredWarningAudit:
 def _scope(
     scope: WarningAuditScope,
     *,
+    population_files: int | None,
+    population_warnings: int | None,
     selected_files: int,
     warnings: int | None,
     retained_files: int | None = None,
@@ -215,6 +219,8 @@ def _scope(
     return _closed_instance(
         WarningScopeEvidence,
         scope=scope,
+        population_file_count=population_files,
+        population_warning_count=population_warnings,
         selected_file_count=selected_files,
         warning_occurrence_count=warnings,
         retained_file_count=retained_files,
@@ -232,6 +238,8 @@ def _scope(
 _SCOPES = (
     _scope(
         WarningAuditScope.APPLICATION,
+        population_files=23,
+        population_warnings=161,
         selected_files=11,
         warnings=29,
         retained_files=6,
@@ -249,6 +257,8 @@ _SCOPES = (
     ),
     _scope(
         WarningAuditScope.EMBEDDED_SDK,
+        population_files=21,
+        population_warnings=62,
         selected_files=21,
         warnings=62,
         low_files=12,
@@ -264,6 +274,8 @@ _SCOPES = (
     ),
     _scope(
         WarningAuditScope.EXCLUDED_DEPENDENCY,
+        population_files=None,
+        population_warnings=None,
         selected_files=5,
         warnings=None,
     ),

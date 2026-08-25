@@ -151,8 +151,11 @@ private artifact path.
 
 Warning triage is a narrower supplemental graph. It distinguishes file population,
 warning occurrences, method sites, domain consequence, counterpart availability,
-same-tool surface corroboration, divergence, and independent instruction review. Two
-JADX modes agreeing never becomes equivalence; a fallback file never proves that one
+same-tool surface corroboration, divergence, and independent instruction review. The
+public scope rows distinguish the complete owned warning populations—23 app files
+with 161 markers and 21 SDK files with 62—from the older selected Bluetooth-risk subset
+of 11 app files/29 markers. Subset review cannot replace the population denominator.
+Two JADX modes agreeing never becomes equivalence; a fallback file never proves that one
 warned method body exists. Warning-bearing dependency and transitive call paths remain
 outside the owned-scope population, so the graph cannot claim exhaustive Bluetooth
 dependency coverage.

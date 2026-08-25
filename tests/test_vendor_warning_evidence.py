@@ -29,8 +29,12 @@ def test_warning_audit_accounts_for_owned_scope_without_inflating_interfaces():
     audit = recovered_warning_audit()
     scopes = {item.scope: item for item in audit.scopes}
 
+    assert scopes[WarningAuditScope.APPLICATION].population_file_count == 23
+    assert scopes[WarningAuditScope.APPLICATION].population_warning_count == 161
     assert scopes[WarningAuditScope.APPLICATION].selected_file_count == 11
     assert scopes[WarningAuditScope.APPLICATION].warning_occurrence_count == 29
+    assert scopes[WarningAuditScope.EMBEDDED_SDK].population_file_count == 21
+    assert scopes[WarningAuditScope.EMBEDDED_SDK].population_warning_count == 62
     assert scopes[WarningAuditScope.EMBEDDED_SDK].selected_file_count == 21
     assert scopes[WarningAuditScope.EMBEDDED_SDK].warning_occurrence_count == 62
     assert scopes[WarningAuditScope.EXCLUDED_DEPENDENCY].selected_file_count == 5
