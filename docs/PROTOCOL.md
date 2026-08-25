@@ -527,21 +527,28 @@ They require exact 20-byte frames and exact subcommands, make no writes, and do 
 claim that the fields are supported on owner hardware.
 
 The passive MAIN fake collector makes only the safely discriminated device-action,
-cumulative-step, Classic info/name, redacted App-ID, and host-volume-request events
-executable in an offline transport scenario. Classic info retains only two neutral
-bytes; Classic name and App-ID content are structurally redacted. It subscribes to the exact connection-scoped fake
+cumulative-step, Classic info/name, redacted App-ID, host-volume-request, and exact
+`78/09` touch-mode setting projections executable in an offline transport scenario.
+Classic info retains only two neutral bytes; Classic name and App-ID content are
+structurally redacted. It subscribes to the exact connection-scoped fake
 `33f4` target and performs zero writes. A transport-wide fake lease rejects
 pre-connected caller-owned transports and concurrent coordinators before I/O, so
 cleanup closes only a connection acquired by that attempt. Bounded quiet/limit closure
 stays unknown; malformed matching frames,
-overflow, timeout, disconnect, and cleanup failure abort. Opcode `78` remains excluded
-because its subcommands collide across unrelated operations. Exact `45/02` is retained
-only as a redacted, uncorrelated event; it proves no setter causation, identifier
-equality, acknowledgement, or terminal. Selectorless and unknown `45` traffic is
-unrelated.
+overflow, timeout, disconnect, and cleanup failure abort. Within shared opcode `78`,
+only exact selector `09` is a touch-mode setting projection; selectorless traffic and
+every other selector are unrelated. Its byte-2 value remains private and neutral, not
+an enabled flag, device state, gesture, tap, button, sensor sample, or input event.
+The bundled `setTouchMode` entry has zero observed app invokes, so the projection does
+not establish setter causation, acknowledgement, a terminal, live behavior, or
+hardware support. Exact `45/02` is retained only as a redacted, uncorrelated event; it
+proves no setter causation, identifier equality, acknowledgement, or terminal.
+Selectorless and unknown `45` traffic is unrelated.
 Classic decoding does not establish profile
 attachment, bonding, RFCOMM, HID, or live support. No decoded event is live,
-hardware-verified, or input-eligible.
+hardware-verified, or input-eligible. Ordinary dataclass/JSON serialization excludes
+the private decoded values and event store while retaining fixed zero-write,
+no-setter, no-ring, no-gesture, no-terminal, no-hardware, and no-input safety fields.
 Cancellation during cleanup is re-raised only after a separately bounded unsubscribe
 and close attempt; retained callbacks are inert before that cleanup starts.
 

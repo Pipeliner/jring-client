@@ -308,10 +308,14 @@ Desired outcomes:
 - Exercise the full mapping path from two closed synthetic cumulative-counter frames,
   through exact decoding, baseline and isolated-increment policy, into a simulated
   `step` preview while hardware motion packets remain unverified.
-- Exercise device-action, cumulative-step, Classic info/name, redacted App-ID, and
-  host-volume-request decoding through an exact subscribe-only fake that performs zero
-  writes, redacts private values, and grants no live subscription, setter-correlation,
-  Classic attachment, or input authority.
+- Exercise device-action, cumulative-step, Classic info/name, redacted App-ID,
+  host-volume-request, and exact `78/09` touch-mode setting projections through an
+  exact subscribe-only fake that performs zero writes and redacts private values.
+  Keep every other `78` selector unrelated, and never reinterpret the neutral touch
+  value as enabled/state, a gesture, tap, button, sensor sample, or input event. The
+  unused setter and passive callback grant no setter causation, acknowledgement,
+  terminal, live subscription, hardware support, Classic attachment, or input
+  authority.
 - Exercise the proven host-volume reverse pipeline separately: one exact fake request
   may trigger one closed projection of explicitly caller-supplied offline values on
   the same connection generation. Never read or change host audio, retry an uncertain

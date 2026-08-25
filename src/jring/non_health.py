@@ -375,11 +375,12 @@ _CAPABILITIES = (
     ),
     _capability(
         "touch_mode", "Touch mode", "general_use",
-        "offline setting and response codecs preserve a neutral mode value",
+        "offline setting/response codecs plus a passive exact 78/09 touch-mode setting projection with zero writes; not a tap, gesture, sensor event, or input action",
         "static_apk", "offline_codec", "touch_setting", False,
         privacy=("touch_setting",),
         requests=("setTouchMode",),
         callbacks=("onGetTouchMode",),
+        scripted_fake_decoder_available=True,
     ),
     _capability(
         "screen_light_time", "Screen-light time", "general_use",

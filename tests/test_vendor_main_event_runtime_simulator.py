@@ -1,4 +1,5 @@
 import asyncio
+from copy import copy, deepcopy
 from dataclasses import asdict, replace
 import json
 
@@ -6,6 +7,7 @@ import pytest
 
 from jring.uuids import VENDOR_CHARACTERISTIC_33F4
 from jring.vendor_history_runtime_simulator import FakeVendorHistorySimulator
+from jring.input import InputMapper
 from jring.vendor_main_event_runtime_simulator import (
     FakeVendorMainEventSimulator,
     MainEventCollectionCompleteness,
@@ -206,11 +208,115 @@ def test_selectorless_45_cannot_be_attributed_to_classic_and_does_not_rollback()
     assert transport.write_count == 0
 
 
-def test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown():
+def test_collects_exact_touch_mode_as_neutral_passive_projection_without_any_write():
     transport = ScriptedVendorFakeTransport.vendor_route()
     transport.before_subscribe = lambda fake, _call: fake.emit(
         VENDOR_CHARACTERISTIC_33F4,
-        _frame(0x78, bytes((0x09, 7))),
+        _frame(0x78, bytes((0x09, 0xA7))),
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=1,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LIMIT_REACHED
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.event_count == 1
+    assert result.unrelated_frame_count == 0
+    assert result.event_kinds == (MainEventKind.TOUCH_MODE_SETTING_PROJECTION,)
+    event = result.events_for_test()[0]
+    assert event.value_for_test().value_for_test() == 0xA7
+    assert event.value_for_test().projection_role == "touch_mode_setting_value_or_event"
+    assert event.value_for_test().acknowledgement_state == "not_proven"
+    assert event.value_for_test().setting_application_state == "unknown"
+    assert event.value_for_test().terminal_observed is False
+    assert event.value_for_test().gesture_semantics == "not_proven"
+    assert event.value_for_test().touch_event_observed is False
+    assert event.value_for_test().sensor_event_observed is False
+    assert event.value_for_test().hardware_verified is False
+    assert event.hardware_eligible is False
+    assert event.input_eligible is False
+    assert "167" not in repr(event)
+    assert "167" not in repr(result)
+    result_payload = asdict(result)
+    event_payload = asdict(event)
+    rendered_payload = json.dumps(result_payload, default=str, sort_keys=True)
+    assert "167" not in rendered_payload
+    assert "0xa7" not in rendered_payload.lower()
+    assert "_events" not in result_payload
+    assert "_value" not in event_payload
+    assert result_payload["simulation_only"] is True
+    assert result_payload["transport_write_invoked"] is False
+    assert result_payload["setter_invoked"] is False
+    assert result_payload["setter_causation_observed"] is False
+    assert result_payload["acknowledgement_observed"] is False
+    assert result_payload["wire_terminal_observed"] is False
+    assert result_payload["quiet_means_success"] is False
+    assert result_payload["live_available"] is False
+    assert result_payload["ring_contacted"] is False
+    assert result_payload["gesture_semantics"] == "not_proven"
+    assert result_payload["touch_event_observed"] is False
+    assert result_payload["touch_sensor_event_observed"] is False
+    assert result_payload["host_input_emitted"] is False
+    assert result_payload["decoded_values_redacted"] is True
+    assert result_payload["event_storage_serialized"] is False
+    assert result_payload["hardware_eligible"] is False
+    assert result_payload["hardware_verified"] is False
+    assert result_payload["input_eligible"] is False
+    assert InputMapper(()).action_for(event) is None
+    for cloned in (copy(result), deepcopy(result)):
+        assert cloned.event_count == 1
+        assert cloned.event_kinds == (MainEventKind.TOUCH_MODE_SETTING_PROJECTION,)
+        assert cloned.events_for_test()[0].value_for_test().value_for_test() == 0xA7
+        cloned_payload = json.dumps(asdict(cloned), default=str, sort_keys=True)
+        assert "167" not in cloned_payload
+        assert "_events" not in cloned_payload
+    for cloned_event in (copy(event), deepcopy(event)):
+        assert cloned_event.kind is MainEventKind.TOUCH_MODE_SETTING_PROJECTION
+        assert cloned_event.value_for_test().value_for_test() == 0xA7
+        assert "167" not in json.dumps(asdict(cloned_event), default=str)
+    # dataclasses uses ValueError on 3.10 and TypeError on newer CPython here.
+    with pytest.raises((TypeError, ValueError), match="_decoded_events"):
+        replace(result)
+    with pytest.raises((TypeError, ValueError), match="_decoded_value"):
+        replace(event)
+    replaced_event = replace(event, _decoded_value=event.value_for_test())
+    replaced_result = replace(result, _decoded_events=result.events_for_test())
+    assert replaced_event.value_for_test().value_for_test() == 0xA7
+    assert replaced_result.event_count == 1
+    assert replaced_result.event_kinds == (
+        MainEventKind.TOUCH_MODE_SETTING_PROJECTION,
+    )
+    assert "167" not in json.dumps(asdict(replaced_result), default=str)
+    with pytest.raises(TypeError, match="does not match"):
+        replace(
+            event,
+            kind=MainEventKind.DEVICE_ACTION,
+            _decoded_value=event.value_for_test(),
+        )
+    with pytest.raises(TypeError, match="does not match"):
+        replace(event, _decoded_value=None)
+    with pytest.raises(ValueError, match="event count"):
+        replace(
+            result,
+            event_count=2,
+            _decoded_events=result.events_for_test(),
+        )
+    assert transport.targeted_subscribe_count == 1
+    assert transport.targeted_unsubscribe_count == 1
+    assert transport.write_count == 0
+    assert transport.targeted_write_count == 0
+    assert transport.generic_write_count == 0
+    assert transport.write_with_response_count == 0
+
+
+@pytest.mark.parametrize("selector", (0x00, 0x01, 0x03, 0x07, 0x08, 0x0B, 0x0C, 0xFF))
+def test_non_touch_78_selectors_are_unrelated_without_becoming_motion(selector):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        _frame(0x78, bytes((selector, 7))),
     )
 
     result = run(FakeVendorMainEventSimulator(transport).collect(
@@ -221,6 +327,49 @@ def test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown():
     assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
     assert result.event_count == 0
     assert result.unrelated_frame_count == 1
+    assert result.events_for_test() == ()
+    assert transport.write_count == 0
+
+
+def test_selectorless_78_does_not_rollback_a_prior_touch_projection():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x78, bytes((0x09, 7))))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, bytes((0x78,)))
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=2,
+        quiet_timeout=0.01,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LOCAL_QUIET
+    assert result.event_kinds == (MainEventKind.TOUCH_MODE_SETTING_PROJECTION,)
+    assert result.unrelated_frame_count == 1
+    assert transport.write_count == 0
+
+
+@pytest.mark.parametrize("length", (19, 21))
+def test_malformed_exact_touch_selector_rolls_back_prior_event(length):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x06, bytes((16,))))
+        fake.emit(
+            VENDOR_CHARACTERISTIC_33F4,
+            (bytes((0x78, 0x09, 7)) + bytes(18))[:length],
+        )
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=3,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.MALFORMED_EVENT
+    assert result.completeness is MainEventCollectionCompleteness.ABORTED
+    assert result.event_count == 0
     assert result.events_for_test() == ()
     assert transport.write_count == 0
 

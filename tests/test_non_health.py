@@ -109,6 +109,9 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert by_name["cumulative_step_counter"].callback_operations == (
         "onGetSportSteps",
     )
+    assert by_name["touch_mode"].scripted_fake_decoder_available is True
+    assert by_name["touch_mode"].privacy_classes == ("touch_setting",)
+    assert by_name["touch_mode"].input_eligible is False
     assert by_name["unknown_motion_channels"].scripted_fake_decoder_available is False
     assert all(
         item.scripted_fake_decoder_available

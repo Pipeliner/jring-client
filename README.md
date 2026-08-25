@@ -345,14 +345,19 @@ jring non-health-capabilities
 jring non-health-capabilities --json
 ```
 
-That inventory now labels the device-action, cumulative-step, Classic info/name, and
-host-volume rows whose passive MAIN notifications can be exercised with the exact
-scripted fake. The same internal collector also exercises the exact redacted App-ID
-event at `45/02` without adding a human capability row. The fake subscribes to its
-instance-bound synthetic response target, performs zero writes, ignores ambiguous `78`
-motion traffic and unrelated `45` selectors, redacts decoded values, and remains
-hardware- and input-ineligible. App-ID is only an uncorrelated callback event: it does
-not prove setter causation, identifier equality, acknowledgement, or a terminal.
+That inventory now labels the device-action, cumulative-step, Classic info/name,
+host-volume, and touch-mode rows whose passive MAIN notifications can be exercised
+with the exact scripted fake. The same internal collector also exercises the exact
+redacted App-ID event at `45/02` without adding a human capability row. The fake
+subscribes to its instance-bound synthetic response target and performs zero writes.
+It accepts `78/09` only as a neutral, private touch-mode setting projection; every
+other `78` selector remains unrelated. That value is not an enabled flag, device
+state, gesture, tap, button, sensor sample, or input event. The bundled
+`setTouchMode` entry has zero observed app invokes, so the projection proves no setter
+causation, acknowledgement, terminal, live behavior, or hardware support. Decoded
+values remain redacted and hardware- and input-ineligible. App-ID is likewise only an
+uncorrelated callback event: it does not prove setter causation, identifier equality,
+acknowledgement, or a terminal.
 It is a library test surface, not a live-ring or Classic-attachment command.
 
 The Wi-Fi network-name inventory row separately identifies the existing library-only

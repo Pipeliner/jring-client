@@ -428,10 +428,11 @@ actual OTA transfer uses GATT, with no observed RFCOMM connect, read, or write.
 These rows share no activation path with HID and remain non-live, non-input-eligible
 evidence.
 
-`FakeVendorMainEventSimulator` is the zero-write runtime boundary for six passive
+`FakeVendorMainEventSimulator` is the zero-write runtime boundary for seven passive
 MAIN event kinds: device actions (`06`/`22`), cumulative steps (`51`), Classic info
-and redacted name metadata (`45/00` and `45/01`), redacted App-ID (`45/02`), and the
-host volume-state request (`49`). It accepts only the exact scripted fake and an
+and redacted name metadata (`45/00` and `45/01`), redacted App-ID (`45/02`), the
+host volume-state request (`49`), and an exact touch-mode setting projection
+(`78/09`). It accepts only the exact scripted fake and an
 instance-bound MAIN response target. Every fake coordinator shares one transport-wide
 lifecycle lease and may claim only a disconnected fake; a caller-owned connection or a
 different active coordinator is rejected before I/O. Queue, setup, overall collection,
@@ -439,12 +440,19 @@ and cleanup are bounded; cancellation and reuse stale callbacks. Cleanup runs un
 separate shielded bound so cancellation during unsubscribe still attempts close before
 it is re-raised. Local quiet and limits
 remain unknown, while malformed matching events, overflow, disconnect, and cleanup
-failure abort. Colliding `78` traffic is unrelated. Selectorless and unknown `45`
-traffic is also unrelated. App-ID remains an uncorrelated callback event and proves no
-setter causation, identifier equality, acknowledgement, or terminal. Classic events imply no
+failure abort. Every `78` selector other than exact `09` is unrelated. The `78/09`
+value is private and neutral: it is not an enabled flag, state, gesture, tap, button,
+sensor sample, or input event. `setTouchMode` has zero observed app invokes, and this
+passive projection proves no setter causation, acknowledgement, terminal, live path,
+or hardware support. Selectorless and unknown `45` traffic is also unrelated. App-ID
+remains an uncorrelated callback event and proves no setter causation, identifier
+equality, acknowledgement, or terminal. Classic events imply no
 profile attachment, bonding, RFCOMM, HID, or live
 Classic support. Values stay redacted and every event remains hardware- and
-input-ineligible.
+input-ineligible. Decoded values and the private event tuple live outside dataclass
+fields, so ordinary `asdict`/JSON output cannot expose them; fixed machine fields carry
+the zero-write, no-setter, no-ring, no-gesture, no-terminal, no-hardware, and no-input
+boundary instead.
 
 `FakeVendorPhoneVolumeSimulator` is a separate request-to-projection boundary for the
 reverse-direction `49` path. It accepts only an exact `PhoneVolumeRequest` containing

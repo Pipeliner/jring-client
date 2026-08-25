@@ -1108,6 +1108,9 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "Host volume-state request" in output
     assert "Developer-test scripted fake decoder coverage" in output
     assert "Classic information and redacted-name metadata" in output
+    assert "passive exact 78/09 touch-mode setting projection" in output
+    assert "zero fake writes" in output
+    assert "not a tap, gesture, sensor event, or input action" in output
     assert "Wi-Fi network-name response assembly" in output
     assert "no host or ring Wi-Fi scan" in output
     assert "scripted fake decoder: yes" in output
@@ -1208,6 +1211,13 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     assert wifi["live_available"] is False
     assert wifi["hardware_eligible"] is False
     assert wifi["input_eligible"] is False
+    touch = next(
+        item for item in result["capabilities"] if item["name"] == "touch_mode"
+    )
+    assert touch["scripted_fake_decoder_available"] is True
+    assert "passive exact 78/09 touch-mode setting projection" in touch["description"]
+    assert "zero writes" in touch["description"]
+    assert "not a tap, gesture, sensor event, or input action" in touch["description"]
     serialized = json.dumps(result).lower()
     assert "payload_bytes" not in serialized
     assert '"frame"' not in serialized

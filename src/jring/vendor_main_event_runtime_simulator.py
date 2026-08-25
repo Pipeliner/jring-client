@@ -1,19 +1,19 @@
 """Bounded fake-only collector for passive events on the vendor MAIN route.
 
-The collector subscribes but never writes.  It recognizes only five statically
-discriminated notification opcodes across six event kinds and does not treat local
-quiet or a caller limit as a wire terminal.  In particular, opcode ``0x78`` is
-deliberately excluded because its recovered subcommands collide across unrelated
-operations.
+The collector subscribes but never writes.  It recognizes six statically
+discriminated notification opcodes across seven event kinds and does not treat local
+quiet or a caller limit as a wire terminal.  Shared opcode ``0x78`` is accepted only
+for exact selector ``0x09``; every motion candidate and other selector stays unrelated.
 """
 
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from enum import Enum
 import math
 from types import MappingProxyType
+from typing import ClassVar
 
 from .protocol import ProtocolError
 from .transport import GattCharacteristicTarget
@@ -33,6 +33,7 @@ from .vendor_protocol import (
     parse_vendor_device_action,
     parse_vendor_phone_volume_request,
     parse_vendor_step_counter,
+    parse_vendor_touch_mode,
 )
 from .vendor_runtime_fake import ScriptedVendorFakeTransport
 
@@ -44,6 +45,7 @@ class MainEventKind(str, Enum):
     CLASSIC_INFO = "classic_info"
     CLASSIC_NAME = "classic_name"
     APP_ID = "app_id"
+    TOUCH_MODE_SETTING_PROJECTION = "touch_mode_setting_projection"
 
 
 class MainEventSimulationReason(str, Enum):
@@ -63,26 +65,48 @@ class MainEventCollectionCompleteness(str, Enum):
     ABORTED = "aborted"
 
 
-DecodedMainEvent = (
-    VendorDeviceAction
-    | VendorStepCounter
-    | VendorPhoneVolumeRequest
-    | VendorClassicInfo
-    | VendorRedactedTextNotification
-)
+class TouchModeSettingProjection:
+    """Redacted holder for one synthetic, neutral touch-mode setting value."""
 
+    __slots__ = ("_value",)
 
-@dataclass(frozen=True, repr=False)
-class MainPassiveEvent:
-    kind: MainEventKind
-    _value: DecodedMainEvent = field(repr=False)
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("touch-mode setting projections are decoder-owned")
 
-    @property
-    def simulation_only(self) -> bool:
-        return True
+    @classmethod
+    def _create(cls, value: int) -> "TouchModeSettingProjection":
+        if type(value) is not int or not 0 <= value <= 0xFF:
+            raise ValueError("touch-mode projection value must fit one unsigned byte")
+        projection = object.__new__(cls)
+        projection._value = value
+        return projection
 
     @property
-    def hardware_eligible(self) -> bool:
+    def projection_role(self) -> str:
+        return "touch_mode_setting_value_or_event"
+
+    @property
+    def acknowledgement_state(self) -> str:
+        return "not_proven"
+
+    @property
+    def setting_application_state(self) -> str:
+        return "unknown"
+
+    @property
+    def terminal_observed(self) -> bool:
+        return False
+
+    @property
+    def gesture_semantics(self) -> str:
+        return "not_proven"
+
+    @property
+    def touch_event_observed(self) -> bool:
+        return False
+
+    @property
+    def sensor_event_observed(self) -> bool:
         return False
 
     @property
@@ -93,9 +117,77 @@ class MainPassiveEvent:
     def input_eligible(self) -> bool:
         return False
 
+    def value_for_test(self) -> int:
+        """Return the synthetic neutral value only to focused offline tests."""
+
+        return self._value
+
+    def __repr__(self) -> str:
+        return (
+            "TouchModeSettingProjection(value=<redacted>, "
+            "projection_role='touch_mode_setting_value_or_event', "
+            "acknowledgement_state='not_proven', "
+            "setting_application_state='unknown', terminal_observed=False, "
+            "gesture_semantics='not_proven', touch_event_observed=False, "
+            "sensor_event_observed=False, hardware_verified=False, "
+            "input_eligible=False)"
+        )
+
+
+DecodedMainEvent = (
+    VendorDeviceAction
+    | VendorStepCounter
+    | VendorPhoneVolumeRequest
+    | VendorClassicInfo
+    | VendorRedactedTextNotification
+    | TouchModeSettingProjection
+)
+
+
+_EVENT_VALUE_TYPES = MappingProxyType({
+    MainEventKind.DEVICE_ACTION: VendorDeviceAction,
+    MainEventKind.CUMULATIVE_STEP: VendorStepCounter,
+    MainEventKind.PHONE_VOLUME_REQUEST: VendorPhoneVolumeRequest,
+    MainEventKind.CLASSIC_INFO: VendorClassicInfo,
+    MainEventKind.CLASSIC_NAME: VendorRedactedTextNotification,
+    MainEventKind.APP_ID: VendorRedactedTextNotification,
+    MainEventKind.TOUCH_MODE_SETTING_PROJECTION: TouchModeSettingProjection,
+})
+_EVENT_45_KINDS = MappingProxyType({
+    MainEventKind.CLASSIC_NAME: Static45Notification.CLASSIC_NAME,
+    MainEventKind.APP_ID: Static45Notification.APP_ID,
+})
+
+
+@dataclass(frozen=True, repr=False)
+class MainPassiveEvent:
+    kind: MainEventKind
+    _decoded_value: InitVar[DecodedMainEvent]
+    simulation_only: bool = field(default=True, init=False)
+    hardware_eligible: bool = field(default=False, init=False)
+    hardware_verified: bool = field(default=False, init=False)
+    input_eligible: bool = field(default=False, init=False)
+    _value: ClassVar[DecodedMainEvent | None] = None
+
+    def __post_init__(self, _decoded_value: DecodedMainEvent) -> None:
+        if type(self.kind) is not MainEventKind:
+            raise TypeError("event kind must be an exact MainEventKind")
+        expected_type = _EVENT_VALUE_TYPES[self.kind]
+        if type(_decoded_value) is not expected_type:
+            raise TypeError("decoded event value does not match its event kind")
+        expected_45_kind = _EVENT_45_KINDS.get(self.kind)
+        if (
+            expected_45_kind is not None
+            and _decoded_value.kind is not expected_45_kind
+        ):
+            raise ValueError("decoded 45 event value does not match its event kind")
+        object.__setattr__(self, "_value", _decoded_value)
+
     def value_for_test(self) -> DecodedMainEvent:
         """Expose a synthetic decoded value only to focused offline tests."""
 
+        if self._value is None:
+            raise RuntimeError("synthetic event value is unavailable")
         return self._value
 
     def __repr__(self) -> str:
@@ -113,35 +205,43 @@ class MainEventSimulationResult:
     event_count: int
     unrelated_frame_count: int
     cleanup_succeeded: bool
-    _events: tuple[MainPassiveEvent, ...] = field(repr=False)
+    _decoded_events: InitVar[tuple[MainPassiveEvent, ...]]
+    wire_terminal_observed: bool = field(default=False, init=False)
+    quiet_means_success: bool = field(default=False, init=False)
+    transport_write_invoked: bool = field(default=False, init=False)
+    setter_invoked: bool = field(default=False, init=False)
+    setter_causation_observed: bool = field(default=False, init=False)
+    acknowledgement_observed: bool = field(default=False, init=False)
+    simulation_only: bool = field(default=True, init=False)
+    live_available: bool = field(default=False, init=False)
+    ring_contacted: bool = field(default=False, init=False)
+    gesture_semantics: str = field(default="not_proven", init=False)
+    touch_event_observed: bool = field(default=False, init=False)
+    touch_sensor_event_observed: bool = field(default=False, init=False)
+    host_input_emitted: bool = field(default=False, init=False)
+    decoded_values_redacted: bool = field(default=True, init=False)
+    event_storage_serialized: bool = field(default=False, init=False)
+    hardware_eligible: bool = field(default=False, init=False)
+    hardware_verified: bool = field(default=False, init=False)
+    input_eligible: bool = field(default=False, init=False)
+    _events: ClassVar[tuple[MainPassiveEvent, ...]] = ()
+
+    def __post_init__(self, _decoded_events: tuple[MainPassiveEvent, ...]) -> None:
+        if type(self.event_count) is not int or self.event_count < 0:
+            raise ValueError("event count must be a non-negative integer")
+        if type(self.unrelated_frame_count) is not int or self.unrelated_frame_count < 0:
+            raise ValueError("unrelated frame count must be a non-negative integer")
+        if type(_decoded_events) is not tuple or any(
+            type(event) is not MainPassiveEvent for event in _decoded_events
+        ):
+            raise TypeError("decoded events must be exact MainPassiveEvent values")
+        if self.event_count != len(_decoded_events):
+            raise ValueError("event count must match decoded event storage")
+        object.__setattr__(self, "_events", tuple(_decoded_events))
 
     @property
     def event_kinds(self) -> tuple[MainEventKind, ...]:
         return tuple(event.kind for event in self._events)
-
-    @property
-    def wire_terminal_observed(self) -> bool:
-        return False
-
-    @property
-    def quiet_means_success(self) -> bool:
-        return False
-
-    @property
-    def simulation_only(self) -> bool:
-        return True
-
-    @property
-    def hardware_eligible(self) -> bool:
-        return False
-
-    @property
-    def hardware_verified(self) -> bool:
-        return False
-
-    @property
-    def input_eligible(self) -> bool:
-        return False
 
     def events_for_test(self) -> tuple[MainPassiveEvent, ...]:
         """Return synthetic events to focused offline tests only."""
@@ -156,13 +256,19 @@ class MainEventSimulationResult:
             f"unrelated_frame_count={self.unrelated_frame_count}, "
             f"cleanup_succeeded={self.cleanup_succeeded!r}, events=<redacted>, "
             "wire_terminal_observed=False, quiet_means_success=False, "
-            "simulation_only=True, hardware_eligible=False, "
+            "transport_write_invoked=False, setter_invoked=False, "
+            "setter_causation_observed=False, acknowledgement_observed=False, "
+            "simulation_only=True, live_available=False, ring_contacted=False, "
+            "gesture_semantics='not_proven', touch_event_observed=False, "
+            "touch_sensor_event_observed=False, host_input_emitted=False, "
+            "decoded_values_redacted=True, event_storage_serialized=False, "
+            "hardware_eligible=False, "
             "hardware_verified=False, input_eligible=False)"
         )
 
 
 _MAX_EVENT_LIMIT = 4_096
-_MATCHING_OPCODES = frozenset((0x06, 0x22, 0x45, 0x49, 0x51))
+_MATCHING_OPCODES = frozenset((0x06, 0x22, 0x45, 0x49, 0x51, 0x78))
 _STATIC_45_EVENTS = MappingProxyType({
     0x00: (MainEventKind.CLASSIC_INFO, Static45Notification.CLASSIC_INFO),
     0x01: (MainEventKind.CLASSIC_NAME, Static45Notification.CLASSIC_NAME),
@@ -425,7 +531,7 @@ class FakeVendorMainEventSimulator:
             event_count=len(events),
             unrelated_frame_count=unrelated,
             cleanup_succeeded=cleanup_succeeded,
-            _events=tuple(events),
+            _decoded_events=tuple(events),
         )
 
     @staticmethod
@@ -436,6 +542,9 @@ class FakeVendorMainEventSimulator:
             if len(data) < 2:
                 return "unrelated"
             if data[1] not in _STATIC_45_EVENTS:
+                return "unrelated"
+        if data[0] == 0x78:
+            if len(data) < 2 or data[1] != 0x09:
                 return "unrelated"
         return "accepted" if len(data) == 20 else "malformed"
 
@@ -457,6 +566,12 @@ class FakeVendorMainEventSimulator:
             return MainPassiveEvent(
                 event_kind,
                 parse_vendor_45_notification(data, expected_kind=parser_kind),
+            )
+        if opcode == 0x78:
+            parsed = parse_vendor_touch_mode(data)
+            return MainPassiveEvent(
+                MainEventKind.TOUCH_MODE_SETTING_PROJECTION,
+                TouchModeSettingProjection._create(parsed.value),
             )
         return MainPassiveEvent(
             MainEventKind.PHONE_VOLUME_REQUEST,
@@ -505,4 +620,5 @@ __all__ = [
     "MainEventSimulationReason",
     "MainEventSimulationResult",
     "MainPassiveEvent",
+    "TouchModeSettingProjection",
 ]
