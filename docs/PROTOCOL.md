@@ -225,6 +225,12 @@ Three phone-integration encoders also have closed singleton responses: user info
 Wi-Fi AP state, and worship info. Multi-frame credentials/content and ambiguous sync
 notifications are rejected by the factory instead of treated as acknowledgements.
 
+Raw fake reproduction now uses the distinct `33f5` write and `33f6` notification
+roles. A bounded collector accepts an optional typed raw command and decodes event
+families `0001`, `0002`/`0003`, `0006`, `0009`, and `000a`. It never calls an event a
+command acknowledgement, never treats its local limit as a wire terminal, and reports
+quiet as unknown completeness.
+
 Within those routes, 37 statically reviewed builder families have a second,
 domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum
 when given values accepted by the stricter Python type/domain rules. Thirty-one use

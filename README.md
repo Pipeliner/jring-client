@@ -157,6 +157,10 @@ live or hardware authority regardless of risk class.
 Three single-frame phone-integration families with closed responses—user info, Wi-Fi AP
 mode, and the neutral worship setting—are also composable. Other private sync/content
 families remain rejected until their streaming or causal terminal rules are proven.
+The scripted fake now has a distinct raw `33f5`/`33f6` route and bounded event
+collector. It can write a closed raw command and parse typed raw notifications, but
+always reports unknown completeness: an event is not an acknowledgement, reaching an
+event limit is not success, and local quiet is not a terminal.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke

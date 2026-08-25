@@ -15,6 +15,8 @@ from .transport import GattCharacteristicMetadata, NotifyCallback
 from .uuids import (
     VENDOR_CHARACTERISTIC_33F3,
     VENDOR_CHARACTERISTIC_33F4,
+    VENDOR_CHARACTERISTIC_33F5,
+    VENDOR_CHARACTERISTIC_33F6,
     VENDOR_SERVICE_56FF,
     uuid16,
 )
@@ -205,6 +207,35 @@ class ScriptedVendorFakeTransport:
             GattCharacteristicMetadata(
                 service_uuid=VENDOR_SERVICE_56FF,
                 uuid=VENDOR_CHARACTERISTIC_33F4,
+                properties=notify_properties,
+                descriptor_uuids=response_descriptors,
+            ),
+        )
+        return cls(services=route_services, metadata=metadata, **controls)
+
+    @classmethod
+    def raw_vendor_route(
+        cls,
+        *,
+        services: set[str] | None = None,
+        write_properties: tuple[str, ...] = ("write",),
+        notify_properties: tuple[str, ...] = ("notify",),
+        response_descriptors: tuple[str, ...] = (uuid16(0x2902),),
+        **controls: object,
+    ) -> "ScriptedVendorFakeTransport":
+        """Build the distinct raw TX/RX route for simulation-only tests."""
+
+        route_services = {VENDOR_SERVICE_56FF} if services is None else services
+        metadata = (
+            GattCharacteristicMetadata(
+                service_uuid=VENDOR_SERVICE_56FF,
+                uuid=VENDOR_CHARACTERISTIC_33F5,
+                properties=write_properties,
+                descriptor_uuids=(),
+            ),
+            GattCharacteristicMetadata(
+                service_uuid=VENDOR_SERVICE_56FF,
+                uuid=VENDOR_CHARACTERISTIC_33F6,
                 properties=notify_properties,
                 descriptor_uuids=response_descriptors,
             ),

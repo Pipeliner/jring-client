@@ -228,6 +228,12 @@ The phone-integration boundary similarly permits only three exact single-frame r
 user-info acknowledgement, Wi-Fi AP state, and worship-info projection. Private sync,
 content, credential, and external-pipeline requests stay outside the singleton engine.
 
+Raw simulation uses separate fake metadata for TX `33f5` and RX `33f6`; the main fake
+route fails raw preflight. The bounded collector subscribes before an optional closed
+raw write, parses only typed notifications, and cleans up deterministically. Results
+have only `unknown` or `aborted` completeness—never success—because no raw request/event
+pairing, acknowledgement bit, transaction identifier, or wire terminal is proven.
+
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
 dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective

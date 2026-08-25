@@ -5,6 +5,8 @@ import pytest
 from jring.uuids import (
     VENDOR_CHARACTERISTIC_33F3,
     VENDOR_CHARACTERISTIC_33F4,
+    VENDOR_CHARACTERISTIC_33F5,
+    VENDOR_CHARACTERISTIC_33F6,
     VENDOR_SERVICE_56FF,
     uuid16,
 )
@@ -40,6 +42,25 @@ def test_default_route_metadata_is_explicit_but_never_hardware_eligible():
     assert transport.simulation_only is True
     assert transport.hardware_eligible is False
     assert "simulation_only=True" in repr(transport)
+
+
+def test_raw_route_is_explicitly_separate_and_simulation_only():
+    transport = ScriptedVendorFakeTransport.raw_vendor_route()
+
+    async def scenario():
+        await transport.connect()
+        metadata = await transport.gatt_characteristics()
+        assert [(item.service_uuid, item.uuid) for item in metadata] == [
+            (VENDOR_SERVICE_56FF, VENDOR_CHARACTERISTIC_33F5),
+            (VENDOR_SERVICE_56FF, VENDOR_CHARACTERISTIC_33F6),
+        ]
+        assert metadata[0].properties == ("write",)
+        assert metadata[1].properties == ("notify",)
+        assert metadata[1].descriptor_uuids == (CCCD,)
+
+    run(scenario())
+    assert transport.simulation_only is True
+    assert transport.hardware_eligible is False
 
 
 def test_subscribe_installs_callback_before_the_call_is_allowed_to_finish():
