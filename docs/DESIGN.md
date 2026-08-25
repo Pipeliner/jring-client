@@ -273,8 +273,14 @@ Protocol coverage has a separate top-level Bluetooth-parity verdict. Its strict
 all-dimensions rule currently marks parity not established: only recovered-AIDL
 declaration accounting is complete, while source semantics, live vendor availability,
 and hardware verification remain incomplete. A successful JSON command is not a parity
-claim, and the 112/105 declaration counts are never treated as an exhaustive Bluetooth
-capability denominator.
+claim. A separate immutable operation registry classifies all 112 request rows into
+103 ring-facing and nine non-ring platform rows. It records exact capability family,
+route/endpoint role, static request and terminal evidence, privacy, idempotence,
+consent, firmware/evidence scope, and a closed terminal status. The initial population
+is 101 `offline_only`, two `unsafe` generic transport routes, and nine
+`excluded_non_ring`; it contains zero live-eligible or hardware-verified rows. This
+establishes the recovered request-surface denominator, not an exhaustive denominator
+for unknown firmware behavior or Bluetooth capabilities outside the reviewed APK.
 Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 

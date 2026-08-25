@@ -183,6 +183,16 @@ a closed state enum rather than labels inferred by substring. This corrects an e
 that treated only three interface methods as stubs; static call-site tracing shows that
 `getWifiState` is also a no-op in this build even though related response parsing exists.
 
+`jring.vendor_operation_registry.recovered_vendor_operation_registry()` joins that
+112-row population to the exact routing and 85-row correlation ledgers. It classifies
+103 rows as ring-facing and nine as non-ring platform behavior. All 101 ordinary
+ring-facing rows start `offline_only`; generic `setUuid` and `writeCharacteristic` are
+terminally `unsafe`; the nine platform rows are `excluded_non_ring`. Firmware scope is
+`untested`, evidence reference is absent, and live/hardware flags are false everywhere.
+The registry exposes no request bytes, runtime target, device identity, private evidence,
+or generic transport API. Its recovered-request denominator is not evidence that every
+firmware implements every row.
+
 `static_vendor_callback_coverage()` likewise accounts for all 105 callback declarations
 exactly once. Eighty-six are reached by a structured main or raw Bluetooth opcode,
 14 originate in Android transport, scan, network, OTA, authorization, or cache flows,

@@ -129,6 +129,12 @@ The M0–M6 tracker was challenged again before publication from every workflow 
 | Protocol contributor | Can an offline codec quietly become a live operation? | The registry rejects static-only promotion without exact endpoint, matcher, evidence, firmware, and consent metadata |
 | Maintainer | Can broad issues hide missing implementation families? | Seventeen bounded tasks cover sensor, history, setting, content, action, input, transfer, service, and OTA families, while #16 checks every terminal status |
 
+The first M0 registry slice added one further adversarial finding: a family-level
+fallback initially described call/media host projections and a personal step goal as
+public device state. Exact operation overrides now classify both host projections as
+private content and the step goal as fitness data; tests also pin health-profile and
+device-identifier examples. No terminal status or runtime authority changed.
+
 The review found no need for a new implementation family. It did find that simulator
 and shell-completion work could distract from live client parity; simulator work is now
 last and minimal, and Fish completion is explicitly excluded.

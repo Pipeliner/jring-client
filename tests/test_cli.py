@@ -624,7 +624,7 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert cli.main(["protocol-coverage"]) == 0
     output = capsys.readouterr().out
 
-    assert output.splitlines()[:7] == [
+    assert output.splitlines()[:8] == [
         "OFFLINE PROTOCOL COVERAGE — no ring contacted",
         "Complete APK-to-Python Bluetooth capability parity: NO — not established.",
         (
@@ -636,6 +636,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
         (
             "Hardware verification: NOT COMPLETE — 0 hardware-verified vendor "
             "operations."
+        ),
+        (
+            "Operation registry: 103 ring-facing; 101 offline-only, 2 unsafe, "
+            "and 9 excluded non-ring rows."
         ),
         "Static row accounting does not satisfy semantic, live, or hardware gates.",
     ]
@@ -809,11 +813,11 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
                 "status": "not_established",
                 "request_callback_relationships_closed": False,
             },
-            "live_vendor_availability": {
-                "complete": False,
-                "status": "unavailable",
-                "capability_denominator_established": False,
-                "in_scope_vendor_operation_count": None,
+                "live_vendor_availability": {
+                    "complete": False,
+                    "status": "unavailable",
+                    "capability_denominator_established": True,
+                    "in_scope_vendor_operation_count": 103,
                 "all_in_scope_vendor_operations_live": False,
                 "live_vendor_operations": 0,
             },
@@ -938,6 +942,8 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert decompilation["fallback_pass"]["run_failure_count_available"] is False
     assert decompilation["semantic_correctness_established"] is False
     assert decompilation["complete_semantic_source_review_completed"] is False
+
+
     assert decompilation["complete_smali_review_completed"] is False
     assert decompilation["complete_dex_instruction_review_completed"] is False
     assert decompilation["complete_dex_coverage"] is False
@@ -1070,6 +1076,39 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
                 yield from keys(nested)
 
     assert all("frame" not in key.lower() for key in keys(result))
+
+
+def test_protocol_coverage_exposes_closed_operation_registry_denominator(capsys):
+    assert cli.main(["protocol-coverage", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    registry = result["operation_registry"]
+
+    assert registry["schema_version"] == 1
+    assert registry["operation_count"] == 112
+    assert registry["ring_facing_count"] == 103
+    assert registry["live_eligible_count"] == 0
+    assert registry["hardware_verified_count"] == 0
+    assert registry["terminal_status_counts"] == {
+        "excluded_non_ring": 9,
+        "offline_only": 101,
+        "unsafe": 2,
+    }
+    assert len(registry["operations"]) == 112
+    rows = {row["operation_id"]: row for row in registry["operations"]}
+    assert rows["getDeviceInfo"]["terminal_status"] == "offline_only"
+    assert rows["getDeviceInfo"]["response_terminal_rule"] == "single_matched_response"
+    assert rows["writeCharacteristic"]["terminal_status"] == "unsafe"
+    assert rows["writeCharacteristic"]["ring_facing"] is True
+    assert rows["saveFileToSystemAlbum"]["terminal_status"] == "excluded_non_ring"
+    assert rows["saveFileToSystemAlbum"]["ring_facing"] is False
+    serialized = json.dumps(registry, sort_keys=True).lower()
+    for forbidden in ("bluetooth_address", "raw_payload", "raw_frame", "private_evidence"):
+        assert forbidden not in serialized
+
+    live = result["bluetooth_capability_parity"]["dimensions"]["live_vendor_availability"]
+    assert live["capability_denominator_established"] is True
+    assert live["in_scope_vendor_operation_count"] == 103
+    assert live["all_in_scope_vendor_operations_live"] is False
 
 
 def test_protocol_coverage_never_constructs_a_transport(monkeypatch, capsys):

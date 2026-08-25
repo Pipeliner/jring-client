@@ -56,6 +56,10 @@ from .vendor_request_callback_correlation import (
     recovered_request_callback_correlations,
 )
 from .vendor_request_routing import recovered_request_routing_evidence
+from .vendor_operation_registry import (
+    recovered_vendor_operation_registry,
+    vendor_operation_registry_payload,
+)
 from .vendor_runtime_eligibility import (
     FakeSingletonEligibilityState,
     recovered_vendor_fake_singleton_eligibility,
@@ -503,13 +507,10 @@ def _protocol_coverage_payload() -> dict[str, object]:
     request_routing = recovered_request_routing_evidence()
     app_use = recovered_vendor_app_use_evidence()
     binder = recovered_vendor_binder_evidence()
+    operation_registry = recovered_vendor_operation_registry()
     warning_scopes = {item.scope.value: item for item in warning_audit.scopes}
-    live_vendor_operations = sum(
-        entry.python_state is VendorPythonState.LIVE_VENDOR for entry in requests
-    )
-    hardware_verified_vendor_operations = sum(
-        entry.hardware_verified for entry in requests
-    )
+    live_vendor_operations = operation_registry.live_eligible_count
+    hardware_verified_vendor_operations = operation_registry.hardware_verified_count
     interface = artifact.interface_parity
     source_semantics_recovery_complete = _source_semantics_recovery_is_complete(
         recovery_states=(
@@ -559,13 +560,14 @@ def _protocol_coverage_payload() -> dict[str, object]:
             and request_correlations.explicitly_unresolved_count == 0
             and request_correlations.rows_with_unresolved_reasons_count == 0
         ),
-        capability_denominator_established=False,
-        in_scope_vendor_operation_count=None,
+        capability_denominator_established=True,
+        in_scope_vendor_operation_count=operation_registry.ring_facing_count,
         live_vendor_operations=live_vendor_operations,
         hardware_verified_vendor_operations=hardware_verified_vendor_operations,
     )
     return {
         "bluetooth_capability_parity": parity,
+        "operation_registry": vendor_operation_registry_payload(),
         "summary": {
             "request_total": len(requests),
             "callback_total": len(callbacks),
@@ -1110,6 +1112,7 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     aidl = parity_dimensions["known_aidl_declaration_accounting"]
     live = parity_dimensions["live_vendor_availability"]
     hardware = parity_dimensions["hardware_verification"]
+    registry = payload["operation_registry"]
     decompilation = payload["supplemental"]["decompilation_coverage"]
     scopes = {item["scope"]: item for item in decompilation["scopes"]}
     print("OFFLINE PROTOCOL COVERAGE — no ring contacted")
@@ -1134,6 +1137,14 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"Hardware verification: {hardware_label} — "
         f"{hardware['hardware_verified_vendor_operations']} hardware-verified vendor "
         "operations."
+    )
+    statuses = registry["terminal_status_counts"]
+    print(
+        "Operation registry: "
+        f"{registry['ring_facing_count']} ring-facing; "
+        f"{statuses.get('offline_only', 0)} offline-only, "
+        f"{statuses.get('unsafe', 0)} unsafe, and "
+        f"{statuses.get('excluded_non_ring', 0)} excluded non-ring rows."
     )
     print("Static row accounting does not satisfy semantic, live, or hardware gates.")
     print("Static source recovery completeness: not established.")
