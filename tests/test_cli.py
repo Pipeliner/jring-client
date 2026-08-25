@@ -264,6 +264,7 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Offline local projections: 3" in output
     assert "Live vendor operations: 0" in output
     assert "Hardware-verified vendor operations: 0" in output
+    assert "Static coverage never authorizes Bluetooth writes or subscriptions." in output
 
 
 def test_protocol_coverage_json_accounts_for_every_entry(capsys):
@@ -291,6 +292,49 @@ def test_protocol_coverage_never_constructs_a_transport(monkeypatch, capsys):
 
     assert cli.main(["protocol-coverage"]) == 0
     assert "no ring contacted" in capsys.readouterr().out
+
+
+def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
+    monkeypatch, capsys
+):
+    def forbidden_transport(*_args, **_kwargs):
+        raise AssertionError("local non-health inventory must not construct a transport")
+
+    monkeypatch.setattr(cli, "BleakTransport", forbidden_transport)
+    assert cli.main(["non-health-capabilities"]) == 0
+    output = capsys.readouterr().out
+
+    assert output.startswith("LIVE RING INPUT UNAVAILABLE — no ring contacted\n")
+    assert "Standard HID metadata" in output
+    assert "Media play/pause" in output
+    assert "Cumulative step counter" in output
+    assert "hardware verified: no; live available: no; input eligible: no" in output
+    assert output.index("Standard HID metadata") < output.index("Static device actions")
+    assert output.index("Static device actions") < output.index("Sensor-derived candidates")
+
+
+def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
+    assert cli.main(["non-health-capabilities", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+
+    assert result["operation"] == "non_health_capabilities"
+    assert result["source"] == "local"
+    assert result["ok"] is True
+    assert result["live_ring_input"] == "unavailable"
+    assert len(result["capabilities"]) == 11
+    assert all("evidence" in item for item in result["capabilities"])
+    assert all(item["input_eligible"] is False for item in result["capabilities"])
+    serialized = json.dumps(result).lower()
+    assert "payload_bytes" not in serialized
+    assert '"frame"' not in serialized
+
+
+def test_non_health_capabilities_rejects_unrelated_runtime_selectors(capsys):
+    assert cli.main([
+        "--simulate", "non-health-capabilities", "--json",
+    ]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["error"]["code"] == "usage"
 
 
 def test_unsupported_mapping_fails_before_opening_a_sink(monkeypatch, capsys):

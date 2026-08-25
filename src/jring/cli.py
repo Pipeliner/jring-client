@@ -29,6 +29,7 @@ from .input import (
     input_action_inventory,
     parse_binding,
 )
+from .non_health import static_non_health_capabilities
 from .protocol import ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
@@ -298,6 +299,40 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     print("Static coverage never authorizes Bluetooth writes or subscriptions.")
 
 
+def _non_health_payload() -> dict[str, object]:
+    return {
+        "live_ring_input": "unavailable",
+        "capabilities": [asdict(item) for item in static_non_health_capabilities()],
+    }
+
+
+def _print_non_health_capabilities(payload: dict[str, object]) -> None:
+    print("LIVE RING INPUT UNAVAILABLE — no ring contacted")
+    print(
+        "JRing can inspect standard metadata and static candidates offline; "
+        "none is enabled as live input."
+    )
+    headings = (
+        ("standard_metadata", "Standards metadata"),
+        ("device_actions", "Static device actions"),
+        ("sensor_candidates", "Sensor-derived candidates"),
+        ("raw_channel", "Raw non-health framing"),
+    )
+    for group, heading in headings:
+        print(heading)
+        for item in payload["capabilities"]:
+            if item["group"] != group:
+                continue
+            candidate = "yes" if item["input_candidate"] else "no"
+            print(f"- {item['label']}: {item['description']}")
+            print(
+                f"  evidence: {item['evidence']}; maturity: {item['maturity']}; "
+                f"input candidate: {candidate}; hardware verified: no; "
+                "live available: no; input eligible: no"
+            )
+    print("This inventory never authorizes Bluetooth writes, subscriptions, or input.")
+
+
 def _capability_payload(inventory: object) -> dict[str, object]:
     characteristics = [asdict(item) for item in inventory.characteristics]
     return {
@@ -354,6 +389,13 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.command == "non-health-capabilities":
+        payload = _non_health_payload()
+        if args.json:
+            _print_json_success("non_health_capabilities", "local", payload)
+        else:
+            _print_non_health_capabilities(payload)
+        return ExitCode.OK
     if args.command == "protocol-coverage":
         payload = _protocol_coverage_payload()
         if args.json:
@@ -587,6 +629,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="inspect offline APK-to-Python parity without Bluetooth",
     )
     _add_json_option(protocol_coverage)
+    non_health = sub.add_parser(
+        "non-health-capabilities",
+        help="list offline non-health, HID, sensor, and input candidates",
+    )
+    _add_json_option(non_health)
     input_command = sub.add_parser(
         "input", help="simulator-only preview or emission; live ring events are unavailable"
     )
@@ -707,6 +754,7 @@ def _print_json_error(
 _OPERATIONS = {
     "doctor": "doctor",
     "protocol-coverage": "protocol_coverage",
+    "non-health-capabilities": "non_health_capabilities",
     "input-actions": "input_actions",
     "input": "input",
     "capabilities": "capabilities",
@@ -719,7 +767,9 @@ _OPERATIONS = {
 
 def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
     operation = next((_OPERATIONS[value] for value in argv if value in _OPERATIONS), "cli")
-    if operation in {"doctor", "input_actions", "protocol_coverage"}:
+    if operation in {
+        "doctor", "input_actions", "protocol_coverage", "non_health_capabilities"
+    }:
         source = "local"
     elif "--simulate" in argv or "--simulate-profile" in argv:
         source = "simulator"
@@ -731,7 +781,9 @@ def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
 
 
 def _source_from_args(args: argparse.Namespace) -> str:
-    if args.command in {"doctor", "input-actions", "protocol-coverage"}:
+    if args.command in {
+        "doctor", "input-actions", "protocol-coverage", "non-health-capabilities"
+    }:
         return "local"
     return "simulator" if getattr(args, "simulate", False) else "hardware"
 
@@ -808,6 +860,11 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         if ignored:
             option = sorted(ignored)[0].replace("_", "-")
             parser.error(f"--{option} is not supported by protocol-coverage")
+    if args.command == "non-health-capabilities":
+        ignored = provided & {"address", "address_file", "simulate", "timeout"}
+        if ignored:
+            option = sorted(ignored)[0].replace("_", "-")
+            parser.error(f"--{option} is not supported by non-health-capabilities")
     if args.command == "discover":
         if simulate:
             parser.error("discover does not support simulation; it is a radio-active operation")
@@ -825,7 +882,8 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         parser.error("history is simulator-only and does not accept hardware selection or --timeout")
     if (
         args.command not in {
-            "discover", "doctor", "input", "input-actions", "protocol-coverage"
+            "discover", "doctor", "input", "input-actions", "protocol-coverage",
+            "non-health-capabilities",
         }
         and not simulate
         and not has_hardware

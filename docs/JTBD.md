@@ -144,6 +144,10 @@ tools, or desktop workflows without installing an opaque automation stack.
 Desired outcomes:
 
 - Detect when a ring exposes the standard Bluetooth HID service.
+- Inspect a task-first local inventory of HID metadata, static device actions, step and
+  motion candidates, and raw non-health framing before selecting or contacting a ring.
+- See evidence, maturity, hardware verification, live availability, and input
+  eligibility separately so a static candidate cannot look usable.
 - Inspect standard HID characteristic and descriptor metadata without reading report
   maps, subscribing to reports, or claiming operating-system usability.
 - Discover the complete local action vocabulary without Bluetooth, optional packages,

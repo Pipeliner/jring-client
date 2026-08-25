@@ -133,6 +133,14 @@ HID reports.
 
 ### Read-only non-health capability inventory
 
+Given no ring, `jring non-health-capabilities` starts with the boundary that live ring
+input is unavailable, then lists standard HID metadata, statically classified device
+actions, cumulative-step and unknown-motion candidates, and raw non-health framing.
+Every item carries evidence, maturity, neutral meaning, hardware-verification, live,
+candidate, and input-eligibility states. All live and input-eligible states are false.
+The command is local-only: it rejects simulation and device selectors and constructs
+neither a BLE transport nor an input sink.
+
 Given a selected device or the HID simulator, when a person runs `jring capabilities`,
 then the client enumerates standard GATT metadata only. Human and schema-1 JSON output
 distinguish service `advertised`, characteristic `readable` or `advertised`, missing
@@ -410,6 +418,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
+| Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
 | Explicit simulator profiles | `test_simulator_profile_preserves_global_and_task_first_forms`, `test_simulator_profile_requires_simulation`, `test_simulator_profile_is_consistent_between_status_and_capabilities`, `test_input_profile_is_explicit_in_human_and_json_output`, `test_simulator_profiles_are_discoverable_in_help` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |

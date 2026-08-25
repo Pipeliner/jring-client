@@ -15,6 +15,7 @@ python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e .
 jring doctor
+jring non-health-capabilities
 jring protocol-coverage
 jring status --simulate
 jring capabilities --simulate
@@ -127,8 +128,18 @@ instead.
 
 ## Use a sensor event as desktop input
 
-The simulator can exercise a non-health `step` event as an allowlisted keyboard key or
-mouse click. Preview is the default and never emits operating-system input:
+Live ring input is not available yet. Inspect the local evidence and candidate boundary
+without Bluetooth first; this includes standard HID metadata, media/volume/shutter
+actions, the cumulative step counter, unknown motion channels, and raw non-health
+framing:
+
+```sh
+jring non-health-capabilities
+jring non-health-capabilities --json
+```
+
+The simulator can then exercise a non-health `step` event as an allowlisted keyboard
+key or mouse click. Preview is the default and never emits operating-system input:
 
 ```sh
 jring input-actions

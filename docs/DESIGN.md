@@ -52,6 +52,8 @@ objects omit device identifiers and raw bytes; ambiguous fields retain neutral n
 `jring.vendor_history` adds a pure per-request state machine for recovered history
 frames. It uses finite monotonic deadlines, distinguishes wire/device/local closure,
 and never turns an idle timeout into confirmed completeness or retains a raw frame.
+`jring.non_health` is an immutable, local-only evidence inventory; it exposes no frame,
+transport, parser, input sink, or authority to promote a static candidate.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`
