@@ -308,6 +308,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
         "Codec traceability: 85/85 request rows; 86/86 callback rows; "
         "9 family bindings unresolved."
     ) in output
+    assert (
+        "Request packet routes: 79 main; 6 raw; 1 stateful shared; 1 dynamic; "
+        "1 descriptor; 1 DFU; 23 without a fixed packet."
+    ) in output
     assert "Supplemental session transitions (not interface entries): 33" in output
     assert "Adversarial session races: 22" in output
     assert "Source-labeled binding reactions: 6" in output
@@ -342,6 +346,9 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["request_codec_locators"] == 85
     assert result["summary"]["callback_codec_locators"] == 86
     assert result["summary"]["unresolved_codec_family_bindings"] == 9
+    assert result["summary"]["request_main_layouts"] == 79
+    assert result["summary"]["request_raw_layouts"] == 6
+    assert result["summary"]["request_no_fixed_packets"] == 23
     assert result["summary"]["supplemental_session_transitions"] == 33
     assert result["summary"]["supplemental_session_races"] == 22
     assert result["summary"]["supplemental_binding_reactions"] == 6
@@ -410,6 +417,10 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     callback_surfaces = result["supplemental"]["callback_behavior_surfaces"]
     dispatcher = result["supplemental"]["dispatcher_evidence"]
     codec_registry = result["supplemental"]["codec_registry"]
+    request_routing = result["supplemental"]["request_routing"]
+    assert len(request_routing["requests"]) == 112
+    assert request_routing["standalone_deterministic_offline_count"] == 85
+    assert request_routing["owner_authorized"] is False
     assert len(codec_registry["requests"]) == 85
     assert len(codec_registry["callbacks"]) == 86
     assert all(row["hardware_eligible"] is False for row in codec_registry["requests"])

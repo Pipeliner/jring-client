@@ -48,6 +48,7 @@ from .vendor_coverage import (
 )
 from .vendor_decompilation_evidence import recovered_decompilation_coverage
 from .vendor_dispatcher_evidence import recovered_dispatcher_evidence
+from .vendor_request_routing import recovered_request_routing_evidence
 from .vendor_session_evidence import recovered_session_evidence
 from .vendor_warning_evidence import (
     ComparisonState,
@@ -274,6 +275,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     artifact = recovered_artifact_surface_evidence()
     callback_surfaces = recovered_callback_behavior_surfaces()
     dispatcher = recovered_dispatcher_evidence()
+    request_routing = recovered_request_routing_evidence()
     warning_scopes = {item.scope.value: item for item in warning_audit.scopes}
     return {
         "summary": {
@@ -323,6 +325,9 @@ def _protocol_coverage_payload() -> dict[str, object]:
                     *CALLBACK_CODEC_LOCATORS.values(),
                 )
             ),
+            "request_main_layouts": request_routing.main_layout_count,
+            "request_raw_layouts": request_routing.raw_layout_count,
+            "request_no_fixed_packets": request_routing.no_fixed_packet_count,
             "live_vendor_operations": sum(
                 entry.python_state is VendorPythonState.LIVE_VENDOR for entry in requests
             ),
@@ -427,6 +432,31 @@ def _protocol_coverage_payload() -> dict[str, object]:
         "requests": [asdict(entry) for entry in requests],
         "callbacks": [asdict(entry) for entry in callbacks],
         "supplemental": {
+            "request_routing": {
+                **asdict(request_routing),
+                "standalone_deterministic_offline_count": (
+                    request_routing.standalone_deterministic_offline_count
+                ),
+                "statically_identifiable_layout_count": (
+                    request_routing.statically_identifiable_layout_count
+                ),
+                "main_layout_count": request_routing.main_layout_count,
+                "raw_layout_count": request_routing.raw_layout_count,
+                "stateful_shared_layout_count": (
+                    request_routing.stateful_shared_layout_count
+                ),
+                "dynamic_payload_count": request_routing.dynamic_payload_count,
+                "descriptor_control_count": request_routing.descriptor_control_count,
+                "internal_dfu_count": request_routing.internal_dfu_count,
+                "no_fixed_packet_count": request_routing.no_fixed_packet_count,
+                "maturity": request_routing.maturity,
+                "evidence_scope": request_routing.evidence_scope,
+                "runnable": request_routing.runnable,
+                "python_callable": request_routing.python_callable,
+                "hardware_eligible": request_routing.hardware_eligible,
+                "hardware_verified": request_routing.hardware_verified,
+                "owner_authorized": request_routing.owner_authorized,
+            },
             "codec_registry": {
                 "requests": [
                     {
@@ -750,6 +780,13 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{summary['request_codec_locators']}/85 request rows; "
         f"{summary['callback_codec_locators']}/86 callback rows; "
         f"{summary['unresolved_codec_family_bindings']} family bindings unresolved."
+    )
+    print(
+        "Request packet routes: "
+        f"{summary['request_main_layouts']} main; "
+        f"{summary['request_raw_layouts']} raw; 1 stateful shared; 1 dynamic; "
+        "1 descriptor; 1 DFU; "
+        f"{summary['request_no_fixed_packets']} without a fixed packet."
     )
     print(
         "Supplemental session transitions (not interface entries): "

@@ -176,6 +176,15 @@ callables, typed and branching factories, pipelines, stateful assemblers, and sh
 families whose row binding is still unresolved. Resolution imports symbols but never
 invokes codecs, accepts payloads, or constructs Bluetooth.
 
+Request routing is a second 112-row, mutually exclusive evidence view. Seventy-nine
+deterministic layouts enter the source main queue and six enter its raw queue. One
+shared OTA preflight has an identifiable main layout but is not a standalone codec; one
+caller-directed write, one raw descriptor control, one internal DFU flow, and 23
+no-fixed-packet operations stay separate. Queue roles describe static plumbing only.
+Mutable policy status, connection gates, history/silence filters, one global pending
+payload, ignored write-callback status, and unknown dispatch outcomes prevent this model
+from authorizing a live queue implementation or automatic retry.
+
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
 dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective

@@ -177,6 +177,15 @@ broad parser without a closed expected-type parameter; those nine relationships 
 reported as unresolved family bindings, not direct codecs. Locator resolution does not
 run a codec or make a row live.
 
+The request-routing evidence independently partitions all 112 rows: 79 deterministic
+main layouts use the main queue/TX/RX roles, six deterministic raw layouts use the raw
+queue/TX/RX roles, one stateful OTA preflight shares a main-query builder, one operation
+is caller-directed dynamic GATT, one controls the raw notification descriptor, one is
+internal DFU, and 23 produce no statically fixed vendor packet. The 85 standalone codec
+count therefore remains distinct from 86 identifiable layouts and 80 source paths that
+can reach the main queue. None establishes session readiness, owner authorization,
+response correlation, safe retry, or hardware support.
+
 ## Control-flow domains and recovered ordering
 
 Five domains must not be collapsed into one “authorized session”:

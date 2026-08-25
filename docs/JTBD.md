@@ -173,6 +173,8 @@ Desired outcomes:
   unclassified.
 - Link every codec-designated ledger row to importable Python code, while distinguishing
   direct, bound, branching, pipeline, stateful, and unresolved-family relationships.
+- See deterministic main/raw packet routes separately from shared preflight, dynamic
+  writes, descriptor control, DFU, and operations that produce no fixed packet.
 - Expose process-local/system broadcast mismatches, unhandled registered actions,
   sender-permission gaps, and teardown-domain mismatches as app defects, not features.
 - Treat resource keyword counts as UI/localization surface, never capability counts.
