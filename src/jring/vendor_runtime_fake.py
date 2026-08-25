@@ -102,11 +102,18 @@ class SubscriptionCall:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class UnsubscribeCall:
     characteristic_uuid: str
     connection_generation: int
     target_instance_id: str | None = None
+
+    def __repr__(self) -> str:
+        return (
+            "UnsubscribeCall("
+            f"characteristic_uuid={self.characteristic_uuid!r}, "
+            f"connection_generation={self.connection_generation!r})"
+        )
 
 
 async def _run_hook(hook: Hook | None, fake: "ScriptedVendorFakeTransport", call: object) -> None:

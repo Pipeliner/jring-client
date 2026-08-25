@@ -29,7 +29,6 @@ from .vendor_protocol import (
     StaticVendorRequest,
     encode_static_query,
     operation_opcode,
-    parse_vendor_advanced_sensor_day,
     parse_vendor_ack,
     parse_vendor_band_functions,
     parse_vendor_battery,
@@ -43,9 +42,7 @@ from .vendor_protocol import (
     parse_vendor_eq_info,
     parse_vendor_ecg_mode_ack,
     parse_vendor_factory_test_data,
-    parse_vendor_multi_sport_day,
     parse_vendor_offline_speech_mode,
-    parse_vendor_oxygen_day,
     parse_vendor_screen_light_time,
     parse_vendor_sensor_measurement,
     parse_vendor_touch_mode,
@@ -155,9 +152,6 @@ _STATIC_RESPONSE_PARSERS: dict[StaticQuery, Callable[[bytes], object]] = {
     StaticQuery.BATTERY: parse_vendor_battery,
     StaticQuery.DEVICE_INFO: parse_vendor_device_info,
     StaticQuery.BAND_FUNCTIONS: parse_vendor_band_functions,
-    StaticQuery.MULTI_SPORT_DAY: parse_vendor_multi_sport_day,
-    StaticQuery.OXYGEN_DAY: parse_vendor_oxygen_day,
-    StaticQuery.ADVANCED_SENSOR_DAY: parse_vendor_advanced_sensor_day,
 }
 _ZERO_ARGUMENT_QUERIES = frozenset(
     {
@@ -346,15 +340,16 @@ class OfflineVendorOperation:
             raise TypeError("request must be a StaticVendorRequest")
         if not isinstance(request.operation, StaticQuery):
             raise TypeError("request operation must be a StaticQuery")
+        if request.operation not in _ZERO_ARGUMENT_QUERIES:
+            raise TypeError(
+                "streaming day query requires a separate collection state machine"
+            )
         frame = request.synthetic_bytes_for_test()
         if len(frame) != 20 or frame[0] != operation_opcode(request.operation):
             raise ValueError("static request does not match its operation opcode")
-        if request.operation in _ZERO_ARGUMENT_QUERIES:
-            expected = encode_static_query(request.operation).synthetic_bytes_for_test()
-            if frame != expected:
-                raise ValueError("static zero-argument request has an invalid shape")
-        elif any(frame[2:]):
-            raise ValueError("static day request has an invalid trailing shape")
+        expected = encode_static_query(request.operation).synthetic_bytes_for_test()
+        if frame != expected:
+            raise ValueError("static zero-argument request has an invalid shape")
 
         coverage = next(
             item
@@ -573,12 +568,20 @@ class OfflineVendorOperation:
         endpoint = _normalize_uuid(endpoint_uuid, "notification endpoint")
         if endpoint != self.response_endpoint_uuid:
             return _Match.UNRELATED, None
-        if not isinstance(data, bytes) or len(data) != 20:
+        if not isinstance(data, bytes):
+            raise ProtocolError("vendor response must be exactly 20 bytes")
+        expected_opcodes = self.success_opcodes + self.failure_opcodes
+        if (
+            self.expected_subcommand is not None
+            and len(data) >= 2
+            and data[0] in expected_opcodes
+            and data[1] != self.expected_subcommand
+        ):
+            return _Match.UNRELATED, None
+        if len(data) != 20:
             raise ProtocolError("vendor response must be exactly 20 bytes")
         opcode = data[0]
-        if opcode not in self.success_opcodes and opcode not in self.failure_opcodes:
-            return _Match.UNRELATED, None
-        if self.expected_subcommand is not None and data[1] != self.expected_subcommand:
+        if opcode not in expected_opcodes:
             return _Match.UNRELATED, None
         if opcode in self.failure_opcodes:
             return _Match.FAILURE, None

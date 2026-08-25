@@ -242,13 +242,7 @@ class FakeVendorWifiScanSimulator:
                 ):
                     reason = WifiScanSimulationReason.PREFLIGHT_FAILURE
                     completeness = WifiScanCompleteness.ABORTED
-                    return self._result(
-                        request,
-                        reason,
-                        completeness,
-                        entries,
-                        write_invoked=False,
-                    )
+                    raise LookupError("resolved GATT target is no longer owned")
                 await asyncio.wait_for(
                     self._transport.subscribe_target(response_target, receive),
                     timeout=stage,
@@ -346,14 +340,7 @@ class FakeVendorWifiScanSimulator:
                     quiet_deadline = loop.time() + quiet
                 else:
                     reason = WifiScanSimulationReason.LIMIT_REACHED
-        except (
-            ConnectionError,
-            LookupError,
-            OSError,
-            ProtocolError,
-            TimeoutError,
-            asyncio.TimeoutError,
-        ):
+        except Exception:
             reason = (
                 WifiScanSimulationReason.WRITE_FAILURE
                 if subscribed else WifiScanSimulationReason.PREFLIGHT_FAILURE
@@ -380,7 +367,7 @@ class FakeVendorWifiScanSimulator:
             projections=tuple(projections),
             command_written=command_written,
             cleanup_succeeded=cleanup_succeeded,
-            delivery_uncertain=(write_issued and completeness is WifiScanCompleteness.ABORTED),
+            delivery_uncertain=(write_issued and not command_written),
             _ssids=tuple(ssids),
         )
 
@@ -422,18 +409,11 @@ class FakeVendorWifiScanSimulator:
                     self._transport.unsubscribe_target(response_target),
                     timeout=timeout,
                 )
-            except (
-                ConnectionError,
-                LookupError,
-                OSError,
-                RuntimeError,
-                TimeoutError,
-                asyncio.TimeoutError,
-            ):
+            except Exception:
                 succeeded = False
         try:
             await asyncio.wait_for(self._transport.close(), timeout=timeout)
-        except (OSError, TimeoutError, asyncio.TimeoutError):
+        except Exception:
             succeeded = False
         return succeeded
 

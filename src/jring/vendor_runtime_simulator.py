@@ -382,6 +382,8 @@ class FakeVendorRuntimeSimulator:
 
         attempt.stage = _Stage.PRE_WRITE
         await asyncio.sleep(0)
+        if attempt.disconnect_event.is_set():
+            raise _Disconnected
         if time.monotonic() >= attempt.deadline:
             raise _DeadlineExpired
         update = engine.take_write(now=time.monotonic())
@@ -390,8 +392,6 @@ class FakeVendorRuntimeSimulator:
         if update.write_intent is None:
             raise RuntimeError("offline engine did not provide one write intent")
 
-        if attempt.disconnect_event.is_set():
-            raise _Disconnected
         attempt.stage = _Stage.WRITE
         attempt.write_invoked = True
         await self._await_boundary(

@@ -249,6 +249,15 @@ def test_setup_and_cleanup_stages_are_bounded():
     assert result.reason is WifiScanSimulationReason.PREFLIGHT_FAILURE
     assert result.completeness is WifiScanCompleteness.ABORTED
 
+    setup_failed = ScriptedVendorFakeTransport.vendor_route(
+        connect_error=RuntimeError("unexpected connect failure")
+    )
+    result = run(FakeVendorWifiScanSimulator(setup_failed).collect(
+        request=_request(),
+    ))
+    assert result.reason is WifiScanSimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is WifiScanCompleteness.ABORTED
+
     cleanup_blocked = ScriptedVendorFakeTransport.vendor_route(
         unsubscribe_gate=ScriptGate.blocked()
     )
@@ -262,6 +271,31 @@ def test_setup_and_cleanup_stages_are_bounded():
     ))
     assert result.reason is WifiScanSimulationReason.CLEANUP_FAILURE
     assert result.cleanup_succeeded is False
+
+    close_failed = ScriptedVendorFakeTransport.vendor_route(
+        close_error=RuntimeError("unexpected close failure")
+    )
+    result = run(FakeVendorWifiScanSimulator(close_failed).collect(
+        request=_request(),
+        quiet_timeout=0.01,
+    ))
+    assert result.reason is WifiScanSimulationReason.CLEANUP_FAILURE
+    assert result.completeness is WifiScanCompleteness.ABORTED
+    assert result.cleanup_succeeded is False
+
+
+def test_revoked_target_after_structural_preflight_fails_closed():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.owns_target = lambda _target: False
+
+    result = run(FakeVendorWifiScanSimulator(transport).collect(request=_request()))
+
+    assert result.reason is WifiScanSimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is WifiScanCompleteness.ABORTED
+    assert result.command_written is False
+    assert transport.targeted_subscribe_count == 0
+    assert transport.targeted_write_count == 0
+    assert transport.close_count == 1
 
 
 def test_concurrent_collection_is_rejected_and_sequential_reuse_is_safe():

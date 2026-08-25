@@ -237,15 +237,7 @@ class FakeVendorEcgHistorySimulator:
                 ):
                     reason = EcgHistorySimulationReason.PREFLIGHT_FAILURE
                     completeness = EcgHistoryCollectionCompleteness.ABORTED
-                    return self._result(
-                        request,
-                        reason,
-                        completeness,
-                        descriptor,
-                        events,
-                        samples,
-                        write_invoked=False,
-                    )
+                    raise LookupError("resolved GATT target is no longer owned")
                 await asyncio.wait_for(
                     self._transport.subscribe_target(response_target, receive),
                     timeout=stage,
@@ -347,7 +339,7 @@ class FakeVendorEcgHistorySimulator:
                     quiet_deadline = loop.time() + quiet
                 else:
                     reason = EcgHistorySimulationReason.LIMIT_REACHED
-        except (ConnectionError, LookupError, OSError, TimeoutError, asyncio.TimeoutError):
+        except Exception:
             reason = (
                 EcgHistorySimulationReason.WRITE_FAILURE
                 if write_issued
@@ -380,8 +372,7 @@ class FakeVendorEcgHistorySimulator:
             command_written=command_written,
             cleanup_succeeded=cleanup_succeeded,
             delivery_uncertain=(
-                write_issued
-                and completeness is EcgHistoryCollectionCompleteness.ABORTED
+                write_issued and not command_written
             ),
             _parsed_frames=tuple(parsed),
         )
@@ -418,18 +409,11 @@ class FakeVendorEcgHistorySimulator:
                     self._transport.unsubscribe_target(response_target),
                     timeout=timeout,
                 )
-            except (
-                ConnectionError,
-                LookupError,
-                OSError,
-                RuntimeError,
-                TimeoutError,
-                asyncio.TimeoutError,
-            ):
+            except Exception:
                 succeeded = False
         try:
             await asyncio.wait_for(self._transport.close(), timeout=timeout)
-        except (OSError, TimeoutError, asyncio.TimeoutError):
+        except Exception:
             succeeded = False
         return succeeded
 

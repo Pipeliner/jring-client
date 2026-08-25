@@ -227,6 +227,17 @@ _OVERRIDES: dict[str, dict[str, object]] = {
         "shared": True,
         "unresolved": ("outbound_projection_ack_and_terminal_not_proven",),
     },
+    "setContactCrc": {
+        "request_discriminator": "outbound_opcode_46_four_byte_fingerprint",
+        "predicates": ("inbound_opcode_46_four_byte_fingerprint",),
+        "callbacks": ("onNotifyContactCrc",),
+        "multiplicity": "zero_or_more_same_opcode_notifications",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "same_opcode_event_candidate_unproven",
+        "shared": True,
+        "unresolved": ("notification_is_not_proven_to_acknowledge_request",),
+    },
 }
 
 

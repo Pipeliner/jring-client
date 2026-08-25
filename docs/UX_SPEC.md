@@ -303,7 +303,7 @@ therefore makes the recovered enable-on-disable defect visible without making it
 
 Given `jring protocol-coverage`, a person receives a local-only summary of all request
 and callback entries, offline codec counts, route/source totals, and zero live or
-hardware-verified vendor operations. Correlation reporting distinguishes the 19 wholly
+hardware-verified vendor operations. Correlation reporting distinguishes the 18 wholly
 unclosed rows from all 58 rows carrying explicit caveats and enumerates every terminal
 rule: 36 single matched responses, 29 with no proven terminal, 17 per-frame-only, two
 local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown. It never
@@ -369,6 +369,12 @@ are distinct from local idle/overall timeouts; local quiet has unknown completen
 Deadline callbacks carry a session and generation guard, and timestamps stay raw rather
 than being shifted through the host timezone. No raw frame, timestamp, or measurement
 appears in object representations.
+
+Given an exact fake shared-day or raw-event collection, memory, setup stages, the whole
+attempt, and cleanup are bounded. A second concurrent attempt is rejected before it
+touches the transport; cancellation still cleans up; retained callbacks become inert;
+and overflow, overall timeout, or cleanup failure abort without a success claim. If a
+write began but did not return, the result says delivery is uncertain.
 
 Given an exact fake `getDataByDay` request, type-specific frames produce the recovered
 `onGetDataByDay` multiplicity. Detail `ff` reports a confirmed wire terminal; the

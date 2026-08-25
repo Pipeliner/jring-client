@@ -3,6 +3,7 @@ from dataclasses import replace
 
 import pytest
 
+from jring import vendor_runtime_simulator
 from jring.transport import GattCharacteristicMetadata, GattCharacteristicTarget
 from jring.uuids import (
     VENDOR_CHARACTERISTIC_33F3,
@@ -247,6 +248,25 @@ def test_disconnect_while_write_is_blocked_is_uncertain_and_closes_once():
     assert transport.close_count == 1
     assert simulator.tainted is True
     assert result.cleanup_succeeded is False
+
+
+def test_disconnect_at_pre_write_boundary_is_aborted_before_dispatch(monkeypatch):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    simulator = FakeVendorRuntimeSimulator(transport)
+
+    async def disconnect_at_boundary(_delay):
+        for listener in tuple(transport._disconnect_listeners):
+            listener(ConnectionError("link lost before dispatch"))
+
+    monkeypatch.setattr(vendor_runtime_simulator.asyncio, "sleep", disconnect_at_boundary)
+
+    result = run(simulator.execute(operation(), timeout=0.2))
+
+    assert result.reason is SimulationReason.DISCONNECTED
+    assert result.completeness is TransactionCompleteness.ABORTED
+    assert result.write_invoked is False
+    assert result.tainted is False
+    assert transport.write_count == 0
 
 
 def test_timeout_while_write_is_blocked_is_uncertain():

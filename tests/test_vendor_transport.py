@@ -13,7 +13,6 @@ from jring.vendor_protocol import (
     StaticVendorRequest,
     encode_day_query,
     encode_static_query,
-    static_protocol_coverage,
 )
 from jring.vendor_transport import (
     EnginePhase,
@@ -211,10 +210,17 @@ def test_matcher_requires_exact_endpoint_opcode_and_subcommand():
         data=bytes((0x78, 0x0A)) + bytes(18),
         now=0.6,
     )
+    short_wrong_subcommand = engine.receive(
+        token,
+        endpoint_uuid=VENDOR_CHARACTERISTIC_33F4,
+        data=bytes((0x78, 0x0A)),
+        now=0.65,
+    )
 
     assert wrong_endpoint.disposition is NotificationDisposition.UNRELATED
     assert wrong_opcode.disposition is NotificationDisposition.UNRELATED
     assert wrong_subcommand.disposition is NotificationDisposition.UNRELATED
+    assert short_wrong_subcommand.disposition is NotificationDisposition.UNRELATED
     matched = engine.receive(
         token,
         endpoint_uuid=VENDOR_CHARACTERISTIC_33F4.upper(),
@@ -728,27 +734,36 @@ def test_operation_constructor_is_closed_over_typed_static_requests():
         OfflineVendorOperation.from_static_request(forged)
 
 
-def test_all_seven_static_queries_build_closed_hardware_ineligible_operations():
-    coverage = {entry.operation: entry for entry in static_protocol_coverage()}
-    for query in StaticQuery:
-        request = (
-            encode_static_query(query)
-            if query in {
-                StaticQuery.CURRENT_SPORT,
-                StaticQuery.BATTERY,
-                StaticQuery.DEVICE_INFO,
-                StaticQuery.BAND_FUNCTIONS,
-            }
-            else encode_day_query(query, day_offset=3)
-        )
+@pytest.mark.parametrize(
+    "query",
+    [
+        StaticQuery.CURRENT_SPORT,
+        StaticQuery.BATTERY,
+        StaticQuery.DEVICE_INFO,
+        StaticQuery.BAND_FUNCTIONS,
+    ],
+)
+def test_single_response_static_queries_build_hardware_ineligible_operations(query):
+    operation = OfflineVendorOperation.from_static_request(encode_static_query(query))
 
-        operation = OfflineVendorOperation.from_static_request(request)
+    assert operation.request_endpoint_uuid == VENDOR_CHARACTERISTIC_33F3
+    assert operation.response_endpoint_uuid == VENDOR_CHARACTERISTIC_33F4
+    assert operation.hardware_eligible is False
 
-        assert operation.request_endpoint_uuid == VENDOR_CHARACTERISTIC_33F3
-        assert operation.response_endpoint_uuid == VENDOR_CHARACTERISTIC_33F4
-        assert operation.success_opcodes == coverage[query].success_opcodes
-        assert operation.failure_opcodes == coverage[query].failure_opcodes
-        assert operation.hardware_eligible is False
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        StaticQuery.MULTI_SPORT_DAY,
+        StaticQuery.OXYGEN_DAY,
+        StaticQuery.ADVANCED_SENSOR_DAY,
+    ],
+)
+def test_streaming_day_queries_are_rejected_by_single_response_factory(query):
+    request = encode_day_query(query, day_offset=3)
+
+    with pytest.raises(TypeError, match="streaming day query.*state machine"):
+        OfflineVendorOperation.from_static_request(request)
 
 
 @pytest.mark.parametrize(

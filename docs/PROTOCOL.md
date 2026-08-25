@@ -197,17 +197,21 @@ response correlation, safe retry, or hardware support.
 
 A closed correlation ledger now accounts for all 85 deterministic request codecs.
 Forty-seven have exact single-frame callback eligibility, one has exact branching,
-six are shared streams, five are shared/stateful, six raw rows are unproven event
-candidates, and 19 remain explicitly unresolved. The phone-volume pair is instead a
+six are shared streams, five are shared/stateful, seven are unproven event candidates
+(six raw plus one same-opcode contact-fingerprint relationship), and 18 remain
+explicitly unresolved. The contact relationship proves only matching outbound and
+inbound `46` four-byte shapes plus callback eligibility; it proves no causality,
+acknowledgement, multiplicity, failure, or terminal. The phone-volume pair is instead a
 reverse-direction pipeline: an inbound request causes an outbound host-state projection,
 without proving any acknowledgement or terminal. These are dispatcher relationships,
 not transaction proof: the source has no wire transaction identifier and its wait state
 is not operation-bound. Safe matching therefore requires endpoint, discriminator,
 operation token, and connection generation; silence and local idle remain unknown.
 
-Offline runtime reproduction now includes the eight typed settings families as well as
-the seven query families, seven personal-setting families, and screen-light route. The
-operation factory accepts only a closed encoder result, validates its 20-byte operation
+Offline singleton runtime reproduction now includes the eight typed settings families,
+four static query families, seven personal-setting families, and screen-light route.
+The three streaming static day queries are rejected and use the separate shared-day
+collector. The operation factory accepts only a closed encoder result, validates its 20-byte operation
 shape, and binds the exact typed acknowledgement parser. Personal settings deliberately
 remain success-only because no failure branch is proven. A scripted fake can therefore
 exercise a mutation without exposing a live vendor write API; source queue side effects
@@ -231,7 +235,9 @@ Raw fake reproduction now uses the distinct `33f5` write and `33f6` notification
 roles. A bounded collector accepts an optional typed raw command and decodes event
 families `0001`, `0002`/`0003`, `0006`, `0009`, and `000a`. It never calls an event a
 command acknowledgement, never treats its local limit as a wire terminal, and reports
-quiet as unknown completeness.
+quiet as unknown completeness. Queue capacity and frame retention are capped; setup,
+the whole attempt, and cleanup have finite deadlines. Cancellation cleans up,
+concurrent collection is rejected, and retained callbacks are inert after closure.
 
 Fake collection for shared day histories now reproduces the dispatcher multiplicity:
 `25` projects one generic sensor success then six multi-sport samples; `40` projects
@@ -241,7 +247,9 @@ claimed. Neither local quiet nor a caller frame limit is a wire terminal, while 
 is a delivered multi-sport failure only when its marker is `ff`.
 Oxygen/advanced data followed by local quiet produces exactly one local end projection
 with the last specialized sample timestamp; it remains explicitly non-wire and does not
-upgrade unknown completeness.
+upgrade unknown completeness. Matching malformed frames, overflow, overall timeout,
+disconnect, or cleanup failure abort. Setup and cleanup are bounded, only one attempt
+can run, cancellation cleans up, and callbacks cannot leak frames into later attempts.
 
 Within those routes, 37 statically reviewed builder families have a second,
 domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum

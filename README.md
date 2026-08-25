@@ -139,16 +139,20 @@ draining, alarm partial-enqueue behavior, and dial-state queue clearing are expl
 not reproduced.
 The report also gives every deterministic request codec one request/callback
 correlation row. Proven single responses, shared streams, stateful families, raw event
-candidates, callback-silent failures, and explicit unknowns remain distinct. Nineteen
-rows are wholly unclosed, while 58 of 85 retain at least one explicit caveat. The phone
-volume path is modeled as an inbound device request followed by an outbound host-state
-projection, never as an acknowledgement. Terminal rules comprise 36 single matched
+candidates, callback-silent failures, and explicit unknowns remain distinct. Eighteen
+rows are wholly unclosed, while 58 of 85 retain at least one explicit caveat. The
+contact-fingerprint request and notification share an exact `46` four-byte shape but
+remain an unproven event relationship, not an acknowledgement. The phone-volume path
+is modeled as an inbound device request followed by an outbound host-state projection,
+never as an acknowledgement. Terminal rules comprise 36 single matched
 responses, 29 with no proven terminal, 17 per-frame only, two local-quiet-unknown, and
 one metadata-or-marker-else-local-quiet-unknown.
 Local quiet is never promoted to success, and matching requires an operation token
 plus connection generation.
-The fake-only transaction simulator can now compose all seven query families, the
-screen-light subcommand, and all eight typed settings families. A synthetic mutation
+The fake-only singleton transaction simulator composes four static query families, the
+screen-light subcommand, and all eight typed settings families. The other three static
+queries use the separate shared-day history collector because their first matching
+frame is not a proven terminal. A synthetic mutation
 acknowledgement is parsed through the same closed correlation rules; this still creates
 no client method, live adapter, write authority, retry policy, or hardware claim.
 All seven personal-setting encoders can likewise compose success-only fake matchers;
@@ -179,14 +183,17 @@ families remain rejected until their streaming or causal terminal rules are prov
 The scripted fake now has a distinct raw `33f5`/`33f6` route and bounded event
 collector. It can write a closed raw command and parse typed raw notifications, but
 always reports unknown completeness: an event is not an acknowledgement, reaching an
-event limit is not success, and local quiet is not a terminal.
+event limit is not success, and local quiet is not a terminal. Queue size, setup,
+overall collection, and cleanup are bounded; concurrent use is rejected and stale
+callbacks are made inert before reuse.
 Shared multi-sport, oxygen-day, and advanced-sensor-day responses now have a separate
 fake history collector. It preserves per-frame callback multiplicities, conditional
 multi-sport failure, unrelated-event isolation, and unknown completion at both local
 quiet and caller limits; it never emits a synthetic wire-end event.
 After accepted oxygen or advanced-sensor data followed by local quiet, it does reproduce
 the source's single local end projection with a hidden last-sample timestamp, while
-leaving completeness unknown.
+leaving completeness unknown. This collector applies the same bounded-stage,
+bounded-queue, single-flight, cancellation-cleanup, and stale-callback rules.
 
 The internal streaming simulators are deliberately separate from the live client:
 

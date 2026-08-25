@@ -211,23 +211,26 @@ alarm batching and dial-state queue mutation divergences explicit and remains st
 non-callable, and hardware-ineligible.
 
 Request/callback correlation is a third view over the 85 deterministic request codecs.
-Each request has exactly one closed row, including 19 explicitly unresolved rows and
+Each request has exactly one closed row, including 18 explicitly unresolved rows and
 zero unspecified rows. The model preserves endpoint role, opcode/subcommand or marker
 predicates, ordered callback projections, multiplicity, direct versus silent failure,
-and terminal rules. Raw typed notifications remain event candidates rather than
-acknowledgements. The phone-volume callback is an inbound request that causes an
+and terminal rules. Raw typed notifications and the same-opcode contact-fingerprint
+notification remain event candidates rather than acknowledgements. The phone-volume
+callback is an inbound request that causes an
 outbound host-state projection; its shared opcode is not treated as an acknowledgement.
 Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 
-The exact-type fake runtime accepts closed operation factories for the seven static
-query encoders, all eight typed setting encoders, and all seven personal-setting
+The exact-type fake singleton runtime accepts closed operation factories for four
+static query encoders, all eight typed setting encoders, and all seven personal-setting
 encoders, plus eight single-frame behavior requests and the independently closed
 screen-light route. Composition validates the
 fixed request opcode, binds the operation-specific acknowledgement parser, and
 preserves direct failure opcodes where present. It
 cannot accept arbitrary messages or transports, and every result remains simulation
 only and hardware-ineligible.
+The three streaming static day queries are rejected by this factory and use their
+separate history collector, which cannot close on the first matching frame.
 Alarm batching is rejected rather than flattened: its base/content messages,
 per-alarm acknowledgements, and source non-atomic enqueue behavior need a dedicated
 batch state machine.
@@ -247,6 +250,9 @@ route fails raw preflight. The bounded collector subscribes before an optional c
 raw write, parses only typed notifications, and cleans up deterministically. Results
 have only `unknown` or `aborted` completeness—never success—because no raw request/event
 pairing, acknowledgement bit, transaction identifier, or wire terminal is proven.
+Queue capacity, every setup/write stage, the whole attempt, and cleanup are bounded;
+single-flight, cancellation cleanup, queue draining, and inert callbacks isolate reuse.
+A write that starts but does not complete is reported as delivery-uncertain.
 
 The shared day-history collector is likewise separate from the singleton transaction
 engine. It accepts only the three closed day-query objects, counts `25` as one generic
@@ -256,7 +262,10 @@ Unrelated frames do not refresh its quiet deadline. Caller limits and quiet both
 with unknown completeness; only the conditional `a5/ff` branch is a delivered failure.
 Accepted oxygen/advanced data followed by quiet adds one source-shaped local end
 projection carrying the hidden last specialized timestamp. Frame limits, failure,
-disconnect, malformed input, and cleanup failure never add that projection.
+disconnect, malformed input, overflow, overall timeout, and cleanup failure never add
+that projection. It uses the same bounded stages, single-flight, cancellation cleanup,
+queue draining, stale-callback isolation, and post-dispatch uncertainty reporting as
+the other streaming fakes.
 
 The generic `getDataByDay` collector is a separate fake-only state machine accepting
 only an exact `DayDataRequest`. It reproduces the type-1, type-2, type-12, and type-13

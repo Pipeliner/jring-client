@@ -245,7 +245,7 @@ def test_bounded_queue_overflow_aborts_instead_of_silently_dropping_history():
     assert result.completeness is HistoryCompleteness.ABORTED
     assert result.accepted_frame_count == 0
     assert result.projections == ()
-    assert result.delivery_uncertain is True
+    assert result.delivery_uncertain is False
 
 
 def test_setup_delay_does_not_turn_a_valid_frame_into_device_failure():
@@ -307,6 +307,15 @@ def test_blocked_setup_and_cleanup_stages_are_bounded_and_aborted():
     assert result.reason is GenericHistorySimulationReason.PREFLIGHT_FAILURE
     assert result.completeness is HistoryCompleteness.ABORTED
 
+    setup_failed = ScriptedVendorFakeTransport.vendor_route(
+        connect_error=RuntimeError("unexpected connect failure")
+    )
+    result = run(FakeVendorGenericHistorySimulator(setup_failed).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_1, 0),
+    ))
+    assert result.reason is GenericHistorySimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is HistoryCompleteness.ABORTED
+
     cleanup_blocked = ScriptedVendorFakeTransport.vendor_route(
         unsubscribe_gate=ScriptGate.blocked()
     )
@@ -321,6 +330,33 @@ def test_blocked_setup_and_cleanup_stages_are_bounded_and_aborted():
     assert result.reason is GenericHistorySimulationReason.CLEANUP_FAILURE
     assert result.completeness is HistoryCompleteness.ABORTED
     assert result.cleanup_succeeded is False
+
+    close_failed = ScriptedVendorFakeTransport.vendor_route(
+        close_error=RuntimeError("unexpected close failure")
+    )
+    result = run(FakeVendorGenericHistorySimulator(close_failed).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_1, 0),
+        quiet_timeout=0.01,
+    ))
+    assert result.reason is GenericHistorySimulationReason.CLEANUP_FAILURE
+    assert result.completeness is HistoryCompleteness.ABORTED
+    assert result.cleanup_succeeded is False
+
+
+def test_revoked_target_after_structural_preflight_fails_closed():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.owns_target = lambda _target: False
+
+    result = run(FakeVendorGenericHistorySimulator(transport).collect(
+        request=DayDataRequest(DayDataKind.SDK_TYPE_1, 0),
+    ))
+
+    assert result.reason is GenericHistorySimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is HistoryCompleteness.ABORTED
+    assert result.command_written is False
+    assert transport.targeted_subscribe_count == 0
+    assert transport.targeted_write_count == 0
+    assert transport.close_count == 1
 
 
 def test_collector_rejects_concurrent_use_and_allows_sequential_reuse():

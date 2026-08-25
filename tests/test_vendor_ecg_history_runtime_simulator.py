@@ -222,7 +222,7 @@ def test_bounded_queue_overflow_aborts_instead_of_dropping_ecg_history():
     assert result.completeness is EcgHistoryCollectionCompleteness.ABORTED
     assert result.accepted_frame_count == 0
     assert result.projections == ()
-    assert result.delivery_uncertain is True
+    assert result.delivery_uncertain is False
 
 
 def test_cleanup_drains_orphan_queue_and_stale_callback_retains_no_ecg_bytes():
@@ -335,6 +335,13 @@ def test_ecg_setup_and_cleanup_stages_are_bounded():
     assert result.reason is EcgHistorySimulationReason.PREFLIGHT_FAILURE
     assert result.completeness is EcgHistoryCollectionCompleteness.ABORTED
 
+    setup_failed = ScriptedVendorFakeTransport.vendor_route(
+        connect_error=RuntimeError("unexpected connect failure")
+    )
+    result = _collect(setup_failed)
+    assert result.reason is EcgHistorySimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is EcgHistoryCollectionCompleteness.ABORTED
+
     cleanup_blocked = ScriptedVendorFakeTransport.vendor_route(
         unsubscribe_gate=ScriptGate.blocked()
     )
@@ -348,6 +355,28 @@ def test_ecg_setup_and_cleanup_stages_are_bounded():
     ))
     assert result.reason is EcgHistorySimulationReason.CLEANUP_FAILURE
     assert result.cleanup_succeeded is False
+
+    close_failed = ScriptedVendorFakeTransport.vendor_route(
+        close_error=RuntimeError("unexpected close failure")
+    )
+    result = _collect(close_failed)
+    assert result.reason is EcgHistorySimulationReason.CLEANUP_FAILURE
+    assert result.completeness is EcgHistoryCollectionCompleteness.ABORTED
+    assert result.cleanup_succeeded is False
+
+
+def test_ecg_revoked_target_after_structural_preflight_fails_closed():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.owns_target = lambda _target: False
+
+    result = _collect(transport)
+
+    assert result.reason is EcgHistorySimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is EcgHistoryCollectionCompleteness.ABORTED
+    assert result.command_written is False
+    assert transport.targeted_subscribe_count == 0
+    assert transport.targeted_write_count == 0
+    assert transport.close_count == 1
 
 
 def test_ecg_concurrent_collection_is_rejected_and_reuse_is_safe():

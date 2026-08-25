@@ -19,7 +19,7 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
     assert all(row.relationship_state != "unspecified" for row in rows.values())
     assert all(row.callbacks or row.unresolved_reasons for row in rows.values())
     assert evidence.unspecified_count == 0
-    assert evidence.explicitly_unresolved_count == 19
+    assert evidence.explicitly_unresolved_count == 18
     assert evidence.rows_with_unresolved_reasons_count == 58
     assert evidence.terminal_rule_counts == (
         ("local_quiet_unknown", 2),
@@ -114,6 +114,26 @@ def test_phone_volume_is_an_inbound_request_then_outbound_projection_not_an_ack(
     assert phone_mac.unresolved_reasons == (
         "exact_response_relationship_not_statically_closed",
     )
+
+
+def test_contact_crc_is_same_opcode_event_candidate_not_an_ack():
+    rows = {row.request: row for row in recovered_request_callback_correlations().rows}
+    contact = rows["setContactCrc"]
+
+    assert contact.request_discriminator == "outbound_opcode_46_four_byte_fingerprint"
+    assert contact.accepted_response_predicates == (
+        "inbound_opcode_46_four_byte_fingerprint",
+    )
+    assert contact.callbacks == ("onNotifyContactCrc",)
+    assert contact.multiplicity == "zero_or_more_same_opcode_notifications"
+    assert contact.terminal_rule == "none_proven"
+    assert contact.failure_delivery == "none_proven"
+    assert contact.relationship_state == "same_opcode_event_candidate_unproven"
+    assert contact.shared_or_unsolicited is True
+    assert contact.unresolved_reasons == (
+        "notification_is_not_proven_to_acknowledge_request",
+    )
+    assert contact.quiet_means_success is False
 
 
 def test_correlation_evidence_is_closed_sanitized_and_non_authorizing():

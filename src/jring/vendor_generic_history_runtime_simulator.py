@@ -265,13 +265,7 @@ class FakeVendorGenericHistorySimulator:
                 ):
                     reason = GenericHistorySimulationReason.PREFLIGHT_FAILURE
                     completeness = HistoryCompleteness.ABORTED
-                    return self._result(
-                        request,
-                        reason,
-                        completeness,
-                        frames,
-                        write_invoked=False,
-                    )
+                    raise LookupError("resolved GATT target is no longer owned")
                 await asyncio.wait_for(
                     self._transport.subscribe_target(response_target, receive),
                     timeout=stage,
@@ -390,7 +384,7 @@ class FakeVendorGenericHistorySimulator:
                     break
                 else:
                     reason = GenericHistorySimulationReason.LIMIT_REACHED
-        except (ConnectionError, LookupError, OSError, TimeoutError, asyncio.TimeoutError):
+        except Exception:
             reason = (
                 GenericHistorySimulationReason.WRITE_FAILURE
                 if subscribed else GenericHistorySimulationReason.PREFLIGHT_FAILURE
@@ -437,7 +431,7 @@ class FakeVendorGenericHistorySimulator:
             cleanup_succeeded=cleanup_succeeded,
             local_end_projected=local_end_projected,
             delivery_uncertain=(
-                write_issued and completeness is HistoryCompleteness.ABORTED
+                write_issued and not command_written
             ),
             _parsed_updates=tuple(updates),
             _local_end_arguments=local_end_arguments,
@@ -478,18 +472,11 @@ class FakeVendorGenericHistorySimulator:
                     self._transport.unsubscribe_target(response_target),
                     timeout=timeout,
                 )
-            except (
-                ConnectionError,
-                LookupError,
-                OSError,
-                RuntimeError,
-                TimeoutError,
-                asyncio.TimeoutError,
-            ):
+            except Exception:
                 succeeded = False
         try:
             await asyncio.wait_for(self._transport.close(), timeout=timeout)
-        except (OSError, TimeoutError, asyncio.TimeoutError):
+        except Exception:
             succeeded = False
         return succeeded
 

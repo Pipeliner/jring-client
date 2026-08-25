@@ -94,6 +94,10 @@ def test_targeted_fake_io_uses_connection_scoped_instances_not_generic_paths():
     assert transport.response_write_calls[0].target_instance_id is not None
     assert transport.subscription_calls[0].target_instance_id is not None
     assert transport.unsubscribe_calls[0].target_instance_id is not None
+    assert (
+        transport.unsubscribe_calls[0].target_instance_id
+        not in repr(transport.unsubscribe_calls[0])
+    )
 
 
 def test_forged_targets_fail_but_unchanged_reinventory_reuses_target():
