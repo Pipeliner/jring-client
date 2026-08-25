@@ -357,6 +357,20 @@ F0/AA/A0 predicate reports confirmed device metadata. Proven failure frames repo
 failed end. Local quiet after data may reproduce one local end projection but remains
 unknown, while frame limits and unrelated traffic cannot invent completion. Matching
 malformed input and queue overflow abort, and all stored parsed values stay redacted.
+Every transport stage is bounded, one collector cannot run concurrently, and retained
+old callbacks cannot enter a reused attempt. Plain-language guidance says both that the
+run was synthetic and whether locally stopped or aborted values may be incomplete.
+
+Given an exact fake ECG-history request, one descriptor must precede arrival-ordered
+event and sample callbacks, and each packed sample frame projects one callback carrying
+twelve values. The
+“start/end” callback name is not treated as evidence that an event ends the stream:
+quiet and caller limits remain unknown, and this collector has no success or confirmed
+state. Duplicate or missing descriptor ordering, matching malformed frames, overflow,
+disconnect, and setup or cleanup failures abort. Live ECG traffic cannot refresh the
+history deadline, while samples, metadata fields, and device timestamps remain hidden
+from representations and are available only to focused synthetic tests. Aborted
+streams explicitly instruct callers to discard any partial parsed values.
 
 Given the offline vendor transaction model, no write intent exists before matching
 generation-bound notification-subscription readiness. That readiness does not claim a

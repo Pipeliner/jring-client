@@ -476,6 +476,18 @@ functions perform no subscription or measurement start, keep device timestamps r
 and remain static-only. No physiological validation, diagnosis, owner measurement, or
 raw capture is stored in the repository.
 
+As a fail-closed Python ordering policy, the fake-only ECG history collector requires
+exactly one `2c` descriptor before any
+`2d` event or `2e` sample frame and preserves their callback order. Each `2e` frame
+projects one callback carrying twelve samples. The recovered name “start/end” does not establish that any
+`2d` value or pattern is terminal, so quiet and caller limits remain incomplete with
+unknown completeness. Duplicate descriptors, pre-descriptor history, matching
+malformed frames, bounded-queue overflow, and transport failures abort. Live `2b`
+traffic is unrelated and cannot extend the accepted-frame deadline. Parsed samples and
+timestamps are hidden from result representations, and the collector accepts only the
+closed scripted fake—not the live client or transport. If a stream aborts after an
+accepted frame, its partial parsed values are explicitly marked for discard.
+
 ## Static device and configuration events
 
 Strict offline parsers now also cover device-test and chat-action events, redacted
@@ -710,6 +722,10 @@ multiplicity. Only detail `ff` is a wire terminal; matching detail metadata is a
 separate confirmed device-metadata closure. Local quiet can reproduce the source's end
 projection only after accepted data and still reports unknown completeness. Limits,
 malformed frames, overflow, disconnect, and cleanup never become success.
+Setup, write, and cleanup are independently bounded. Concurrent collection is rejected,
+old callbacks cannot enqueue into reuse, and queued raw frames are drained at closure.
+The hidden local end arguments retain the last emitted type and raw device timestamp
+for explicit parity tests without rendering either value.
 
 ## Offline vendor transaction model
 
