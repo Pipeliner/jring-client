@@ -219,7 +219,7 @@ alarm batching and dial-state queue mutation divergences explicit and remains st
 non-callable, and hardware-ineligible.
 
 Request/callback correlation is a third view over the 85 deterministic request codecs.
-Each request has exactly one closed row, including 13 explicitly unresolved rows and
+Each request has exactly one closed row, including nine explicitly unresolved rows and
 zero unspecified rows. The model preserves endpoint role, opcode/subcommand or marker
 predicates, ordered callback projections, multiplicity, direct versus silent failure,
 and terminal rules. Raw typed notifications and the same-opcode contact-fingerprint
@@ -233,6 +233,10 @@ Weather refresh, motion delivery, ChatGPT actions, and fragmented chat content a
 also represented only as shared or reverse-direction event candidates. Their rows
 retain unknown request ownership, causality, local side effects, failure, and terminal
 semantics instead of converting capability grouping into acknowledgement evidence.
+Four private E-card/SMS CRC/content rows likewise share update-shaped callback
+topology, but their disjoint selectors do not prove which branch an update selects,
+ordering, value propagation, batch completion, local private-store access, or an
+acknowledgement. They remain outside every transaction factory.
 Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 

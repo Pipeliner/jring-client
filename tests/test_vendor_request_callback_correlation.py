@@ -10,8 +10,20 @@ from jring.vendor_app_use_evidence import (
     RequestAppUseState,
     recovered_vendor_app_use_evidence,
 )
-from jring.vendor_phone_integration import encode_sms_reply_ack
-from jring.vendor_protocol import parse_vendor_sms_send
+from jring.vendor_phone_integration import (
+    ECardRecord,
+    SmsReplyRecord,
+    encode_e_card_content,
+    encode_e_card_crc,
+    encode_sms_reply_ack,
+    encode_sms_reply_content,
+    encode_sms_reply_crc,
+)
+from jring.vendor_protocol import (
+    parse_vendor_e_card_need_update,
+    parse_vendor_sms_need_update,
+    parse_vendor_sms_send,
+)
 from jring.vendor_request_callback_correlation import (
     recovered_request_callback_correlations,
 )
@@ -26,7 +38,7 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
     assert all(row.relationship_state != "unspecified" for row in rows.values())
     assert all(row.callbacks or row.unresolved_reasons for row in rows.values())
     assert evidence.unspecified_count == 0
-    assert evidence.explicitly_unresolved_count == 13
+    assert evidence.explicitly_unresolved_count == 9
     assert evidence.rows_with_unresolved_reasons_count == 58
     assert Counter(row.relationship_state for row in evidence.rows) == {
         "exact_single": 47,
@@ -37,9 +49,9 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
         "same_opcode_event_candidate_unproven": 1,
         "shared_stateful_event_candidate_unproven": 1,
         "reverse_direction_pipeline": 1,
-        "reverse_direction_pipeline_candidate_unproven": 2,
+        "reverse_direction_pipeline_candidate_unproven": 6,
         "reverse_direction_event_ack_candidate_unproven": 1,
-        "explicitly_unresolved": 13,
+        "explicitly_unresolved": 9,
     }
     assert evidence.terminal_rule_counts == (
         ("local_quiet_unknown", 2),
@@ -283,6 +295,98 @@ def test_weather_motion_and_chat_topologies_are_non_terminal_event_candidates():
         assert row.shared_or_unsolicited is True
         assert row.quiet_means_success is False
         assert not row.relationship_state.startswith("exact_")
+
+
+def test_private_sync_families_share_update_candidates_without_response_claims():
+    rows = {row.request: row for row in recovered_request_callback_correlations().rows}
+    expected = {
+        "setECardInfoCrc": (
+            "outbound_opcode_4c_subcommands_01_02_and_inbound_subcommand_03_"
+            "private_sync_candidate",
+            "onNotifyECardNeedUpdate",
+            "update_event_and_crc_frame_multiplicity_not_proven",
+            (),
+        ),
+        "setECardInfoContent": (
+            "outbound_opcode_4c_subcommands_04_05_and_inbound_subcommand_03_"
+            "private_sync_candidate",
+            "onNotifyECardNeedUpdate",
+            "update_event_and_content_frame_multiplicity_not_proven",
+            (),
+        ),
+        "setSmsRspInfoCrc": (
+            "outbound_opcode_4d_subcommands_01_02_and_inbound_subcommand_03_"
+            "private_sync_candidate",
+            "onNotifySmsRspNeedUpdate",
+            "update_event_and_crc_frame_multiplicity_not_proven",
+            ("opcode_4d_is_shared_with_sms_send_and_ack_candidates",),
+        ),
+        "setSmsRspInfoContent": (
+            "outbound_opcode_4d_subcommand_04_and_inbound_subcommand_03_"
+            "private_sync_candidate",
+            "onNotifySmsRspNeedUpdate",
+            "update_event_and_content_frame_multiplicity_not_proven",
+            ("opcode_4d_is_shared_with_sms_send_and_ack_candidates",),
+        ),
+    }
+    common_caveats = (
+        "need_update_to_outbound_request_causation_and_order_not_proven",
+        "need_update_does_not_select_crc_versus_content",
+        "callback_blob_to_outbound_record_or_fingerprint_propagation_not_proven",
+        "local_private_store_access_not_reproduced",
+    )
+    for request, (discriminator, callback, multiplicity, extra) in expected.items():
+        row = rows[request]
+        batch_kind = "crc" if request.endswith("Crc") else "content"
+        assert row.request_discriminator == discriminator
+        assert row.accepted_response_predicates == ()
+        assert row.callbacks == (callback,)
+        assert row.multiplicity == multiplicity
+        assert row.terminal_rule == "none_proven"
+        assert row.failure_delivery == "none_proven"
+        assert row.relationship_state == "reverse_direction_pipeline_candidate_unproven"
+        assert row.shared_or_unsolicited is True
+        assert row.unresolved_reasons == common_caveats + (
+            f"{batch_kind}_batch_failure_and_terminal_not_proven",
+        ) + extra
+        assert row.quiet_means_success is False
+
+    assert rows["setECardInfoCrc"].callbacks == rows["setECardInfoContent"].callbacks
+    assert rows["setSmsRspInfoCrc"].callbacks == rows["setSmsRspInfoContent"].callbacks
+    assert "onNotifySmsRspSend" not in rows["setSmsRspInfoCrc"].callbacks
+
+
+def test_private_sync_candidate_anchors_are_redacted_and_non_causal():
+    app_use = recovered_vendor_app_use_evidence()
+    requests = {row.name: row for row in app_use.requests}
+    callbacks = {row.name: row for row in app_use.callbacks}
+    for request in (
+        "setECardInfoCrc", "setECardInfoContent",
+        "setSmsRspInfoCrc", "setSmsRspInfoContent",
+    ):
+        assert requests[request].state is RequestAppUseState.DIRECT_APP_INTERFACE_INVOKE
+        assert requests[request].direct_invoke_count == 1
+    assert callbacks["onNotifyECardNeedUpdate"].invoke_counts == (1, 0, 0)
+    assert callbacks["onNotifySmsRspNeedUpdate"].invoke_counts == (1, 0, 0)
+
+    card = ECardRecord(card_id=1, name="synthetic-a", content="synthetic-b")
+    reply = SmsReplyRecord(reply_id=2, content="synthetic-c")
+    assert {frame[1] for frame in encode_e_card_crc((card,)).synthetic_frames_for_test()} == {1, 2}
+    assert {frame[1] for frame in encode_e_card_content((card,)).synthetic_frames_for_test()} == {4, 5}
+    assert {frame[1] for frame in encode_sms_reply_crc((reply,)).synthetic_frames_for_test()} == {1, 2}
+    assert {frame[1] for frame in encode_sms_reply_content((reply,)).synthetic_frames_for_test()} == {4}
+
+    e_card_event = parse_vendor_e_card_need_update(
+        bytes((0x4C, 0x03)) + bytes(range(2, 20))
+    )
+    sms_event = parse_vendor_sms_need_update(
+        bytes((0x4D, 0x03)) + bytes(range(2, 20))
+    )
+    assert e_card_event.content_redacted is True
+    assert sms_event.content_redacted is True
+    rendered = json.dumps((asdict(e_card_event), asdict(sms_event)), sort_keys=True)
+    for private in ("synthetic-a", "synthetic-b", "synthetic-c"):
+        assert private not in rendered
 
 
 def test_correlation_evidence_is_closed_sanitized_and_non_authorizing():

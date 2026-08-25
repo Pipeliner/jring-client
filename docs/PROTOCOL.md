@@ -209,8 +209,9 @@ response correlation, safe retry, or hardware support.
 A closed correlation ledger now accounts for all 85 deterministic request codecs.
 Forty-seven have exact single-frame callback eligibility, one has exact branching,
 six are shared streams, five are shared/stateful, nine are non-ack event candidates,
-four are reverse-direction pipelines or candidates, and 13 remain explicitly
-unresolved. The contact relationship proves only matching outbound and
+four are reverse-direction pipelines or candidates, four are shared private-sync
+candidates, and nine remain explicitly unresolved. The contact relationship proves
+only matching outbound and
 inbound `46` four-byte shapes plus callback eligibility; it proves no causality,
 acknowledgement, multiplicity, failure, or terminal. The phone-volume pair is instead a
 reverse-direction pipeline: an inbound request causes an outbound host-state projection,
@@ -227,6 +228,11 @@ evidence can support: a shared weather-refresh/cached-weather candidate, a share
 motion-stream state candidate, an unowned ChatGPT action event candidate, and a shared
 action/fragmented-content candidate. All retain no proven ordering, failure, or terminal
 and authorize no runtime.
+The four private-sync candidates pair no response: outbound E-card/SMS CRC/content
+batches use selectors disjoint from their inbound selector-`03` update events. Both CRC
+and content rows in a family therefore reference the same redacted callback, while
+branch selection, ordering, blob/value propagation, local data access, failure, and
+terminal behavior remain unknown. Opaque sync fingerprints are not security checks.
 
 Offline singleton runtime reproduction now includes the eight typed settings families,
 four static query families, seven personal-setting families, and screen-light route.

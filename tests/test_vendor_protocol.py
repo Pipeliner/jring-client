@@ -1069,6 +1069,17 @@ def test_contact_and_update_fingerprints_are_redacted():
     assert e_card.callback_zero_fills_last_byte is True
     assert "02030405" not in repr(e_card)
 
+    for selector in (1, 2, 4, 5):
+        with pytest.raises(ProtocolError):
+            parse_vendor_e_card_need_update(
+                bytes((0x4C, selector)) + bytes(18)
+            )
+    for selector in (1, 2, 4, 6, 7):
+        with pytest.raises(ProtocolError):
+            parse_vendor_sms_need_update(
+                bytes((0x4D, selector)) + bytes(18)
+            )
+
 
 def test_sms_send_discards_text_and_reports_apk_off_by_one_projection():
     result = parse_vendor_sms_send(

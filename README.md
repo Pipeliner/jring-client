@@ -161,7 +161,7 @@ reference classification—not semantic, dependency/transitive, runtime, or hard
 completion.
 The report also gives every deterministic request codec one request/callback
 correlation row. Proven single responses, shared streams, stateful families, raw event
-candidates, callback-silent failures, and explicit unknowns remain distinct. Thirteen
+candidates, callback-silent failures, and explicit unknowns remain distinct. Nine
 rows remain in the generic explicitly-unresolved state, while 58 of 85 retain at least
 one explicit caveat. The contact-fingerprint request and notification share an exact `46`
 four-byte shape but remain an unproven event relationship, not an acknowledgement. The
@@ -175,6 +175,9 @@ explicit non-terminal event/shared-topology candidate rows too; none claims requ
 ownership, causality, acknowledgement, or hardware support. Terminal rules comprise 36
 single matched responses, 29 with no proven terminal, 17 per-frame only, two
 local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown.
+Four private E-card/SMS sync rows now preserve only their shared inbound-update and
+outbound-batch topology. Content, opaque fingerprints, branch selection, ordering,
+completion, and local data access remain redacted or unproven.
 Local quiet is never promoted to success, and matching requires an operation token
 plus connection generation.
 The fake-only singleton transaction simulator composes four static query families, the

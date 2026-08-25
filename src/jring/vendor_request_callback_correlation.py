@@ -151,6 +151,36 @@ def _single(
     }
 
 
+def _private_sync_candidate(
+    discriminator: str,
+    callback: str,
+    multiplicity: str,
+    batch_kind: str,
+    *,
+    opcode_shared: bool = False,
+) -> dict[str, object]:
+    unresolved = (
+        "need_update_to_outbound_request_causation_and_order_not_proven",
+        "need_update_does_not_select_crc_versus_content",
+        "callback_blob_to_outbound_record_or_fingerprint_propagation_not_proven",
+        "local_private_store_access_not_reproduced",
+        f"{batch_kind}_batch_failure_and_terminal_not_proven",
+    )
+    if opcode_shared:
+        unresolved += ("opcode_4d_is_shared_with_sms_send_and_ack_candidates",)
+    return {
+        "request_discriminator": discriminator,
+        "predicates": (),
+        "callbacks": (callback,),
+        "multiplicity": multiplicity,
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "reverse_direction_pipeline_candidate_unproven",
+        "shared": True,
+        "unresolved": unresolved,
+    }
+
+
 _OVERRIDES: dict[str, dict[str, object]] = {
     "getCurSportData": _single("onGetCurSportData", "success_opcode_03_or_13", "failure_opcode_83", failure="callback_silent"),
     "getDeviceBatery": _single("onGetDeviceBatery", "success_opcode_0b", "failure_opcode_8b", failure="callback_silent"),
@@ -325,6 +355,36 @@ _OVERRIDES: dict[str, dict[str, object]] = {
             "local_ai_execution_not_reproduced",
         ),
     },
+    "setECardInfoCrc": _private_sync_candidate(
+        "outbound_opcode_4c_subcommands_01_02_and_inbound_subcommand_03_"
+        "private_sync_candidate",
+        "onNotifyECardNeedUpdate",
+        "update_event_and_crc_frame_multiplicity_not_proven",
+        "crc",
+    ),
+    "setECardInfoContent": _private_sync_candidate(
+        "outbound_opcode_4c_subcommands_04_05_and_inbound_subcommand_03_"
+        "private_sync_candidate",
+        "onNotifyECardNeedUpdate",
+        "update_event_and_content_frame_multiplicity_not_proven",
+        "content",
+    ),
+    "setSmsRspInfoCrc": _private_sync_candidate(
+        "outbound_opcode_4d_subcommands_01_02_and_inbound_subcommand_03_"
+        "private_sync_candidate",
+        "onNotifySmsRspNeedUpdate",
+        "update_event_and_crc_frame_multiplicity_not_proven",
+        "crc",
+        opcode_shared=True,
+    ),
+    "setSmsRspInfoContent": _private_sync_candidate(
+        "outbound_opcode_4d_subcommand_04_and_inbound_subcommand_03_"
+        "private_sync_candidate",
+        "onNotifySmsRspNeedUpdate",
+        "update_event_and_content_frame_multiplicity_not_proven",
+        "content",
+        opcode_shared=True,
+    ),
 }
 
 

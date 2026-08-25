@@ -39,7 +39,15 @@ from jring.vendor_main_commands import (
     ScreenLightTimeRequest,
 )
 from jring.vendor_commands import encode_ai_language, encode_device_time
-from jring.vendor_phone_integration import encode_user_info
+from jring.vendor_phone_integration import (
+    ECardRecord,
+    SmsReplyRecord,
+    encode_e_card_content,
+    encode_e_card_crc,
+    encode_sms_reply_content,
+    encode_sms_reply_crc,
+    encode_user_info,
+)
 
 
 def _operation(name: str = "battery") -> OfflineVendorOperation:
@@ -913,3 +921,17 @@ def test_phone_integration_request_with_ack_composes_without_exposing_profile():
     assert operation.success_opcodes == (0x02,)
     assert operation.failure_opcodes == (0x82,)
     assert "170" not in repr(operation)
+
+
+@pytest.mark.parametrize(
+    "phone_request",
+    (
+        encode_e_card_crc((ECardRecord(1, "x", "y"),)),
+        encode_e_card_content((ECardRecord(1, "x", "y"),)),
+        encode_sms_reply_crc((SmsReplyRecord(2, "z"),)),
+        encode_sms_reply_content((SmsReplyRecord(2, "z"),)),
+    ),
+)
+def test_private_sync_topology_candidates_remain_outside_singleton_factory(phone_request):
+    with pytest.raises(TypeError, match="exact singleton correlation"):
+        OfflineVendorOperation.from_phone_request(phone_request)
