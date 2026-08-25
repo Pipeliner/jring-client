@@ -291,8 +291,9 @@ Desired outcomes:
 - Describe mouse buttons as primary/secondary alongside left/right labels, and make
   aliases resolve to exactly the same action.
 - Expose only the kernel input capability selected by the mapping.
-- Exercise the full mapping path with simulated `step` events while hardware motion
-  packets remain unverified.
+- Exercise the full mapping path from two closed synthetic cumulative-counter frames,
+  through exact decoding, baseline and isolated-increment policy, into a simulated
+  `step` preview while hardware motion packets remain unverified.
 - Exercise device-action, cumulative-step, and host-volume-request decoding through an
   exact subscribe-only fake that performs zero writes, redacts values, and grants no
   live subscription or input authority.

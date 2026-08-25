@@ -542,15 +542,21 @@ metadata profile was selected.
 Given no ring, when a person runs
 `jring input --simulate --map step=click:left`, then the client exercises a simulated
 step, describes the mouse click it would emit, and produces no operating-system input.
+The simulated step comes from a closed internal pair of 20-byte vendor cumulative-step
+frames: the first establishes a baseline and one exact increment produces one preview
+candidate. Human and JSON output label this source synthetic, cumulative, live
+unavailable, and hardware-unverified. Neither frame, count, time, generation, address,
+path, nor target is shown or accepted from the command line.
 
 Static APK evidence distinguishes two non-health event families without making either
 live: discrete device actions and a cumulative step counter. Offline action decoding
 lists all 13 mapped actions exactly once. It labels six media, volume, and shutter codes
 as possible future input candidates, while seven find-phone, call, location,
 camera-lifecycle, and time-write actions remain visibly blocked and side-effecting.
-Unknown action codes are never candidates. The cumulative counter is not interpreted
-as a click: reconnect baselines, resets, batching, debounce, and rate limits require
-owner-hardware evidence first.
+Unknown action codes are never candidates. A live cumulative counter is not interpreted
+as a click: connection baselines, resets, batching, debounce, and rate limits require
+owner-hardware evidence first. The closed synthetic pair above demonstrates policy and
+mapping UX only; it establishes no physical step or gesture meaning.
 
 Given the exact scripted MAIN fake, passive event collection subscribes without any
 write and accepts only `06`/`22` device actions, `51` cumulative steps, and `49`
@@ -561,12 +567,14 @@ fake-transport lease rejects caller-preconnected transports and competing coordi
 before I/O; cleanup therefore never closes a connection owned outside the attempt.
 
 The offline `ExperimentalStepCounterAdapter` demonstrates that safety contract with
-synthetic counters. It ignores the first value of each connection, reset/wrap values,
-and every multi-step jump. Equal or decreasing samples enter a visible rebaseline-
-required state, and later increments remain silent until the caller explicitly accepts
-a new baseline. It emits at most one neutral `step` event for an exact single increment
-after the configured minimum interval. It is unconditionally hardware-ineligible and
-has no BLE source, so it cannot activate the radio or inject input by itself.
+synthetic counters. It ignores the first value of each increasing connection
+generation, stale generations, duplicates, reset/wrap values, and every multi-step
+jump. Only a decrease enters a visible rebaseline-required state, and later increments
+remain silent until the caller explicitly accepts a same-generation baseline. Its
+global minimum interval survives reconnect and rebaseline. An exact isolated increment
+returns a closed preview candidate, not a dispatchable sensor event. The no-argument
+synthetic bridge alone promotes its fixed baseline/+1 demonstration to the simulator
+event. Both are hardware-ineligible and have no BLE source or input sink.
 
 ### Discoverable and accessible input vocabulary
 
@@ -770,7 +778,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Fail-closed offline vendor transaction | `test_notification_subscription_confirmation_is_required_before_any_write_intent`, `test_late_subscription_confirmation_from_old_connection_cannot_ready_a_reconnect`, `test_unknown_write_outcome_is_uncertain_and_blocks_work_until_disconnect`, `test_notification_cannot_complete_before_characteristic_write_confirmation`, `test_success_requires_the_closed_operation_specific_parser`, `test_unrelated_frames_never_refresh_the_immutable_deadline`, `test_disconnect_closes_once_and_clears_every_pending_layer`, `test_operation_constructor_is_closed_over_typed_static_requests` |
 | Fake-only race coordinator | `test_success_discards_early_frames_and_processes_write_hook_frame_after_ack`, `test_preflight_requires_one_unambiguous_response_write_and_notify_cccd`, `test_write_error_after_invocation_is_uncertain_tainted_and_never_retried`, `test_retained_callback_from_old_generation_is_ignored`, `test_unsubscribe_failure_after_write_makes_cleanup_uncertain_and_taints` |
 | Instance-safe vendor route preparation | `test_closed_main_and_raw_routes_resolve_connection_scoped_targets`, `test_endpoint_absence_ambiguity_and_wrong_service_fail_closed`, `test_connection_scoped_target_identity_is_required`, `test_connection_scoped_targets_map_exact_characteristic_objects_without_io`, `test_forged_targets_fail_but_unchanged_reinventory_reuses_target`, `test_structurally_consistent_but_unowned_targets_fail_before_fake_io`, `test_bleak_exposes_target_ownership_but_no_live_target_io`, `test_current_time_write_rejects_wrong_ambiguous_nonwritable_or_malformed_route`, `test_failed_candidate_disconnect_cannot_alias_successful_retry`, `test_failed_connected_candidate_is_never_promoted_to_live_io`, `test_hardware_io_is_rejected_while_connecting_closing_or_disconnected`, `test_successful_bleak_snapshot_omission_revokes_removed_target_without_growth` |
-| Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
+| Safe step-to-input preview | `test_synthetic_vendor_step_bridge_uses_decoder_baseline_and_exact_increment`, `test_vendor_step_preview_exposes_no_frame_counter_or_runtime_identity`, `test_step_counter_stale_generation_cannot_replace_current_baseline`, `test_reconnect_and_rebaseline_cannot_bypass_global_rate_limit`, `test_step_counter_candidate_cannot_be_dispatched_as_a_sensor_event`, `test_step_mapping_previews_without_emitting_input`, `test_step_preview_uses_closed_vendor_bridge_without_external_capabilities`, `test_vendor_step_preview_json_is_synthetic_private_and_unverified` |
 | Explicit simulator profiles | `test_simulator_profile_preserves_global_and_task_first_forms`, `test_simulator_profile_requires_simulation`, `test_simulator_profile_is_consistent_between_status_and_capabilities`, `test_input_profile_is_explicit_in_human_and_json_output`, `test_simulator_profiles_are_discoverable_in_help` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |
 | Accessible action discovery | `test_input_action_inventory_is_complete_and_stable`, `test_input_actions_are_screen_reader_ordered`, `test_mouse_aliases_are_deterministic` |

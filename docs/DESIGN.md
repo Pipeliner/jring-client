@@ -388,6 +388,13 @@ created `uinput` device advertises only the code selected by its validated mappi
 Standard HID service `1812` is detected as a capability only; raw HID
 reports are neither parsed nor logged. Simulated `step` is the only motion source until
 hardware event frames are verified.
+`jring.vendor_input_preview` is the closed synthetic bridge: it accepts no arguments,
+decodes exactly two internal 20-byte `51` frames, requires a silent baseline followed
+by one exact increment, and only then promotes the adapter's non-dispatchable candidate
+to a simulator `SensorEvent`. The candidate type is closed and `InputMapper` accepts
+only exact `SensorEvent` instances, preventing experimental counter output from being
+fed directly to an input sink. The bridge owns no transport, clock, identifier, or
+sink and exposes neither frame nor count.
 The local non-health inventory separately exposes classic profile attachment, an
 RFCOMM socket lifecycle reference, two classic metadata callbacks, and the host
 volume-state request. Static evidence contains socket construction and close only;

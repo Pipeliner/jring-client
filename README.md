@@ -316,8 +316,12 @@ fake collector subscribes to its instance-bound synthetic response target, perfo
 zero writes, ignores ambiguous `78` motion traffic, redacts decoded values, and remains
 hardware- and input-ineligible. It is a library test surface, not a live-ring command.
 
-Separately, the input simulator generates one synthetic non-health `step` event; it
-does not consume passive MAIN events. That synthetic event can preview an allowlisted
+Separately, the input simulator generates a closed pair of synthetic cumulative-step
+frames, decodes them through the recovered `51` parser, baselines the first value, and
+accepts one exact increment as a neutral `step` preview. It does not consume passive
+MAIN events or accept counter/frame input from the command line. The experimental
+counter candidate is not directly dispatchable; only this closed synthetic fixture is
+promoted into the existing allowlisted simulator event. That event can preview a
 keyboard key or mouse click, but media, volume, and shutter actions cannot yet be
 previewed or mapped. Preview is the default and never emits operating-system input:
 

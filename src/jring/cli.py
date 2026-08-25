@@ -24,7 +24,6 @@ from .discovery import SelectionCandidate, discover, discover_for_selection, sel
 from .errors import UnavailableError
 from .input import (
     InputMapper,
-    SensorEvent,
     create_uinput_sink,
     input_action_inventory,
     parse_binding,
@@ -51,6 +50,7 @@ from .vendor_coverage import (
 )
 from .vendor_decompilation_evidence import recovered_decompilation_coverage
 from .vendor_dispatcher_evidence import recovered_dispatcher_evidence
+from .vendor_input_preview import synthetic_vendor_step_preview
 from .vendor_request_builder_evidence import recovered_request_builder_evidence
 from .vendor_request_callback_correlation import (
     recovered_request_callback_correlations,
@@ -1652,7 +1652,8 @@ async def _run(args: argparse.Namespace) -> int:
             raise NotImplementedError(
                 "hardware motion-event protocol is not verified; use --simulate"
             )
-        event = SensorEvent("step")
+        preview = synthetic_vendor_step_preview()
+        event = preview.event
         mapper = InputMapper((binding,))
         action = mapper.action_for(event)
         if action is None:
@@ -1664,10 +1665,20 @@ async def _run(args: argparse.Namespace) -> int:
                     "action": action.description,
                     "emitted": False,
                     "simulator_profile": args.simulator_profile,
+                    "event_source": preview.source,
+                    "counter_semantics": preview.counter_semantics,
+                    "baseline_established": preview.baseline_established,
+                    "exact_single_increment": preview.exact_single_increment,
+                    "live_event_available": preview.live_available,
+                    "hardware_event_verified": preview.hardware_verified,
                 })
             else:
                 print("SIMULATION — no ring contacted")
                 print(f"Simulator profile: {args.simulator_profile}")
+                print(
+                    "Synthetic vendor cumulative-step preview: first sample "
+                    "established a baseline; one exact increment produced one step"
+                )
                 print(f"Preview: {event.kind} -> {action.description}")
                 print("No input emitted. Add --allow-input to authorize this one simulated event.")
             return 0
@@ -1682,10 +1693,20 @@ async def _run(args: argparse.Namespace) -> int:
                 "action": action.description,
                 "emitted": True,
                 "simulator_profile": args.simulator_profile,
+                "event_source": preview.source,
+                "counter_semantics": preview.counter_semantics,
+                "baseline_established": preview.baseline_established,
+                "exact_single_increment": preview.exact_single_increment,
+                "live_event_available": preview.live_available,
+                "hardware_event_verified": preview.hardware_verified,
             })
         else:
             print("SIMULATION — no ring contacted")
             print(f"Simulator profile: {args.simulator_profile}")
+            print(
+                "Synthetic vendor cumulative-step source only; no live ring event "
+                "was used"
+            )
             print(f"Emitted: {event.kind} -> {action.description}")
         return 0
     if args.command == "discover":

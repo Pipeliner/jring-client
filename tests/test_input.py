@@ -8,6 +8,7 @@ from jring.input import (
     InputMapper,
     ExperimentalStepCounterAdapter,
     SensorEvent,
+    StepCounterPreviewCandidate,
     UInputSink,
     input_action_inventory,
     parse_binding,
@@ -122,9 +123,13 @@ def test_experimental_step_counter_baselines_and_emits_only_single_increments():
     adapter = ExperimentalStepCounterAdapter(minimum_interval=0.5)
 
     assert adapter.observe(connection_epoch=1, cumulative_steps=100, observed_at=1.0) is None
-    assert adapter.observe(connection_epoch=1, cumulative_steps=101, observed_at=2.0) == SensorEvent("step")
+    assert type(
+        adapter.observe(connection_epoch=1, cumulative_steps=101, observed_at=2.0)
+    ) is StepCounterPreviewCandidate
     assert adapter.observe(connection_epoch=1, cumulative_steps=102, observed_at=2.1) is None
-    assert adapter.observe(connection_epoch=1, cumulative_steps=103, observed_at=3.0) == SensorEvent("step")
+    assert type(
+        adapter.observe(connection_epoch=1, cumulative_steps=103, observed_at=3.0)
+    ) is StepCounterPreviewCandidate
 
 
 def test_experimental_step_counter_never_replays_batches_resets_or_reconnects():
@@ -132,24 +137,94 @@ def test_experimental_step_counter_never_replays_batches_resets_or_reconnects():
 
     assert adapter.observe(connection_epoch=1, cumulative_steps=10, observed_at=1.0) is None
     assert adapter.observe(connection_epoch=1, cumulative_steps=14, observed_at=2.0) is None
-    assert adapter.observe(connection_epoch=1, cumulative_steps=15, observed_at=3.0) == SensorEvent("step")
+    assert type(
+        adapter.observe(connection_epoch=1, cumulative_steps=15, observed_at=3.0)
+    ) is StepCounterPreviewCandidate
     assert adapter.observe(connection_epoch=1, cumulative_steps=2, observed_at=4.0) is None
     assert adapter.requires_rebaseline is True
     assert adapter.observe(connection_epoch=1, cumulative_steps=3, observed_at=5.0) is None
     assert adapter.requires_rebaseline is True
     adapter.rebaseline(connection_epoch=1, cumulative_steps=3, observed_at=5.0)
     assert adapter.requires_rebaseline is False
-    assert adapter.observe(connection_epoch=1, cumulative_steps=4, observed_at=5.5) == SensorEvent("step")
+    assert type(
+        adapter.observe(connection_epoch=1, cumulative_steps=4, observed_at=5.5)
+    ) is StepCounterPreviewCandidate
     assert adapter.observe(connection_epoch=2, cumulative_steps=200, observed_at=6.0) is None
 
 
-def test_step_counter_duplicate_quarantines_instead_of_manufacturing_next_click():
+def test_step_counter_duplicate_is_ignored_without_quarantining_next_increment():
     adapter = ExperimentalStepCounterAdapter(minimum_interval=0.0)
 
     assert adapter.observe(connection_epoch=1, cumulative_steps=20, observed_at=1.0) is None
     assert adapter.observe(connection_epoch=1, cumulative_steps=20, observed_at=2.0) is None
-    assert adapter.observe(connection_epoch=1, cumulative_steps=21, observed_at=3.0) is None
+    assert adapter.requires_rebaseline is False
+    assert type(
+        adapter.observe(connection_epoch=1, cumulative_steps=21, observed_at=3.0)
+    ) is StepCounterPreviewCandidate
+
+
+def test_step_counter_stale_generation_cannot_replace_current_baseline():
+    adapter = ExperimentalStepCounterAdapter(minimum_interval=0.0)
+
+    assert adapter.observe(connection_epoch=1, cumulative_steps=10, observed_at=1.0) is None
+    assert adapter.observe(connection_epoch=2, cumulative_steps=100, observed_at=2.0) is None
+    assert adapter.observe(connection_epoch=1, cumulative_steps=11, observed_at=3.0) is None
+    assert type(
+        adapter.observe(connection_epoch=2, cumulative_steps=101, observed_at=4.0)
+    ) is StepCounterPreviewCandidate
+
+
+def test_reconnect_and_rebaseline_cannot_bypass_global_rate_limit():
+    adapter = ExperimentalStepCounterAdapter(minimum_interval=1.0)
+
+    assert adapter.observe(connection_epoch=1, cumulative_steps=10, observed_at=1.0) is None
+    assert type(
+        adapter.observe(connection_epoch=1, cumulative_steps=11, observed_at=2.0)
+    ) is StepCounterPreviewCandidate
+    assert adapter.observe(connection_epoch=2, cumulative_steps=20, observed_at=2.1) is None
+    assert adapter.observe(connection_epoch=2, cumulative_steps=21, observed_at=2.2) is None
+    assert adapter.observe(connection_epoch=2, cumulative_steps=20, observed_at=2.3) is None
     assert adapter.requires_rebaseline is True
+    adapter.rebaseline(connection_epoch=2, cumulative_steps=20, observed_at=2.4)
+    assert adapter.observe(connection_epoch=2, cumulative_steps=21, observed_at=2.5) is None
+    assert type(
+        adapter.observe(connection_epoch=2, cumulative_steps=22, observed_at=3.0)
+    ) is StepCounterPreviewCandidate
+
+
+@pytest.mark.parametrize("generation", (None, True, 0, -1, 1.0, object()))
+def test_step_counter_rejects_non_positive_exact_integer_generations_atomically(
+    generation,
+):
+    adapter = ExperimentalStepCounterAdapter(minimum_interval=0.0)
+    assert adapter.observe(connection_epoch=1, cumulative_steps=10, observed_at=1.0) is None
+
+    with pytest.raises((TypeError, ValueError)):
+        adapter.observe(
+            connection_epoch=generation,
+            cumulative_steps=11,
+            observed_at=2.0,
+        )
+
+    assert type(
+        adapter.observe(connection_epoch=1, cumulative_steps=11, observed_at=2.0)
+    ) is StepCounterPreviewCandidate
+
+
+def test_step_counter_candidate_cannot_be_dispatched_as_a_sensor_event():
+    adapter = ExperimentalStepCounterAdapter(minimum_interval=0.0)
+    assert adapter.observe(connection_epoch=1, cumulative_steps=10, observed_at=1.0) is None
+    candidate = adapter.observe(
+        connection_epoch=1, cumulative_steps=11, observed_at=2.0
+    )
+    assert type(candidate) is StepCounterPreviewCandidate
+    mapper = InputMapper((parse_binding("step=key:space"),))
+    sink = RecordingSink()
+
+    assert mapper.dispatch(candidate, sink) is False
+    assert sink.actions == []
+    with pytest.raises(TypeError, match="adapter-owned"):
+        StepCounterPreviewCandidate()
 
 
 def test_experimental_step_counter_is_not_hardware_eligible_and_rejects_bad_input():

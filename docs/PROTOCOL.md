@@ -441,16 +441,27 @@ input-sink integration and every result remains hardware-unverified.
 
 `parse_vendor_step_counter()` decodes the receive-only `51` cumulative 32-bit counter.
 It is explicitly `experimental_counter_only`, not a button event and not input-eligible.
-A future owner-verified adapter must baseline on each connection, ignore the initial
-value, handle reset/wrap, avoid replaying batched increments as click bursts, debounce,
-and rate-limit output.
+A future owner-verified live adapter must baseline on each connection, ignore the
+initial value, handle reset/wrap, avoid replaying batched increments as click bursts,
+debounce, and rate-limit output.
 
 `ExperimentalStepCounterAdapter` implements those transformations for synthetic input
-only: a new connection establishes a baseline, while an equal or decreasing sample
-quarantines the adapter until an explicit `rebaseline()` call. A multi-step jump is
-discarded rather than replayed, and exact single increments are rate-limited. This
-prevents a reset/stale sample followed by `+1` from manufacturing a click. The adapter
-is unconditionally hardware-ineligible and is not connected to transport or uinput.
+only. Exact positive connection generations must increase; stale generations cannot
+replace a newer baseline. A duplicate is ignored without moving the baseline, while a
+decrease/reset/wrap quarantines the adapter until an explicit same-generation
+`rebaseline()` call. A multi-step jump adopts the newest count without replay, and
+exact single increments are globally rate-limited across reconnect and rebaseline.
+The result is a closed, non-dispatchable preview candidate rather than a `SensorEvent`.
+This prevents stale/reset traffic or direct mapper composition from manufacturing a
+click. The adapter is unconditionally hardware-ineligible and is not connected to
+transport or uinput.
+
+`synthetic_vendor_step_preview()` is a no-argument offline fixture that decodes two
+internal 20-byte `51` frames, requires the first to baseline silently and the second to
+be one exact increment, then promotes only that closed demonstration to the generic
+simulator `step`. It returns sanitized provenance without either count or frame. It is
+not a live subscription path or evidence that walking, tapping, or a ring gesture is a
+button event.
 
 The motion path uses opcode family `78` and can yield nine signed 16-bit channels in
 bytes 2–19; this APK branch consumes the entire fixed frame. Axis order, units, sampling

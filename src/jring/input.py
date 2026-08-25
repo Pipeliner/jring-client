@@ -12,6 +12,30 @@ class SensorEvent:
     kind: str
 
 
+@dataclass(frozen=True, init=False)
+class StepCounterPreviewCandidate:
+    """Non-dispatchable candidate from experimental cumulative-counter logic."""
+
+    kind: str
+    preview_event_kind: str
+    live_eligible: bool
+    hardware_eligible: bool
+    input_eligible: bool
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("step-counter preview candidates are adapter-owned")
+
+    @classmethod
+    def _create(cls) -> "StepCounterPreviewCandidate":
+        candidate = object.__new__(cls)
+        object.__setattr__(candidate, "kind", "experimental_step_counter_preview")
+        object.__setattr__(candidate, "preview_event_kind", "step")
+        object.__setattr__(candidate, "live_eligible", False)
+        object.__setattr__(candidate, "hardware_eligible", False)
+        object.__setattr__(candidate, "input_eligible", False)
+        return candidate
+
+
 @dataclass(frozen=True)
 class InputAction:
     kind: str
@@ -130,6 +154,8 @@ class InputMapper:
             self._actions[binding.event_kind] = binding.action
 
     def action_for(self, event: SensorEvent) -> InputAction | None:
+        if type(event) is not SensorEvent:
+            return None
         return self._actions.get(event.kind)
 
     def dispatch(self, event: SensorEvent, sink: InputSink) -> bool:
@@ -151,7 +177,7 @@ class ExperimentalStepCounterAdapter:
         if not math.isfinite(minimum_interval) or minimum_interval < 0:
             raise ValueError("minimum interval must be finite and non-negative")
         self._minimum_interval = float(minimum_interval)
-        self._connection_epoch: object | None = None
+        self._connection_epoch: int | None = None
         self._counter: int | None = None
         self._last_observed_at: float | None = None
         self._last_emitted_at: float | None = None
@@ -165,6 +191,14 @@ class ExperimentalStepCounterAdapter:
     def requires_rebaseline(self) -> bool:
         return self._requires_rebaseline
 
+    @staticmethod
+    def _validate_connection_epoch(connection_epoch: object) -> int:
+        if type(connection_epoch) is not int:
+            raise TypeError("connection generation must be an exact integer")
+        if connection_epoch <= 0:
+            raise ValueError("connection generation must be positive")
+        return connection_epoch
+
     def _validate_observation(self, cumulative_steps: int, observed_at: float) -> float:
         if type(cumulative_steps) is not int:
             raise TypeError("cumulative step count must be an integer")
@@ -177,37 +211,44 @@ class ExperimentalStepCounterAdapter:
             raise ValueError("observation time must be finite")
         if self._last_observed_at is not None and timestamp < self._last_observed_at:
             raise ValueError("observation time must be monotonic")
-        self._last_observed_at = timestamp
         return timestamp
 
     def rebaseline(
         self,
         *,
-        connection_epoch: object,
+        connection_epoch: int,
         cumulative_steps: int,
         observed_at: float,
     ) -> None:
         """Explicitly accept a new counter baseline after a reset/stale sample."""
 
-        self._validate_observation(cumulative_steps, observed_at)
-        self._connection_epoch = connection_epoch
+        connection_epoch = self._validate_connection_epoch(connection_epoch)
+        timestamp = self._validate_observation(cumulative_steps, observed_at)
+        if self._connection_epoch is None or connection_epoch != self._connection_epoch:
+            raise ValueError("rebaseline requires the current connection generation")
+        self._last_observed_at = timestamp
         self._counter = cumulative_steps
-        self._last_emitted_at = None
         self._requires_rebaseline = False
 
     def observe(
         self,
         *,
-        connection_epoch: object,
+        connection_epoch: int,
         cumulative_steps: int,
         observed_at: float,
-    ) -> SensorEvent | None:
-        observed_at = self._validate_observation(cumulative_steps, observed_at)
+    ) -> StepCounterPreviewCandidate | None:
+        connection_epoch = self._validate_connection_epoch(connection_epoch)
+        timestamp = self._validate_observation(cumulative_steps, observed_at)
 
-        if connection_epoch != self._connection_epoch:
+        if (
+            self._connection_epoch is not None
+            and connection_epoch < self._connection_epoch
+        ):
+            return None
+        self._last_observed_at = timestamp
+        if self._connection_epoch is None or connection_epoch > self._connection_epoch:
             self._connection_epoch = connection_epoch
             self._counter = cumulative_steps
-            self._last_emitted_at = None
             self._requires_rebaseline = False
             return None
 
@@ -215,7 +256,12 @@ class ExperimentalStepCounterAdapter:
             return None
 
         previous = self._counter
-        if previous is None or cumulative_steps <= previous:
+        if previous is None:
+            self._requires_rebaseline = True
+            return None
+        if cumulative_steps == previous:
+            return None
+        if cumulative_steps < previous:
             self._counter = None
             self._requires_rebaseline = True
             return None
@@ -224,11 +270,11 @@ class ExperimentalStepCounterAdapter:
             return None
         if (
             self._last_emitted_at is not None
-            and observed_at - self._last_emitted_at < self._minimum_interval
+            and timestamp - self._last_emitted_at < self._minimum_interval
         ):
             return None
-        self._last_emitted_at = observed_at
-        return SensorEvent("step")
+        self._last_emitted_at = timestamp
+        return StepCounterPreviewCandidate._create()
 
 
 def _supported_action(action: InputAction) -> bool:

@@ -353,8 +353,61 @@ def test_step_mapping_previews_without_emitting_input(capsys):
     assert cli.main(["input", "--simulate", "--map", "step=click:left"]) == 0
     output = capsys.readouterr().out
     assert "Simulator profile: basic" in output
+    assert (
+        "Synthetic vendor cumulative-step preview: first sample established a "
+        "baseline; one exact increment produced one step" in output
+    )
     assert "Preview: step -> primary (left) mouse click" in output
     assert "No input emitted" in output
+
+
+def test_step_preview_uses_closed_vendor_bridge_without_external_capabilities(
+    monkeypatch, capsys
+):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("offline preview must not construct external capabilities")
+
+    monkeypatch.setattr(cli, "BleakTransport", forbidden)
+    monkeypatch.setattr(cli, "JRingClient", forbidden)
+    monkeypatch.setattr(cli.FakeTransport, "for_simulator_profile", forbidden)
+    monkeypatch.setattr(cli, "discover", forbidden)
+    monkeypatch.setattr(cli, "discover_for_selection", forbidden)
+    monkeypatch.setattr(cli, "create_uinput_sink", forbidden)
+
+    assert cli.main(["input", "--simulate", "--map", "step=key:space"]) == 0
+    output = capsys.readouterr().out
+    assert "Synthetic vendor cumulative-step preview" in output
+    assert "No input emitted" in output
+
+
+def test_vendor_step_preview_json_is_synthetic_private_and_unverified(capsys):
+    assert cli.main([
+        "input", "--simulate", "--map", "step=key:space", "--json",
+    ]) == 0
+    result = json.loads(capsys.readouterr().out)
+    serialized = json.dumps(result, sort_keys=True)
+
+    assert result["event"] == "step"
+    assert result["event_source"] == "synthetic_vendor_cumulative_counter"
+    assert result["counter_semantics"] == "baseline_then_exact_single_increment"
+    assert result["baseline_established"] is True
+    assert result["exact_single_increment"] is True
+    assert result["hardware_event_verified"] is False
+    assert result["live_event_available"] is False
+    assert result["emitted"] is False
+    assert all(
+        private not in serialized
+        for private in (
+            "cumulative_steps",
+            "frame",
+            "payload",
+            "observed_at",
+            "epoch",
+            "address",
+            "path",
+            "target",
+        )
+    )
 
 
 def test_input_actions_are_screen_reader_ordered(capsys):
