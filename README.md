@@ -117,6 +117,20 @@ context and must remain outside Git at mode 0600 or read-only 0400; validation p
 no Bluetooth action, and derivation/publication are refused. This is a privacy and
 consistency boundary, not Bluetooth parity or a reusable consent token.
 
+The separate owner-hardware transport canary is specified in
+[OWNER_HARDWARE_EVIDENCE.md](docs/OWNER_HARDWARE_EVIDENCE.md). It supports fresh guided
+selection, creates one new private mode-0600 record, and requires independent
+connection, notification, and write authorization. Its response value is discarded:
+even a matched terminal proves transport correlation only, not device-information
+contents, firmware support, vendor authorization, or live runtime eligibility. Offline
+review and sanitized public-row derivation are separate commands and perform no
+Bluetooth I/O. An interrupted canary is non-retryable: its write may already have
+escaped, so inspect the requested private record before considering another manual
+attempt. Human review previews every field eligible for the public row before a
+separate derivation step. The versioned public artifact labels its model and firmware
+scope owner-declared and carries explicit false runtime and repeat authority; neither
+`promote` nor `candidate_success` enables an operation.
+
 Maintainers can generate a hardware-independent compatibility row and deterministically
 merge reviewed reports without publishing them:
 

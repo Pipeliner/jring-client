@@ -10,6 +10,7 @@ from .transport import (
     DisconnectListener,
     GattCharacteristicMetadata,
     GattCharacteristicTarget,
+    GattDescriptorTarget,
     HeartRateSubscriptionToken,
     NotifyCallback,
 )
@@ -19,6 +20,9 @@ from .uuids import (
     CURRENT_TIME_SERVICE,
     HEART_RATE_MEASUREMENT,
     HEART_RATE_SERVICE,
+    VENDOR_CHARACTERISTIC_33F3,
+    VENDOR_CHARACTERISTIC_33F4,
+    VENDOR_SERVICE_56FF,
 )
 
 
@@ -26,6 +30,15 @@ from .uuids import (
 class _HeartRateSubscription:
     token: HeartRateSubscriptionToken
     target: GattCharacteristicTarget
+    backend_characteristic: object
+    accepting: bool = False
+
+
+@dataclass
+class _OwnerEvidenceSubscription:
+    token: object
+    target: GattCharacteristicTarget
+    descriptor_target: GattDescriptorTarget
     backend_characteristic: object
     accepting: bool = False
 
@@ -47,8 +60,16 @@ class BleakTransport:
         self._targets_by_backend_id: dict[
             int, tuple[GattCharacteristicTarget, object]
         ] = {}
+        self._descriptor_targets: dict[
+            int, tuple[GattDescriptorTarget, object, object]
+        ] = {}
+        self._descriptor_targets_by_backend_id: dict[
+            int, tuple[GattDescriptorTarget, object, object]
+        ] = {}
         self._heart_rate_subscriptions: dict[int, _HeartRateSubscription] = {}
         self._heart_rate_setup_active = False
+        self._owner_evidence_subscriptions: dict[int, _OwnerEvidenceSubscription] = {}
+        self._owner_evidence_setup_active = False
         self._client_factory = BleakClient
         self._address = address
         self._timeout = timeout
@@ -81,7 +102,10 @@ class BleakTransport:
         self._connecting = True
         self._targets.clear()
         self._targets_by_backend_id.clear()
+        self._descriptor_targets.clear()
+        self._descriptor_targets_by_backend_id.clear()
         self._retire_heart_rate_subscriptions()
+        self._retire_owner_evidence_subscriptions()
         expected_generation = self._connection_generation + 1
         try:
             self._client_generation = expected_generation
@@ -99,8 +123,11 @@ class BleakTransport:
             raise ConnectionError("BLE transport lifecycle operation is in progress")
         self._closing = True
         self._retire_heart_rate_subscriptions()
+        self._retire_owner_evidence_subscriptions()
         self._targets.clear()
         self._targets_by_backend_id.clear()
+        self._descriptor_targets.clear()
+        self._descriptor_targets_by_backend_id.clear()
         try:
             if self._client.is_connected:
                 await self._client.disconnect()
@@ -112,7 +139,10 @@ class BleakTransport:
             return
         self._targets.clear()
         self._targets_by_backend_id.clear()
+        self._descriptor_targets.clear()
+        self._descriptor_targets_by_backend_id.clear()
         self._retire_heart_rate_subscriptions()
+        self._retire_owner_evidence_subscriptions()
         if generation <= 0 or self._disconnect_notified_generation == generation:
             return
         self._disconnect_notified_generation = generation
@@ -156,6 +186,11 @@ class BleakTransport:
         for subscription in self._heart_rate_subscriptions.values():
             subscription.accepting = False
         self._heart_rate_subscriptions.clear()
+
+    def _retire_owner_evidence_subscriptions(self) -> None:
+        for subscription in self._owner_evidence_subscriptions.values():
+            subscription.accepting = False
+        self._owner_evidence_subscriptions.clear()
 
     def _heart_rate_backend_target(
         self, target: GattCharacteristicTarget
@@ -373,8 +408,17 @@ class BleakTransport:
             targets_by_backend_id: dict[
                 int, tuple[GattCharacteristicTarget, object]
             ] = {}
+            descriptor_targets: dict[
+                int, tuple[GattDescriptorTarget, object, object]
+            ] = {}
+            previous_descriptor_targets = self._descriptor_targets_by_backend_id
+            descriptor_targets_by_backend_id: dict[
+                int, tuple[GattDescriptorTarget, object, object]
+            ] = {}
             self._targets = {}
             self._targets_by_backend_id = {}
+            self._descriptor_targets = {}
+            self._descriptor_targets_by_backend_id = {}
             for service_index, service in enumerate(self._client.services, start=1):
                 for characteristic_index, characteristic in enumerate(
                     service.characteristics, start=1
@@ -413,6 +457,57 @@ class BleakTransport:
                     )
                     targets[id(target)] = (target, characteristic)
                     targets_by_backend_id[backend_id] = (target, characteristic)
+                    owned_descriptor_targets = []
+                    for descriptor_index, descriptor in enumerate(descriptors, start=1):
+                        descriptor_instance_id = (
+                            f"{instance_id}-descriptor-{descriptor_index}"
+                        )
+                        descriptor_backend_id = id(descriptor)
+                        previous_descriptor = previous_descriptor_targets.get(
+                            descriptor_backend_id
+                        )
+                        previous_descriptor_target = (
+                            previous_descriptor[0]
+                            if previous_descriptor is not None
+                            and previous_descriptor[1] is descriptor
+                            and previous_descriptor[2] is characteristic
+                            else None
+                        )
+                        descriptor_target = (
+                            previous_descriptor_target
+                            if previous_descriptor_target is not None
+                            and previous_descriptor_target.connection_generation
+                            == self._connection_generation
+                            and previous_descriptor_target.service_uuid
+                            == service.uuid.lower()
+                            and previous_descriptor_target.characteristic_uuid
+                            == characteristic.uuid.lower()
+                            and previous_descriptor_target.characteristic_instance_id
+                            == instance_id
+                            and previous_descriptor_target.uuid
+                            == descriptor.uuid.lower()
+                            and previous_descriptor_target.instance_id
+                            == descriptor_instance_id
+                            else GattDescriptorTarget(
+                                connection_generation=self._connection_generation,
+                                service_uuid=service.uuid.lower(),
+                                characteristic_uuid=characteristic.uuid.lower(),
+                                characteristic_instance_id=instance_id,
+                                uuid=descriptor.uuid.lower(),
+                                instance_id=descriptor_instance_id,
+                            )
+                        )
+                        owned_descriptor_targets.append(descriptor_target)
+                        descriptor_targets[id(descriptor_target)] = (
+                            descriptor_target,
+                            descriptor,
+                            characteristic,
+                        )
+                        descriptor_targets_by_backend_id[descriptor_backend_id] = (
+                            descriptor_target,
+                            descriptor,
+                            characteristic,
+                        )
                     records.append(
                         GattCharacteristicMetadata(
                             service.uuid.lower(),
@@ -432,10 +527,13 @@ class BleakTransport:
                                 for index, _descriptor in enumerate(descriptors, start=1)
                             ),
                             target,
+                            tuple(owned_descriptor_targets),
                         )
                     )
             self._targets = targets
             self._targets_by_backend_id = targets_by_backend_id
+            self._descriptor_targets = descriptor_targets
+            self._descriptor_targets_by_backend_id = descriptor_targets_by_backend_id
             return tuple(records)
         finally:
             self._end_io()
@@ -453,3 +551,188 @@ class BleakTransport:
             or self._connecting
             or self._closing
         )
+
+    def owns_descriptor_target(self, target: GattDescriptorTarget) -> bool:
+        if type(target) is not GattDescriptorTarget:
+            return False
+        record = self._descriptor_targets.get(id(target))
+        return not (
+            record is None
+            or record[0] is not target
+            or target.connection_generation != self._connection_generation
+            or self._client_generation != self._connection_generation
+            or not self._client.is_connected
+            or self._connecting
+            or self._closing
+        )
+
+    def _owner_evidence_characteristic(
+        self,
+        target: GattCharacteristicTarget,
+        *,
+        expected_uuid: str,
+        expected_property: str,
+    ) -> object:
+        record = self._targets.get(id(target))
+        if (
+            record is None
+            or record[0] is not target
+            or not self.owns_target(target)
+            or target.service_uuid != VENDOR_SERVICE_56FF
+            or target.uuid != expected_uuid
+        ):
+            raise PermissionError("invalid owner-evidence characteristic target")
+        backend = record[1]
+        properties = getattr(backend, "properties", None)
+        if (
+            not isinstance(properties, (list, tuple, set, frozenset))
+            or not all(isinstance(value, str) for value in properties)
+            or expected_property not in {value.casefold() for value in properties}
+        ):
+            raise PermissionError("invalid owner-evidence characteristic target")
+        return backend
+
+    async def _owner_evidence_subscribe(
+        self,
+        response_target: GattCharacteristicTarget,
+        descriptor_target: GattDescriptorTarget,
+        callback: Callable[[GattCharacteristicTarget, bytes], None],
+        authority: object,
+        dispatch_started: Callable[[], None],
+        setup_cleanup_timeout: float,
+    ) -> object:
+        from .owner_hardware_evidence import _require_canary_authority
+
+        _require_canary_authority(
+            authority,
+            "subscribe",
+            response_target.connection_generation,
+            (response_target, descriptor_target),
+        )
+        if not callable(callback) or not callable(dispatch_started):
+            raise TypeError("owner-evidence callbacks must be callable")
+        if (
+            isinstance(setup_cleanup_timeout, bool)
+            or not isinstance(setup_cleanup_timeout, (int, float))
+            or not 0 < float(setup_cleanup_timeout) <= 1
+        ):
+            raise ValueError("owner-evidence setup cleanup timeout is invalid")
+        self._begin_io()
+        subscription: _OwnerEvidenceSubscription | None = None
+        start_attempted = False
+        try:
+            if self._owner_evidence_setup_active or self._owner_evidence_subscriptions:
+                raise RuntimeError("an owner-evidence subscription is already active")
+            self._owner_evidence_setup_active = True
+            backend = self._owner_evidence_characteristic(
+                response_target,
+                expected_uuid=VENDOR_CHARACTERISTIC_33F4,
+                expected_property="notify",
+            )
+            descriptor = self._descriptor_targets.get(id(descriptor_target))
+            if (
+                descriptor is None
+                or descriptor[0] is not descriptor_target
+                or not self.owns_descriptor_target(descriptor_target)
+                or descriptor[2] is not backend
+                or descriptor_target.uuid != CLIENT_CHARACTERISTIC_CONFIGURATION
+                or descriptor_target.characteristic_instance_id
+                != response_target.instance_id
+            ):
+                raise PermissionError("invalid owner-evidence descriptor target")
+            token = object()
+            subscription = _OwnerEvidenceSubscription(
+                token,
+                response_target,
+                descriptor_target,
+                backend,
+                accepting=True,
+            )
+            self._owner_evidence_subscriptions[id(token)] = subscription
+
+            def receive(_sender: object, data: object) -> None:
+                if (
+                    subscription is None
+                    or not subscription.accepting
+                    or not self.owns_target(subscription.target)
+                ):
+                    return
+                try:
+                    callback(subscription.target, bytes(data))
+                except Exception:
+                    return
+
+            start_attempted = True
+            dispatch_started()
+            await self._client.start_notify(backend, receive)
+            if not self.owns_target(response_target):
+                raise ConnectionError(
+                    "owner-evidence target retired during subscription setup"
+                )
+            return token
+        except BaseException:
+            if subscription is not None:
+                subscription.accepting = False
+                self._owner_evidence_subscriptions.pop(id(subscription.token), None)
+            if start_attempted and self._client.is_connected:
+                try:
+                    await asyncio.wait_for(
+                        self._client.stop_notify(backend), float(setup_cleanup_timeout)
+                    )
+                except BaseException:
+                    pass
+            raise
+        finally:
+            self._owner_evidence_setup_active = False
+            self._end_io()
+
+    async def _owner_evidence_write(
+        self,
+        request_target: GattCharacteristicTarget,
+        data: bytes,
+        authority: object,
+        dispatch_started: Callable[[], None],
+        dispatch_completed: Callable[[], None],
+    ) -> None:
+        from .owner_hardware_evidence import _require_canary_authority
+
+        _require_canary_authority(
+            authority,
+            "write",
+            request_target.connection_generation,
+            (request_target,),
+        )
+        if type(data) is not bytes or data != bytes((0x0C,)) + bytes(19):
+            raise PermissionError("invalid owner-evidence canary request")
+        if not callable(dispatch_started) or not callable(dispatch_completed):
+            raise TypeError("owner-evidence dispatch callbacks must be callable")
+        self._begin_io()
+        try:
+            backend = self._owner_evidence_characteristic(
+                request_target,
+                expected_uuid=VENDOR_CHARACTERISTIC_33F3,
+                expected_property="write",
+            )
+            dispatch_started()
+            await self._client.write_gatt_char(backend, data, response=True)
+            dispatch_completed()
+        finally:
+            self._end_io()
+
+    async def _owner_evidence_unsubscribe(
+        self, token: object, authority: object
+    ) -> None:
+        from .owner_hardware_evidence import _require_canary_authority
+
+        _require_canary_authority(authority, "unsubscribe", None)
+        subscription = self._owner_evidence_subscriptions.pop(id(token), None)
+        if subscription is None or subscription.token is not token:
+            return
+        subscription.accepting = False
+        if not self.owns_target(subscription.target):
+            return
+        self._begin_io()
+        try:
+            await self._client.stop_notify(subscription.backend_characteristic)
+        finally:
+            self._end_io()

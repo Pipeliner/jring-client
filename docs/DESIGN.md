@@ -634,6 +634,22 @@ no publishing step or repository-contents write permission.
 
 ## Acceptance criteria
 
+The owner-hardware evidence boundary is defined separately in
+[OWNER_HARDWARE_EVIDENCE.md](OWNER_HARDWARE_EVIDENCE.md). Its production adapter is
+`BleakTransport`; fake tests replace only the Bleak backend. Process-local plans bind
+one current generation and exact request, response, and CCCD objects, consume subscribe
+and write authority once in order, quarantine pre-completion terminals, and reserve
+bounded cleanup time. Execution, restrictive private loading, human review, sanitized
+derivation, and runtime eligibility are distinct authority domains. Cancellation after
+possible dispatch is non-retryable and preserves exit 130 without discarding the safe
+attempt summary. Human results use a fixed order—attempt, write dispatch, response
+terminal, cleanup, evidence commit, recovery—and never let a cleanup or evidence-file
+failure replace the primary attempt outcome. Private review previews the exact
+prospective public fields and produces a distinct review receipt before derivation.
+The derived artifact is independently interpretable: it is schema-versioned, labels
+model and firmware scope as owner-declared, and embeds false runtime and repeat
+authority. Review acceptance cannot mutate those fields.
+
 - Import and simulator tests work without Bleak or hardware.
 - Parsers reject truncated, oversized, malformed, and bad-checksum simulator data.
 - Discovery alone cannot connect; guided selection requires explicit scan and

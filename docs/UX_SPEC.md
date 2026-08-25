@@ -98,7 +98,11 @@ Exit meanings are stable within the current CLI major version:
 | 5 | `protocol_incompatible` | A required service/value is absent, malformed, or unsupported | no |
 | 6 | `permission_denied` | Explicit authorization or local permission is missing | no |
 | 70 | `internal` | An unexpected client failure occurred | no |
-| 130 | `interrupted` | The user interrupted the operation | yes |
+| 130 | `interrupted` | The user interrupted the operation | operation-dependent |
+
+Interruption is retryable only when the operation contract proves that no
+side-effecting dispatch could have escaped. The owner-hardware canary reports it
+non-retryable after possible dispatch.
 
 Schema 1 additions are backward-compatible: existing success fields remain at their
 current paths. Removing or renaming a field requires a new `schema_version`; English
@@ -872,6 +876,36 @@ artifact builds run the same scan before packaging.
 
 ### Honest compatibility matrix
 
+The owner-hardware transport canary is a distinct, default-no workflow. Human execution
+shows the declared coarse scope and complete connection/subscription/write disclosure
+before transport construction. A positive-duration quiet window precedes the one
+vendor write. Result copy leads with whether dispatch was absent or may have escaped,
+whether a terminal matched, whether cleanup was confirmed, and whether the new private
+record exists. The complete fixed order is primary attempt, write dispatch, response
+terminal, cleanup, evidence commit, then status-specific recovery. It never calls the
+response a verified device-information value or describes a matched response as a
+property of ATT write completion. Cleanup uncertainty and evidence-commit failure are
+separate states and do not replace the primary attempt status.
+
+Interruption preserves exit 130 but is non-retryable for this canary because a write
+may have escaped. Human and JSON output say not to replay automatically and direct the
+owner to inspect the requested private record, if created, before considering a new
+manually authorized attempt. A failed private commit never recommends reviewing a
+nonexistent record.
+
+`review-owner-evidence` restrictively loads one private mode-0600 record, performs no
+Bluetooth I/O, and can first preview every prospective public field, including the
+owner-declared scope and coarse Linux/Python/BlueZ/Bleak dimensions, without writing.
+After inspection, explicit promote/reject authority can create one private review
+receipt. It creates no public artifact. `derive-owner-evidence` is a separate action
+that requires the bound receipt and an explicit public-creation flag. It creates a new
+sanitized file without overwrite and states
+that the runtime registry is unchanged. The detached artifact includes a schema
+version, closed record type, an owner-declared scope marker, and explicit false runtime
+and repeat authority. JSON failures retain the standard error envelope and use
+evidence-specific, non-retryable codes. Paths, addresses, target identities, frames,
+response values, and exception text remain absent.
+
 Given synthetic CI evidence only, when a maintainer builds the matrix, then the row may
 report local prerequisites and simulator checks but every hardware dimension remains
 `untested`; the matrix state is `synthetic_only`, never compatible. Owner hardware
@@ -987,6 +1021,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Guided same-process selection | `test_guided_status_selects_only_after_confirmation`, `test_guided_selection_never_autoconnects`, `test_guided_selection_zero_or_invalid_results_do_not_connect`, `test_aliases_change_between_process_seeds` |
 | Privacy-safe evidence | `test_unsafe_evidence_is_rejected_without_echo`, `test_manifest_requires_provenance_consent_coverage_and_redactions`, `test_safe_synthetic_manifest_derives_deterministically`, `test_private_device_info_cli_validates_locally_but_never_derives`, `test_artifact_loader_rejects_links_non_files_and_oversize_growth`, `test_repository_scan_quarantines_private_device_info_at_any_json_name`, `test_repository_evidence_scan_rejects_raw_artifacts` |
 | Honest compatibility | `test_compatibility_report_rejects_sensitive_values_without_echo`, `test_untested_dimensions_cannot_claim_compatibility`, `test_synthetic_reports_merge_deterministically`, `test_zero_failure_synthetic_report_names_hardware_as_untested` |
+| Owner-hardware canary and review | `test_production_bleak_path_uses_exact_main_targets_barrier_and_cleanup`, `test_private_output_is_created_exclusively_with_mode_0600`, `test_bad_integrity_device_info_is_protocol_incompatible_not_success`, `test_terminal_before_att_write_completion_is_quarantined`, `test_cleanup_awaits_are_bounded_by_the_overall_deadline`, `test_cancellation_after_write_dispatch_records_uncertain_after_one_cleanup`, `test_notification_queue_is_finite_under_unrelated_callback_flood`, `test_private_schema_rejects_exact_type_and_cross_field_incoherence`, `test_cli_owner_evidence_canary_is_task_first_explicit_and_private`, `test_cli_review_and_public_derivation_are_separate_offline_no_overwrite_steps`, `test_cli_address_file_failure_redacts_private_path` |
 | Verified install artifact | `test_project_version_agrees_with_runtime`, `test_artifact_inspection_and_checksums_are_deterministic`, `test_sdist_normalization_removes_build_time_variance`, `test_release_workflow_is_pinned_and_has_no_publish_step`, `test_install_documentation_covers_lifecycle_and_verification`, `test_build_inputs_are_complete_and_exactly_pinned`, `test_release_workflow_proves_an_isolated_no_index_build_from_pinned_inputs` |
 | Parser-derived terminal help | `test_surface_exactly_tracks_visible_parser_contexts_aliases_and_choices`, `test_checked_in_artifacts_are_exact_parser_derived_bytes`, `test_generation_is_reproducible_private_and_host_independent`, `test_manual_leads_with_safety_and_covers_every_parser_item_once`, `test_roff_renderer_neutralizes_macro_and_control_injection`, `test_bash_completion_sources_and_preserves_command_scope` |
 | Non-destructive export | `test_history_export_requires_force_to_replace` |

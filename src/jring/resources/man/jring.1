@@ -41,6 +41,15 @@ write standard Bluetooth Current Time
 .TP
 .B history
 export history (simulator only until verified)
+.TP
+.B verify\-device\-info
+run one owner\-hardware device\-info transport canary
+.TP
+.B review\-owner\-evidence
+review one private owner\-evidence record without Bluetooth I/O
+.TP
+.B derive\-owner\-evidence
+create one sanitized public compatibility row without Bluetooth I/O
 .SH "GLOBAL OPTIONS"
 .TP
 .B \-h, \-\-help
@@ -260,6 +269,87 @@ destination JSON export file Required.
 .TP
 .B \-\-force
 replace an existing export
+.SS "jring verify-device-info"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-address\-file \fIADDRESS\-FILE\fR
+mode\-0600 file containing the one explicitly selected ring address
+.TP
+.B \-\-private\-output \fIPRIVATE\-OUTPUT\fR
+new destination for the exclusively created mode\-0600 private evidence file Required.
+.TP
+.B \-\-model\-family \fIMODEL\-FAMILY\fR
+coarse reviewed model family Required.
+.TP
+.B \-\-firmware\-major \fIFIRMWARE\-MAJOR\fR
+coarse reviewed firmware major Required.
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+one overall canary deadline in seconds (default: 8)
+.TP
+.B \-\-json
+print structured JSON
+.TP
+.B \-\-allow\-connect
+authorize one connection to the selected ring Required.
+.TP
+.B \-\-allow\-notifications
+authorize one MAIN notification subscription Required.
+.TP
+.B \-\-allow\-write
+authorize one response\-requesting vendor canary write Required.
+.TP
+.B \-\-negative\-control
+require the bounded pre\-write negative\-control window Required.
+.TP
+.B \-\-select
+interactively select an ephemeral discovery alias in this process
+.TP
+.B \-\-active\-scan
+authorize the BLE scan required by \-\-select
+.SS "jring review-owner-evidence"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-private\-input \fIPRIVATE\-INPUT\fR
+mode\-0600 private evidence record Required.
+.TP
+.B \-\-decision \fIDECISION\fR
+decision to preview or seal in a private review receipt Choices: promote, reject.
+.TP
+.B \-\-evidence\-reference \fIEVIDENCE\-REFERENCE\fR
+approved non\-sensitive source\-control review reference
+.TP
+.B \-\-review\-output \fIREVIEW\-OUTPUT\fR
+new mode\-0600 destination for a private review receipt
+.TP
+.B \-\-allow\-review\-decision
+confirm creation of this one private review receipt
+.TP
+.B \-\-json
+print structured JSON
+.SS "jring derive-owner-evidence"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-private\-input \fIPRIVATE\-INPUT\fR
+mode\-0600 reviewed private evidence record Required.
+.TP
+.B \-\-public\-output \fIPUBLIC\-OUTPUT\fR
+new destination for the sanitized public JSON row Required.
+.TP
+.B \-\-review\-receipt \fIREVIEW\-RECEIPT\fR
+mode\-0600 review receipt bound to the private evidence Required.
+.TP
+.B \-\-allow\-public\-evidence
+confirm creation of this one sanitized public row Required.
+.TP
+.B \-\-json
+print structured JSON
 .SH "EXIT STATUS"
 Zero indicates success. Nonzero values identify usage, unavailable prerequisite, permission, timeout, protocol, or internal failures.
 .SH "PRIVACY AND FILES"

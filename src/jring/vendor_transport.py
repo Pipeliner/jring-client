@@ -780,10 +780,20 @@ class OfflineVendorOperation:
     def hardware_eligible(self) -> bool:
         return False
 
-    def synthetic_request_for_test(self) -> bytes:
+    def closed_request_frame(self) -> bytes:
+        """Return the immutable request bytes for a closed operation.
+
+        This validates the operation's sealed execution identity.  Obtaining the
+        bytes does not make the operation hardware eligible; a live caller still
+        needs a separately scoped transport authority.
+        """
+
         self.validate_for_fake_execution()
         expected = _OPERATION_EXECUTION_SHAPES[self._execution_token]
         return bytes(expected.request_frame)
+
+    def synthetic_request_for_test(self) -> bytes:
+        return self.closed_request_frame()
 
     def _match(self, endpoint_uuid: str, data: bytes) -> tuple[_Match, object | None]:
         endpoint = _normalize_uuid(endpoint_uuid, "notification endpoint")

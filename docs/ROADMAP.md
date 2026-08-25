@@ -20,6 +20,9 @@ untested firmware cannot close the epic.
 - [#22 Exhaustive offline protocol coverage ledger](https://github.com/Pipeliner/jring-client/issues/22)
 - [#32 Versioned live operation registry](https://github.com/Pipeliner/jring-client/issues/32)
 - [#33 Normalized event and operation-result contracts](https://github.com/Pipeliner/jring-client/issues/33)
+- [#51 Executable complete Bluetooth parity manifest](https://github.com/Pipeliner/jring-client/issues/51)
+- [#53 Close unresolved clean-room APK analysis scope](https://github.com/Pipeliner/jring-client/issues/53)
+- [#54 Closed callback and event registry](https://github.com/Pipeliner/jring-client/issues/54)
 
 This milestone establishes the closed schemas that prevent static evidence from
 becoming live authority. Every later runtime consumes exact registered types.
@@ -30,6 +33,9 @@ becoming live authority. Every later runtime consumes exact registered types.
 - [#23 Local detection of vendor-authorization gates](https://github.com/Pipeliner/jring-client/issues/23)
 - [#34 Owner-hardware evidence runner and compatibility ledger](https://github.com/Pipeliner/jring-client/issues/34)
 - [#35 Generation-bound live vendor event engine](https://github.com/Pipeliner/jring-client/issues/35)
+- [#49 Scope-keyed runtime eligibility and atomic evidence promotion](https://github.com/Pipeliner/jring-client/issues/49)
+- [#52 One session arbiter for transactions and events](https://github.com/Pipeliner/jring-client/issues/52)
+- [#55 Private owner protocol-observation workflow](https://github.com/Pipeliner/jring-client/issues/55)
 
 This milestone supplies exact endpoint ownership, operation-specific matching,
 generation safety, bounded cleanup, and private-to-public evidence promotion. Owner
@@ -43,6 +49,7 @@ selection and fresh operation-specific consent.
 - [#20 Raw and non-health observation](https://github.com/Pipeliner/jring-client/issues/20)
 - [#36 Live fitness and sensor readings](https://github.com/Pipeliner/jring-client/issues/36)
 - [#37 Activity and sensor history synchronization/export](https://github.com/Pipeliner/jring-client/issues/37)
+- [#50 Standard and platform Bluetooth surface parity](https://github.com/Pipeliner/jring-client/issues/50)
 
 Read-only work promotes one firmware-scoped family at a time. Unknown motion stays
 neutral, raw/audio activation remains gated by its threat model, and history silence
@@ -93,6 +100,7 @@ from an uncorrelated status or disconnect.
 - [#29 Capability-tiered Linux prerequisites](https://github.com/Pipeliner/jring-client/issues/29)
 - [#31 Packager, Bash completion, and manual UX](https://github.com/Pipeliner/jring-client/issues/31)
 - [#48 1.0 ring-facing parity audit and release acceptance](https://github.com/Pipeliner/jring-client/issues/48)
+- [#56 Owner-evidence accessibility and deadline guidance](https://github.com/Pipeliner/jring-client/issues/56)
 
 Simulator work is last and limited to existing regression consistency. Fish completion
 remains out of scope.

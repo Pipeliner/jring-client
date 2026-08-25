@@ -35,6 +35,9 @@ EXPECTED_COMMANDS = (
     "heart-rate",
     "time-sync",
     "history",
+    "verify-device-info",
+    "review-owner-evidence",
+    "derive-owner-evidence",
 )
 EXPECTED_OPTIONS = {
     None: (
@@ -104,6 +107,38 @@ EXPECTED_OPTIONS = {
         ("--allow-write", "--yes"),
     ),
     "history": (("-h", "--help"), ("--simulate",), ("--json",), ("--output",), ("--force",)),
+    "verify-device-info": (
+        ("-h", "--help"),
+        ("--address-file",),
+        ("--private-output",),
+        ("--model-family",),
+        ("--firmware-major",),
+        ("--timeout",),
+        ("--json",),
+        ("--allow-connect",),
+        ("--allow-notifications",),
+        ("--allow-write",),
+        ("--negative-control",),
+        ("--select",),
+        ("--active-scan",),
+    ),
+    "review-owner-evidence": (
+        ("-h", "--help"),
+        ("--private-input",),
+        ("--decision",),
+        ("--evidence-reference",),
+        ("--review-output",),
+        ("--allow-review-decision",),
+        ("--json",),
+    ),
+    "derive-owner-evidence": (
+        ("-h", "--help"),
+        ("--private-input",),
+        ("--public-output",),
+        ("--review-receipt",),
+        ("--allow-public-evidence",),
+        ("--json",),
+    ),
 }
 
 
@@ -134,6 +169,7 @@ def test_surface_exactly_tracks_visible_parser_contexts_aliases_and_choices():
         ("status", ("--simulate-profile",)): ("basic", "hid"),
         ("capabilities", ("--simulate-profile",)): ("basic", "hid"),
         ("heart-rate", ("--simulate-profile",)): ("basic", "hid"),
+        ("review-owner-evidence", ("--decision",)): ("promote", "reject"),
     }
     assert not any(
         option.flags[0] in {"--address", "--address-file", "--timeout"}
@@ -174,7 +210,7 @@ def test_bash_completion_preserves_per_command_option_scope():
     assert "input:--map)" in bash
     for command in ("status", "capabilities", "heart-rate", "time-sync"):
         assert f"{command}:--address-file)" in bash
-    assert bash.count("compopt -o filenames 2>/dev/null || true") == 12
+    assert bash.count("compopt -o filenames 2>/dev/null || true") == 18
 
 
 def test_generation_is_reproducible_private_and_host_independent(monkeypatch):

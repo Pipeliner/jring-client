@@ -11,7 +11,7 @@ _jring_completion()
         word="${COMP_WORDS[index]}"
         case "$word" in
             --address|--address-file|--simulate-profile|--timeout) ((index++)) ;;
-            doctor|input-actions|protocol-coverage|non-health-capabilities|input|discover|status|capabilities|heart-rate|time-sync|history) command="$word"; break ;;
+            doctor|input-actions|protocol-coverage|non-health-capabilities|input|discover|status|capabilities|heart-rate|time-sync|history|verify-device-info|review-owner-evidence|derive-owner-evidence) command="$word"; break ;;
         esac
     done
 
@@ -56,7 +56,7 @@ _jring_completion()
                 return
                 ;;
         esac
-        words='-h --help --version --address --address-file --simulate --simulate-profile --timeout --json doctor input-actions protocol-coverage non-health-capabilities input discover status capabilities heart-rate time-sync history'
+        words='-h --help --version --address --address-file --simulate --simulate-profile --timeout --json doctor input-actions protocol-coverage non-health-capabilities input discover status capabilities heart-rate time-sync history verify-device-info review-owner-evidence derive-owner-evidence'
         mapfile -t COMPREPLY < <(compgen -W "$words" -- "$current")
         return
     fi
@@ -73,6 +73,9 @@ _jring_completion()
         heart-rate) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan --allow-notifications' ;;
         time-sync) words='-h --help --address --address-file --simulate --timeout --json --allow-write --yes' ;;
         history) words='-h --help --simulate --json --output --force' ;;
+        verify-device-info) words='-h --help --address-file --private-output --model-family --firmware-major --timeout --json --allow-connect --allow-notifications --allow-write --negative-control --select --active-scan' ;;
+        review-owner-evidence) words='-h --help --private-input --decision --evidence-reference --review-output --allow-review-decision --json' ;;
+        derive-owner-evidence) words='-h --help --private-input --public-output --review-receipt --allow-public-evidence --json' ;;
         *) return ;;
     esac
 
@@ -187,6 +190,57 @@ _jring_completion()
             done
             return
             ;;
+        verify-device-info:--address-file=*|verify-device-info:--private-output=*)
+            option_prefix="${current%%=*}="
+            option_value="${current#*=}"
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$option_value")
+            for index in "${!COMPREPLY[@]}"; do
+                COMPREPLY[index]="$option_prefix${COMPREPLY[index]}"
+            done
+            return
+            ;;
+        verify-device-info:--model-family=*|verify-device-info:--firmware-major=*|verify-device-info:--timeout=*)
+            COMPREPLY=()
+            return
+            ;;
+        review-owner-evidence:--private-input=*)
+            option_prefix="${current%%=*}="
+            option_value="${current#*=}"
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$option_value")
+            for index in "${!COMPREPLY[@]}"; do
+                COMPREPLY[index]="$option_prefix${COMPREPLY[index]}"
+            done
+            return
+            ;;
+        review-owner-evidence:--decision=*)
+            option_prefix="${current%%=*}="
+            option_value="${current#*=}"
+            mapfile -t COMPREPLY < <(compgen -W "promote reject" -- "$option_value")
+            for index in "${!COMPREPLY[@]}"; do
+                COMPREPLY[index]="$option_prefix${COMPREPLY[index]}"
+            done
+            return
+            ;;
+        review-owner-evidence:--evidence-reference=*|review-owner-evidence:--review-output=*)
+            COMPREPLY=()
+            return
+            ;;
+        derive-owner-evidence:--private-input=*|derive-owner-evidence:--public-output=*)
+            option_prefix="${current%%=*}="
+            option_value="${current#*=}"
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$option_value")
+            for index in "${!COMPREPLY[@]}"; do
+                COMPREPLY[index]="$option_prefix${COMPREPLY[index]}"
+            done
+            return
+            ;;
+        derive-owner-evidence:--review-receipt=*)
+            COMPREPLY=()
+            return
+            ;;
     esac
 
     case "$command:$previous" in
@@ -253,6 +307,37 @@ _jring_completion()
         history:--output)
             compopt -o filenames 2>/dev/null || true
             mapfile -t COMPREPLY < <(compgen -f -- "$current")
+            return
+            ;;
+        verify-device-info:--address-file|verify-device-info:--private-output)
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$current")
+            return
+            ;;
+        verify-device-info:--model-family|verify-device-info:--firmware-major|verify-device-info:--timeout)
+            COMPREPLY=()
+            return
+            ;;
+        review-owner-evidence:--private-input)
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$current")
+            return
+            ;;
+        review-owner-evidence:--decision)
+            mapfile -t COMPREPLY < <(compgen -W "promote reject" -- "$current")
+            return
+            ;;
+        review-owner-evidence:--evidence-reference|review-owner-evidence:--review-output)
+            COMPREPLY=()
+            return
+            ;;
+        derive-owner-evidence:--private-input|derive-owner-evidence:--public-output)
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$current")
+            return
+            ;;
+        derive-owner-evidence:--review-receipt)
+            COMPREPLY=()
             return
             ;;
     esac

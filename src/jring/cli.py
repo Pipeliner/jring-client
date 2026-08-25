@@ -29,6 +29,19 @@ from .input import (
     parse_binding,
 )
 from .non_health import static_non_health_capabilities
+from .owner_hardware_evidence import (
+    OwnerEvidenceError,
+    OwnerEvidenceStatus,
+    OwnerHardwareEvidenceRunner,
+    load_private_owner_evidence,
+    prepare_owner_evidence_run,
+    prepare_owner_evidence_selection,
+    prepare_owner_negative_control,
+    render_approved_compatibility_row,
+    validate_owner_evidence_prerequisites,
+    write_owner_evidence_review,
+    write_reviewed_compatibility_row,
+)
 from .protocol import HeartRate, ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
@@ -87,6 +100,15 @@ class ErrorContract:
     code: str
     exit_code: ExitCode
     retryable: bool
+
+
+class _OwnerEvidenceInterrupted(RuntimeError):
+    def __init__(self, payload: dict[str, object]):
+        self.payload = dict(payload)
+        super().__init__(
+            "owner evidence interrupted; a write may have been dispatched; inspect "
+            "the requested private record before any manual rerun"
+        )
 
 
 _USAGE = ErrorContract("usage", ExitCode.USAGE, False)
@@ -1569,6 +1591,38 @@ def _capability_payload(inventory: object) -> dict[str, object]:
     }
 
 
+def _print_owner_evidence_summary(
+    payload: dict[str, object], *, interrupted: bool = False
+) -> None:
+    cleanup = payload["cleanup"]
+    assert isinstance(cleanup, dict)
+    print(f"Attempt: {str(payload['attempt_status']).replace('_', ' ')}")
+    print(f"Write dispatch: {str(payload['write_dispatch']).replace('_', ' ')}")
+    print(f"Response terminal: {str(payload['response_terminal']).replace('_', ' ')}")
+    print(
+        "Cleanup: "
+        f"unsubscribe {str(cleanup['unsubscribe']).replace('_', ' ')}; "
+        f"close {str(cleanup['close']).replace('_', ' ')}; "
+        f"overall {str(payload['cleanup_status']).replace('_', ' ')}"
+    )
+    print(
+        "Attempt evidence commit: "
+        f"{str(payload['evidence_commit_status']).replace('_', ' ')}"
+    )
+    if payload["evidence_commit_status"] == "committed":
+        prefix = "interrupted; " if interrupted else ""
+        print(
+            f"Recovery: {prefix}review the requested private record offline; "
+            "never retry automatically"
+        )
+    else:
+        prefix = "interrupted; " if interrupted else ""
+        print(
+            f"Recovery: {prefix}no reviewable record exists; "
+            "do not retry automatically"
+        )
+
+
 def _simulator_profiles_payload() -> list[dict[str, object]]:
     return [asdict(profile) for profile in SIMULATOR_PROFILES]
 
@@ -1648,6 +1702,84 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.command == "review-owner-evidence":
+        result = load_private_owner_evidence(args.private_input)
+        payload = result.review_payload()
+        candidate = None
+        receipt_created = False
+        if args.decision is not None:
+            candidate = render_approved_compatibility_row(
+                result,
+                review_decision=args.decision,
+                approved_evidence_reference=args.evidence_reference,
+            )
+        if args.review_output is not None:
+            write_owner_evidence_review(
+                args.private_input,
+                args.review_output,
+                review_decision=args.decision,
+                approved_evidence_reference=args.evidence_reference,
+            )
+            receipt_created = True
+        payload = {
+            **payload,
+            "candidate_public_row": candidate,
+            "review_receipt_created": receipt_created,
+        }
+        if args.json:
+            _print_json_success("review_owner_evidence", "private_local", payload)
+        else:
+            print("OFFLINE OWNER-EVIDENCE REVIEW — no Bluetooth operation")
+            print(f"Attempt: {payload['attempt_status'].replace('_', ' ')}")
+            print(f"Write dispatch: {payload['write_dispatch'].replace('_', ' ')}")
+            print(f"Response terminal: {payload['response_terminal'].replace('_', ' ')}")
+            print(
+                "Cleanup: "
+                f"unsubscribe {payload['cleanup']['unsubscribe'].replace('_', ' ')}; "
+                f"close {payload['cleanup']['close'].replace('_', ' ')}; "
+                f"overall {payload['cleanup_status'].replace('_', ' ')}"
+            )
+            print(
+                "Attempt evidence commit: "
+                f"{payload['evidence_commit_status'].replace('_', ' ')}"
+            )
+            print(
+                f"Declared scope: {payload['declared_model_family']} / "
+                f"firmware {payload['declared_firmware_major']}"
+            )
+            print(
+                "Environment proposed for publication: "
+                f"Linux {payload['linux_family']}; Python {payload['python_minor']}; "
+                f"BlueZ {payload['bluez_major']}; Bleak {payload['bleak_major']}"
+            )
+            print("Prospective public fields:")
+            print(json.dumps(candidate, indent=2, sort_keys=True) if candidate else "  supply --decision and --evidence-reference to preview")
+            print(
+                "Review receipt: created as a new mode-0600 private file"
+                if receipt_created
+                else "Review receipt: not requested (preview only)"
+            )
+            print("Private values and paths: withheld")
+            print(
+                "Recovery: derive only from a created private review receipt; "
+                "runtime support remains unchanged"
+            )
+        return ExitCode.OK
+    if args.command == "derive-owner-evidence":
+        row = write_reviewed_compatibility_row(
+            args.private_input,
+            args.review_receipt,
+            args.public_output,
+        )
+        if args.json:
+            _print_json_success("derive_owner_evidence", "private_local", row)
+        else:
+            print("PUBLIC EVIDENCE ROW CREATED — no Bluetooth operation")
+            print(f"Decision: {row['review_decision']}")
+            print(f"Operation status: {row['operation_status'].replace('_', ' ')}")
+            print("Output: new sanitized public file; path withheld")
+            print("Runtime registry: unchanged")
+        return ExitCode.OK
     if args.command == "non-health-capabilities":
         payload = _non_health_payload()
         if args.json:
@@ -1694,6 +1826,122 @@ async def _run(args: argparse.Namespace) -> int:
         else:
             _print_readiness(report)
         return ExitCode.UNAVAILABLE if requirement_failed else ExitCode.OK
+    if args.command == "verify-device-info":
+        validate_owner_evidence_prerequisites(
+            operation_id="getDeviceInfo",
+            allow_connect=args.allow_connect,
+            allow_subscribe=args.allow_notifications,
+            allow_write=args.allow_write,
+            negative_control=args.negative_control,
+            timeout=args.timeout,
+            private_output=args.private_output,
+            model_family=args.model_family,
+            firmware_major=args.firmware_major,
+        )
+        if args.select:
+            print("ACTIVE SCAN — sends BLE scan requests; no connection has started.")
+            candidates = await discover_for_selection(timeout=args.timeout)
+            address = _choose_candidate(candidates, purpose=args.command)
+            if address is None:
+                return ExitCode.OK
+        else:
+            address = _selected_address(args)
+        selection = prepare_owner_evidence_selection((address,))
+        negative_control = prepare_owner_negative_control("getDeviceInfo")
+        plan = prepare_owner_evidence_run(
+            operation_id="getDeviceInfo",
+            selection=selection,
+            allow_connect=args.allow_connect,
+            allow_subscribe=args.allow_notifications,
+            allow_write=args.allow_write,
+            negative_control=negative_control if args.negative_control else None,
+            timeout=args.timeout,
+            private_output=args.private_output,
+            model_family=args.model_family,
+            firmware_major=args.firmware_major,
+        )
+        if not args.json:
+            print("OWNER-HARDWARE TRANSPORT CANARY — no connection has started")
+            print(f"Declared scope: {args.model_family} / firmware {args.firmware_major}")
+            print(
+                "Will transmit: one connection, one MAIN notification subscription, "
+                "and one response-requesting vendor device-info query"
+            )
+            print("Safety check: a positive-duration pre-write negative-control window")
+            print("Private evidence: one new mode-0600 file; path withheld")
+            print("The response value is discarded; device-info contents and firmware support are not verified")
+        runner = OwnerHardwareEvidenceRunner(transport_factory=BleakTransport)
+        try:
+            result = await runner.run(plan)
+        except asyncio.CancelledError as exc:
+            interrupted_result = runner.interrupted_result
+            if interrupted_result is None:
+                raise
+            raise _OwnerEvidenceInterrupted(
+                interrupted_result.public_payload()
+            ) from exc
+        payload = result.public_payload()
+        if args.json:
+            if result.status is OwnerEvidenceStatus.SUCCEEDED:
+                _print_json_success("owner_hardware_evidence", "hardware", payload)
+            else:
+                contracts = {
+                    OwnerEvidenceStatus.TIMED_OUT: ErrorContract(
+                        "owner_evidence_timeout", ExitCode.TIMEOUT, False
+                    ),
+                    OwnerEvidenceStatus.PRIVATE_OUTPUT_FAILED: ErrorContract(
+                        "owner_evidence_commit_failed", ExitCode.PERMISSION_DENIED, False
+                    ),
+                    OwnerEvidenceStatus.NEGATIVE_CONTROL_FAILED: ErrorContract(
+                        "owner_evidence_control_contaminated",
+                        ExitCode.PROTOCOL_INCOMPATIBLE,
+                        False,
+                    ),
+                    OwnerEvidenceStatus.DEVICE_REJECTED: ErrorContract(
+                        "owner_evidence_device_rejected",
+                        ExitCode.PROTOCOL_INCOMPATIBLE,
+                        False,
+                    ),
+                    OwnerEvidenceStatus.MALFORMED_RESPONSE: ErrorContract(
+                        "owner_evidence_malformed_response",
+                        ExitCode.PROTOCOL_INCOMPATIBLE,
+                        False,
+                    ),
+                    OwnerEvidenceStatus.ROUTE_UNAVAILABLE: ErrorContract(
+                        "owner_evidence_route_unavailable", ExitCode.UNAVAILABLE, False
+                    ),
+                }
+                contract = contracts.get(
+                    result.status,
+                    ErrorContract(
+                        f"owner_evidence_{result.status.value}",
+                        ExitCode.UNAVAILABLE,
+                        False,
+                    ),
+                )
+                _print_json_error(
+                    RuntimeError("owner evidence attempt did not produce an accepted candidate"),
+                    operation="owner_hardware_evidence",
+                    source="hardware",
+                    contract=contract,
+                    payload=payload,
+                )
+        else:
+            print("RESULT — owner-hardware transport canary")
+            _print_owner_evidence_summary(payload)
+        if result.status is OwnerEvidenceStatus.SUCCEEDED:
+            return ExitCode.OK
+        if result.status is OwnerEvidenceStatus.TIMED_OUT:
+            return ExitCode.TIMEOUT
+        if result.status in {
+            OwnerEvidenceStatus.NEGATIVE_CONTROL_FAILED,
+            OwnerEvidenceStatus.MALFORMED_RESPONSE,
+            OwnerEvidenceStatus.DEVICE_REJECTED,
+        }:
+            return ExitCode.PROTOCOL_INCOMPATIBLE
+        if result.status is OwnerEvidenceStatus.PRIVATE_OUTPUT_FAILED:
+            return ExitCode.PERMISSION_DENIED
+        return ExitCode.UNAVAILABLE
     if args.command == "input":
         binding = parse_binding(args.mapping)
         if not args.simulate:
@@ -2034,6 +2282,98 @@ def build_parser() -> argparse.ArgumentParser:
         "--output", type=Path, required=True, help="destination JSON export file"
     )
     history.add_argument("--force", action="store_true", help="replace an existing export")
+    evidence = sub.add_parser(
+        "verify-device-info",
+        help="run one owner-hardware device-info transport canary",
+    )
+    evidence.add_argument(
+        "--address-file",
+        type=Path,
+        help="mode-0600 file containing the one explicitly selected ring address",
+    )
+    evidence.add_argument(
+        "--private-output",
+        type=Path,
+        required=True,
+        help="new destination for the exclusively created mode-0600 private evidence file",
+    )
+    evidence.add_argument("--model-family", required=True, help="coarse reviewed model family")
+    evidence.add_argument("--firmware-major", required=True, help="coarse reviewed firmware major")
+    evidence.add_argument(
+        "--timeout", type=_timeout, default=8.0,
+        help="one overall canary deadline in seconds (default: 8)",
+    )
+    _add_json_option(evidence)
+    evidence.add_argument(
+        "--allow-connect", action="store_true", required=True,
+        help="authorize one connection to the selected ring",
+    )
+    evidence.add_argument(
+        "--allow-notifications", action="store_true", required=True,
+        help="authorize one MAIN notification subscription",
+    )
+    evidence.add_argument(
+        "--allow-write", action="store_true", required=True,
+        help="authorize one response-requesting vendor canary write",
+    )
+    evidence.add_argument(
+        "--negative-control", action="store_true", required=True,
+        help="require the bounded pre-write negative-control window",
+    )
+    evidence.add_argument(
+        "--select", action="store_true",
+        help="interactively select an ephemeral discovery alias in this process",
+    )
+    evidence.add_argument(
+        "--active-scan", action="store_true",
+        help="authorize the BLE scan required by --select",
+    )
+    review = sub.add_parser(
+        "review-owner-evidence",
+        help="review one private owner-evidence record without Bluetooth I/O",
+    )
+    review.add_argument(
+        "--private-input", type=Path, required=True,
+        help="mode-0600 private evidence record",
+    )
+    review.add_argument(
+        "--decision", choices=("promote", "reject"),
+        help="decision to preview or seal in a private review receipt",
+    )
+    review.add_argument(
+        "--evidence-reference",
+        help="approved non-sensitive source-control review reference",
+    )
+    review.add_argument(
+        "--review-output", type=Path,
+        help="new mode-0600 destination for a private review receipt",
+    )
+    review.add_argument(
+        "--allow-review-decision", action="store_true",
+        help="confirm creation of this one private review receipt",
+    )
+    _add_json_option(review)
+    derive = sub.add_parser(
+        "derive-owner-evidence",
+        help="create one sanitized public compatibility row without Bluetooth I/O",
+    )
+    derive.add_argument(
+        "--private-input", type=Path, required=True,
+        help="mode-0600 reviewed private evidence record",
+    )
+    derive.add_argument(
+        "--public-output", type=Path, required=True,
+        help="new destination for the sanitized public JSON row",
+    )
+    derive.add_argument(
+        "--review-receipt", type=Path, required=True,
+        help="mode-0600 review receipt bound to the private evidence",
+    )
+    derive.add_argument(
+        "--allow-public-evidence", action="store_true", required=True,
+        help="confirm creation of this one sanitized public row",
+    )
+    _add_json_option(derive)
     return parser
 
 
@@ -2049,6 +2389,22 @@ def _sanitize_error(error: BaseException) -> str:
 
 
 def _classify_error(error: BaseException) -> ErrorContract:
+    if isinstance(error, OwnerEvidenceError):
+        permission_codes = {
+            "unsafe_private_output", "private_output_exists",
+            "unsafe_review_output", "review_output_exists",
+            "unsafe_review_receipt", "unsafe_public_output", "public_output_exists",
+        }
+        exit_code = (
+            ExitCode.PERMISSION_DENIED
+            if error.code in permission_codes
+            else ExitCode.PROTOCOL_INCOMPATIBLE
+            if error.code.startswith("invalid_private")
+            or error.code.startswith("invalid_review_receipt")
+            or error.code == "review_receipt_mismatch"
+            else ExitCode.USAGE
+        )
+        return ErrorContract(error.code, exit_code, False)
     if isinstance(error, PermissionError):
         return _PERMISSION
     if isinstance(error, TimeoutError):
@@ -2104,6 +2460,9 @@ _OPERATIONS = {
     "status": "status",
     "time-sync": "time_sync",
     "history": "history",
+    "verify-device-info": "owner_hardware_evidence",
+    "review-owner-evidence": "review_owner_evidence",
+    "derive-owner-evidence": "derive_owner_evidence",
 }
 
 
@@ -2117,12 +2476,16 @@ def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
         source = "simulator"
     elif operation == "cli":
         source = "unknown"
+    elif operation in {"review_owner_evidence", "derive_owner_evidence"}:
+        source = "private_local"
     else:
         source = "hardware"
     return operation, source
 
 
 def _source_from_args(args: argparse.Namespace) -> str:
+    if args.command in {"review-owner-evidence", "derive-owner-evidence"}:
+        return "private_local"
     if args.command in {
         "doctor", "input-actions", "protocol-coverage", "non-health-capabilities"
     }:
@@ -2145,10 +2508,50 @@ def _selected_address(args: argparse.Namespace) -> str:
     if args.address:
         return select_exact(args.address)
     path = args.address_file
-    details = path.stat()
-    if not stat.S_ISREG(details.st_mode) or details.st_uid != os.getuid() or details.st_mode & 0o077:
+    try:
+        details = path.lstat()
+    except OSError as exc:
+        raise PermissionError("address file is unavailable or unsafe") from exc
+    if (
+        not stat.S_ISREG(details.st_mode)
+        or details.st_uid != os.getuid()
+        or stat.S_IMODE(details.st_mode) != 0o600
+        or details.st_nlink != 1
+    ):
         raise PermissionError("address file must be a regular file owned by this user with mode 0600")
-    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise PermissionError("address file is unavailable or unsafe") from exc
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            opened.st_dev != details.st_dev
+            or opened.st_ino != details.st_ino
+            or not stat.S_ISREG(opened.st_mode)
+            or opened.st_uid != os.getuid()
+            or stat.S_IMODE(opened.st_mode) != 0o600
+            or opened.st_nlink != 1
+        ):
+            raise PermissionError(
+                "address file must be a regular file owned by this user with mode 0600"
+            )
+        try:
+            raw = os.read(descriptor, 257)
+        except OSError as exc:
+            raise PermissionError("address file is unavailable or unsafe") from exc
+    finally:
+        os.close(descriptor)
+    if len(raw) > 256:
+        raise ValueError("address file must contain exactly one Bluetooth address")
+    try:
+        decoded = raw.decode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("address file must contain exactly one Bluetooth address") from exc
+    lines = [line.strip() for line in decoded.splitlines() if line.strip()]
     if len(lines) != 1:
         raise ValueError("address file must contain exactly one Bluetooth address")
     return select_exact(lines[0])
@@ -2167,6 +2570,32 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
     guided_selection = getattr(args, "select", False)
     active_scan = getattr(args, "active_scan", False)
     has_hardware = bool(address or address_file)
+    if args.command == "verify-device-info":
+        if address:
+            parser.error(
+                "verify-device-info requires --address-file; direct addresses are not accepted"
+            )
+        if simulate:
+            parser.error("verify-device-info does not support simulation")
+        if not address_file and not guided_selection:
+            parser.error("verify-device-info requires --address-file or --select --active-scan")
+    if args.command in {"review-owner-evidence", "derive-owner-evidence"}:
+        if simulate or has_hardware or guided_selection or active_scan:
+            parser.error(f"{args.command} is offline and does not accept device selection")
+    if args.command == "review-owner-evidence":
+        decision_fields = (args.decision is not None, args.evidence_reference is not None)
+        if decision_fields[0] != decision_fields[1]:
+            parser.error("review preview requires both --decision and --evidence-reference")
+        receipt_fields = (args.review_output is not None, args.allow_review_decision)
+        if receipt_fields[0] != receipt_fields[1]:
+            parser.error(
+                "review receipt creation requires both --review-output and "
+                "--allow-review-decision"
+            )
+        if any(receipt_fields) and not all(decision_fields):
+            parser.error(
+                "review receipt creation requires --decision and --evidence-reference"
+            )
     if simulator_profile_explicit and not simulate:
         parser.error("--simulate-profile requires --simulate")
     if simulator_profile_explicit and args.command not in {
@@ -2180,7 +2609,7 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         parser.error("--select is mutually exclusive with simulation and address selectors")
     if guided_selection and not active_scan:
         parser.error("--select requires --active-scan because it sends BLE scan requests")
-    if args.command in {"status", "capabilities", "heart-rate"} and active_scan and not guided_selection:
+    if args.command in {"status", "capabilities", "heart-rate", "verify-device-info"} and active_scan and not guided_selection:
         parser.error(f"--active-scan on {args.command} requires --select")
     if guided_selection and json_output:
         parser.error("guided selection is human-only; automation should use --address-file")
@@ -2239,7 +2668,7 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
     if (
         args.command not in {
             "discover", "doctor", "input", "input-actions", "protocol-coverage",
-            "non-health-capabilities",
+            "non-health-capabilities", "review-owner-evidence", "derive-owner-evidence",
         }
         and not simulate
         and not has_hardware
@@ -2295,17 +2724,44 @@ def main(argv: list[str] | None = None) -> int:
     source = _source_from_args(args)
     try:
         return asyncio.run(_run(args))
-    except KeyboardInterrupt:
+    except _OwnerEvidenceInterrupted as exc:
+        contract = ErrorContract(
+            "owner_evidence_interrupted", ExitCode.INTERRUPTED, False
+        )
         if args.json:
-            contract = _print_json_error(
-                RuntimeError("operation interrupted"),
+            _print_json_error(
+                exc,
                 operation=operation,
                 source=source,
-                contract=_INTERRUPTED,
+                contract=contract,
+                payload=exc.payload,
             )
         else:
-            print("jring: interrupted", file=sys.stderr)
-            contract = _INTERRUPTED
+            print("RESULT — interrupted owner-hardware transport canary")
+            _print_owner_evidence_summary(exc.payload, interrupted=True)
+        return contract.exit_code
+    except KeyboardInterrupt:
+        interrupted_contract = (
+            ErrorContract("owner_evidence_interrupted", ExitCode.INTERRUPTED, False)
+            if args.command == "verify-device-info"
+            else _INTERRUPTED
+        )
+        interrupted_message = (
+            "owner evidence interrupted; a write may have been dispatched; inspect "
+            "the requested private record before any manual rerun"
+            if args.command == "verify-device-info"
+            else "operation interrupted"
+        )
+        if args.json:
+            contract = _print_json_error(
+                RuntimeError(interrupted_message),
+                operation=operation,
+                source=source,
+                contract=interrupted_contract,
+            )
+        else:
+            print(f"jring: {interrupted_message}", file=sys.stderr)
+            contract = interrupted_contract
         return contract.exit_code
     except Exception as exc:
         contract = _classify_error(exc)

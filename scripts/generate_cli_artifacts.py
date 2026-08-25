@@ -96,7 +96,9 @@ def _option(action: argparse.Action) -> OptionSurface:
         metavar=metavar,
         choices=choices,
         takes_value=takes_value,
-        file_value=action.dest in {"address_file", "output"},
+        file_value=action.dest in {
+            "address_file", "output", "private_input", "private_output", "public_output"
+        },
         required=bool(action.required),
     )
 

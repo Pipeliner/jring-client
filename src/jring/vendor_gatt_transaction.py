@@ -441,6 +441,14 @@ class StrictVendorGattEngineUpdate:
     def parsed_value_for_test(self) -> object | None:
         return _STRICT_UPDATE_PARSED_VALUES.get(self)
 
+    @property
+    def response_integrity_valid(self) -> bool | None:
+        """Expose only an exact parsed response's integrity verdict."""
+
+        parsed = _STRICT_UPDATE_PARSED_VALUES.get(self)
+        value = None if parsed is None else getattr(parsed, "integrity_valid", None)
+        return value if type(value) is bool else None
+
     def __repr__(self) -> str:
         disposition = (
             None

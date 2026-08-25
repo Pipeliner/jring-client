@@ -421,13 +421,31 @@ inconsistencies without exposing identifiers or accidentally granting another ru
 
 I need connect timeouts, possible write dispatch without a terminal, and cleanup
 uncertainty to remain distinct from definite failure, so the record tells me whether it
-is safe to retry later without claiming that a device family is incompatible.
+certainly stopped before dispatch or instead prohibits replay, without claiming that a
+device family is incompatible.
 
 The historical observation remains distinct from a future pre-run plan, the transport
 attempt itself, a separately consented public candidate, and runtime eligibility.
 Negative and uncertain outcomes are useful evidence. A hand-edited success is not
 authenticated hardware proof, and validation must never connect, subscribe, write,
 derive a public artifact, or broaden support to a model or firmware family.
+
+Desired outcomes:
+
+- See the complete traffic disclosure before a connection starts.
+- Use fresh guided selection as a human or an exact private address source in automation.
+- After every completed or interrupted attempt, hear the result in the same order:
+  attempt, write dispatch, response terminal, cleanup, evidence commit, then recovery.
+- Treat interruption after possible dispatch as non-retryable and inspect the requested
+  private record before deciding whether a new manually authorized attempt is safe.
+- Preserve attempt, response-terminal, cleanup, and evidence-commit outcomes separately
+  rather than allowing a cleanup or file failure to replace the original outcome.
+- Preview every prospective public field privately, retain a separate review receipt,
+  and only then derive a sanitized accept/reject row without loading Bluetooth.
+- Make the detached public artifact self-describing: versioned, owner-declared in
+  scope, and explicitly without runtime or repeat authority.
+- Never overwrite an earlier private or public record, and never convert review into
+  runtime authority.
 
 The v0.5 slice repairs adversarially identified trust failures: simulated operations
 cannot touch radios, active scans require explicit authorization, outputs retain

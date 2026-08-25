@@ -363,19 +363,34 @@ def resolve_vendor_gatt_route(
         ):
             return _failure(route, VendorGattPreflightCode.TARGET_METADATA_MISMATCH)
 
-    return VendorGattPreflightResult(
-        route=route,
-        code=VendorGattPreflightCode.STRUCTURALLY_READY,
-        request_target=request_target,
-        response_target=response_target,
-        cccd_target=GattDescriptorTarget(
+    cccd_target = (
+        response.descriptor_targets[cccd_index]
+        if len(response.descriptor_targets) == len(response.descriptor_uuids)
+        else GattDescriptorTarget(
             connection_generation=connection_generation,
             service_uuid=VENDOR_SERVICE_56FF,
             characteristic_uuid=response_uuid,
             characteristic_instance_id=response_target.instance_id,
             uuid=_CCCD,
             instance_id=cccd_instance_id,
-        ),
+        )
+    )
+    if (
+        cccd_target.connection_generation != connection_generation
+        or _uuid(cccd_target.service_uuid) != VENDOR_SERVICE_56FF
+        or _uuid(cccd_target.characteristic_uuid) != response_uuid
+        or cccd_target.characteristic_instance_id != response_target.instance_id
+        or _uuid(cccd_target.uuid) != _CCCD
+        or cccd_target.instance_id != cccd_instance_id
+    ):
+        return _failure(route, VendorGattPreflightCode.TARGET_METADATA_MISMATCH)
+
+    return VendorGattPreflightResult(
+        route=route,
+        code=VendorGattPreflightCode.STRUCTURALLY_READY,
+        request_target=request_target,
+        response_target=response_target,
+        cccd_target=cccd_target,
         cccd_advertised=True,
     )
 

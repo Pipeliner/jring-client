@@ -65,6 +65,7 @@ class GattCharacteristicMetadata:
     instance_id: str | None = None
     descriptor_instance_ids: tuple[str, ...] = ()
     target: GattCharacteristicTarget | None = None
+    descriptor_targets: tuple[GattDescriptorTarget, ...] = ()
 
 
 @dataclass(frozen=True, init=False, repr=False)
