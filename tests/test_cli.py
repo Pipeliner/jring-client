@@ -312,6 +312,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
         "Request packet routes: 79 main; 6 raw; 1 stateful shared; 1 dynamic; "
         "1 descriptor; 1 DFU; 23 without a fixed packet."
     ) in output
+    assert (
+        "Owned app interface use: 51/112 request targets across 152 direct "
+        "invokes; 103/105 callbacks directly dispatched."
+    ) in output
     assert "Supplemental session transitions (not interface entries): 33" in output
     assert "Adversarial session races: 22" in output
     assert "Source-labeled binding reactions: 6" in output
@@ -349,6 +353,9 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["request_main_layouts"] == 79
     assert result["summary"]["request_raw_layouts"] == 6
     assert result["summary"]["request_no_fixed_packets"] == 23
+    assert result["summary"]["app_direct_request_targets"] == 51
+    assert result["summary"]["app_direct_request_invokes"] == 152
+    assert result["summary"]["directly_dispatched_callbacks"] == 103
     assert result["summary"]["supplemental_session_transitions"] == 33
     assert result["summary"]["supplemental_session_races"] == 22
     assert result["summary"]["supplemental_binding_reactions"] == 6
@@ -418,6 +425,15 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     dispatcher = result["supplemental"]["dispatcher_evidence"]
     codec_registry = result["supplemental"]["codec_registry"]
     request_routing = result["supplemental"]["request_routing"]
+    app_use = result["supplemental"]["app_use_evidence"]
+    assert len(app_use["requests"]) == 112
+    assert len(app_use["callbacks"]) == 105
+    assert app_use["direct_request_target_count"] == 51
+    assert app_use["direct_request_invoke_count"] == 152
+    assert app_use["directly_dispatched_callback_count"] == 103
+    assert app_use["cross_namespace_name_collisions"] == ["setAutoHeartMode"]
+    assert app_use["dynamic_request_interface_invokes_observed"] is False
+    assert app_use["hardware_eligible"] is False
     assert len(request_routing["requests"]) == 112
     assert request_routing["standalone_deterministic_offline_count"] == 85
     assert request_routing["owner_authorized"] is False

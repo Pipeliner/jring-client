@@ -186,6 +186,16 @@ count therefore remains distinct from 86 identifiable layouts and 80 source path
 can reach the main queue. None establishes session readiness, owner authorization,
 response correlation, safe retry, or hardware support.
 
+The app-use evidence answers a different question: what this APK directly references,
+not what the bundled SDK exposes. It partitions all 112 request rows into 51 direct
+app interface targets (152 invoke sites), 43 uninvoked SDK wire entries, 14 uninvoked
+local/composite entries, and four uninvoked no-op stubs. It also accounts for all 105
+callbacks as 103 with a direct SDK dispatch and two declarations without one
+(`onGetDeviceTime` and `onSendWeather`). The request and callback namespaces remain
+descriptor-distinct; their single name collision, `setAutoHeartMode`, is not merged.
+No positive owned dynamic request-interface invoke was observed, but reflection or
+external/runtime activation is not thereby disproved.
+
 ## Control-flow domains and recovered ordering
 
 Five domains must not be collapsed into one “authorized session”:

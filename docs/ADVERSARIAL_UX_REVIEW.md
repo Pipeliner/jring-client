@@ -43,6 +43,8 @@ Date: 2026-08-24
 | Codec counts were disconnected from their implementations | Immutable registries resolve all 171 designated rows to code without invoking it |
 | Shared parsers/factories looked one-to-one | Pipeline, stateful, branching, and nine unresolved-family bindings are separate locator kinds |
 | Every AIDL request looked like one fixed GATT command | A 112-row route partition separates 85 deterministic codecs from shared state, dynamic writes, descriptor control, DFU, and 23 no-packet operations |
+| SDK exposure was presented as APK use | A separate exact ledger distinguishes 51 app-invoked request targets from 61 bundled-but-uninvoked targets and keeps runtime reachability unclaimed |
+| Same-spelled request and callback methods could collapse | Interface roles preserve both `setAutoHeartMode` rows without name-only joining |
 | Backend errors could leak addresses or BlueZ paths | The final error boundary redacts identifiers, paths, and long payload hex |
 | Address selection required a sensitive argv value | Mode-0600 `--address-file` is the documented path; argv is marked legacy |
 | History silently replaced an existing file | Existing exports require `--force` |

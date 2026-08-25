@@ -33,6 +33,7 @@ from .non_health import static_non_health_capabilities
 from .protocol import ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
+from .vendor_app_use_evidence import recovered_vendor_app_use_evidence
 from .vendor_artifact_evidence import recovered_artifact_surface_evidence
 from .vendor_callback_surfaces import recovered_callback_behavior_surfaces
 from .vendor_codec_registry import (
@@ -276,6 +277,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     callback_surfaces = recovered_callback_behavior_surfaces()
     dispatcher = recovered_dispatcher_evidence()
     request_routing = recovered_request_routing_evidence()
+    app_use = recovered_vendor_app_use_evidence()
     warning_scopes = {item.scope.value: item for item in warning_audit.scopes}
     return {
         "summary": {
@@ -328,6 +330,11 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "request_main_layouts": request_routing.main_layout_count,
             "request_raw_layouts": request_routing.raw_layout_count,
             "request_no_fixed_packets": request_routing.no_fixed_packet_count,
+            "app_direct_request_targets": app_use.direct_request_target_count,
+            "app_direct_request_invokes": app_use.direct_request_invoke_count,
+            "directly_dispatched_callbacks": (
+                app_use.directly_dispatched_callback_count
+            ),
             "live_vendor_operations": sum(
                 entry.python_state is VendorPythonState.LIVE_VENDOR for entry in requests
             ),
@@ -432,6 +439,19 @@ def _protocol_coverage_payload() -> dict[str, object]:
         "requests": [asdict(entry) for entry in requests],
         "callbacks": [asdict(entry) for entry in callbacks],
         "supplemental": {
+            "app_use_evidence": {
+                **asdict(app_use),
+                "direct_request_target_count": app_use.direct_request_target_count,
+                "direct_request_invoke_count": app_use.direct_request_invoke_count,
+                "directly_dispatched_callback_count": (
+                    app_use.directly_dispatched_callback_count
+                ),
+                "maturity": app_use.maturity,
+                "evidence_scope": app_use.evidence_scope,
+                "runnable": app_use.runnable,
+                "hardware_eligible": app_use.hardware_eligible,
+                "hardware_verified": app_use.hardware_verified,
+            },
             "request_routing": {
                 **asdict(request_routing),
                 "standalone_deterministic_offline_count": (
@@ -787,6 +807,13 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{summary['request_raw_layouts']} raw; 1 stateful shared; 1 dynamic; "
         "1 descriptor; 1 DFU; "
         f"{summary['request_no_fixed_packets']} without a fixed packet."
+    )
+    print(
+        "Owned app interface use: "
+        f"{summary['app_direct_request_targets']}/112 request targets across "
+        f"{summary['app_direct_request_invokes']} direct invokes; "
+        f"{summary['directly_dispatched_callbacks']}/105 callbacks directly "
+        "dispatched."
     )
     print(
         "Supplemental session transitions (not interface entries): "

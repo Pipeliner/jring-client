@@ -123,6 +123,11 @@ decoder coverage; this is not a count of distinct wire families.
 Every one of those 85 request and 86 callback codec rows links to an importable Python
 encoder, parser, typed factory, or stateful pipeline. Nine shared-family bindings remain
 explicitly unresolved rather than being invented as one-to-one operations.
+An independent app-use view shows that the APK directly invokes 51 of 112 request
+targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
+are local/composite, and four are no-op stubs. It also reconciles 103 directly
+dispatched callbacks and two declarations without direct dispatch. These static counts
+do not prove runtime reachability.
 The report distinguishes those from absent,
 APK-generated, and non-Bluetooth behavior, and always reports zero live or
 hardware-verified vendor operations. It contains no payload bytes and grants no write
