@@ -190,6 +190,10 @@ failed sensor open or close result reports requested direction separately and le
 actual active state unknown.
 Device revision and dial-code callback strings retain exact fixed width and uppercase
 hexadecimal representation; numeric properties are explicitly convenience views.
+Any deliberate divergence from SDK callback behavior is labeled as hardening or
+normalization: exact frame length, bounded lengths and assembly, strict text decoding,
+redaction, raw timestamps, unknown local closure, and collapsed dual projections are
+never called callback-equivalent.
 
 Given a typed offline mutation request, its encoder preserves the proven 20-byte layout
 while rejecting low-byte wrapping, implicit host locale/charset use, partial alarm

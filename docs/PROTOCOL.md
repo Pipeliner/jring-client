@@ -386,6 +386,23 @@ contents in representations or coverage output. Wi-Fi fragments use a bounded,
 entry-keyed assembler; no parser starts host networking or copies private values into
 logs. Explicit local SSID access is opt-in after a complete sequence.
 
+### Intentional decoder hardening divergences
+
+Callback geometry and Python safety are reported separately. Python requires exactly
+20 bytes although the source dispatcher can inspect longer token lists; rejects battery
+percentages above 100; caps EQ and SMS lengths to their fixed frame capacity; and makes
+SSID assembly entry-keyed, size-bounded, sequence-checked, and strict UTF-8. The SDK is
+less strict in each case. Private identifiers, text, address material, and host-network
+effects stay suppressed. History timestamps remain raw, local idle closure stays
+unknown, and the generic/specialized `40` and `55` callback projections collapse into
+one neutral sample representation. EQ alone preserves all wire values while explicitly
+marking the callback's count-15 drop. These are deliberate hardening or normalization
+policies, not byte-for-byte callback equivalence.
+
+Raw notification length, trailing-byte, and scalar/state rules are supported only by
+the separately reviewed raw handler. The main response-dispatcher audit neither proves
+nor broadens those claims.
+
 ## Static mutation encoders
 
 Three settings modules encode 26 additional main-channel mutation families as hidden,
