@@ -137,11 +137,11 @@ that treated only three interface methods as stubs; static call-site tracing sho
 `static_vendor_callback_coverage()` likewise accounts for all 105 callback declarations
 exactly once. Eighty-nine are reached by a structured main or raw Bluetooth opcode,
 14 originate in Android transport, scan, network, OTA, authorization, or cache flows,
-and two declarations have no invocation site in this SDK build. Twenty-three callback
+and two declarations have no invocation site in this SDK build. Fifty callback
 families now have offline response codecs: the seven query families plus bounded
 non-health state, action, counter, dial, schedule, current-data, and unknown-motion
-events and five raw notification families. Every other callback remains `not_reproduced`; all 105 remain
-hardware-ineligible.
+events, five raw notification families, and operation-specific acknowledgements. Every
+other callback remains `not_reproduced`; all 105 remain hardware-ineligible.
 
 Three authorization domains remain separate: vendor developer-cloud SDK validation,
 device-cloud authorization, and a local BLE binding exchange. The independent Python
@@ -223,6 +223,20 @@ value while asked to disable. Python must not reproduce those defects. A future 
 implementation needs a successful MTU result where required, serialized descriptor
 writes, exact acknowledgement, a real disable value, payload consent, bounded memory,
 and logs that never contain audio, image, or command bytes.
+
+## Static acknowledgements
+
+`StaticAckOperation` and `parse_vendor_ack()` cover 25 simple acknowledgement families.
+Seventeen have statically paired success and failure opcodes; eight have only a proven
+success branch, so the parser rejects a guessed high-bit failure opcode. The shared
+sensor-mode acknowledgement remains deliberately generic because four different mode
+requests use the same wire opcode and callback.
+
+Notification-content acknowledgement is separate and requires the expected outbound
+marker in addition to the response opcode. ECG-mode acknowledgement is also separate:
+direct smali inspection disproved a decompiler-derived second `9a` branch, so `9a`
+remains only the negative goal acknowledgement and is never accepted as ECG failure.
+All acknowledgement results remain offline, static-only, and hardware-unverified.
 
 ## Required hardware evidence to advance
 

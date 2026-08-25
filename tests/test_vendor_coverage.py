@@ -108,7 +108,7 @@ def test_callback_coverage_distinguishes_unused_and_non_ble_sources():
     assert by_name["onGetDeviceAction"].source == "bluetooth_opcode"
 
 
-def test_twenty_three_callback_families_have_offline_response_codecs():
+def test_fifty_callback_families_have_offline_response_codecs():
     implemented = {
         entry.name
         for entry in static_vendor_callback_coverage()
@@ -139,6 +139,33 @@ def test_twenty_three_callback_families_have_offline_response_codecs():
         "onGetWorshipTimesData",
         "onReadCurrentSportData",
         "onRecvDeviceVoiceCommandConfirm",
+        "onEditDeviceDialCustom",
+        "onSendVibrationSignal",
+        "onSetAlarm",
+        "onSetAntiLost",
+        "onSetBPAdjust",
+        "onSetBloodPressureMode",
+        "onSetDeviceCode",
+        "onSetDeviceDialState",
+        "onSetDeviceHeartRateArea",
+        "onSetDeviceInfo",
+        "onSetDeviceMode",
+        "onSetDeviceName",
+        "onSetDeviceTime",
+        "onSetDeviceWallpaperState",
+        "onSetEcgMode",
+        "onSetFemaleReminder",
+        "onSetGoalStep",
+        "onSetHourFormat",
+        "onSetIdleTime",
+        "onSetLanguage",
+        "onSetNotify",
+        "onSetPhontMode",
+        "onSetReminder",
+        "onSetReminderText",
+        "onSetSleepTime",
+        "onSetUserInfo",
+        "setAutoHeartMode",
     }
     assert all(
         entry.hardware_eligible is False

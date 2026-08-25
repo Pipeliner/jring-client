@@ -3,6 +3,7 @@ import pytest
 from jring.uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 from jring.vendor_protocol import (
     StaticQuery,
+    StaticAckOperation,
     StaticVendorRequest,
     encode_day_query,
     encode_static_query,
@@ -17,6 +18,9 @@ from jring.vendor_protocol import (
     parse_vendor_motion_frame,
     parse_vendor_multi_sport_day,
     parse_vendor_oxygen_day,
+    parse_vendor_ack,
+    parse_vendor_ecg_mode_ack,
+    parse_vendor_notify_ack,
     parse_vendor_phone_volume_request,
     parse_vendor_read_current_sport,
     parse_vendor_screen_light_time,
@@ -475,3 +479,99 @@ def test_motion_frame_rejects_subcommand_mismatch():
             bytes((0x78, 0x22)) + bytes(18),
             expected_subcommand=0x23,
         )
+
+
+@pytest.mark.parametrize(
+    "operation,success_opcode,failure_opcode",
+    [
+        (StaticAckOperation.DEVICE_TIME, 0x01, 0x81),
+        (StaticAckOperation.USER_INFO, 0x02, 0x82),
+        (StaticAckOperation.VIBRATION, 0x04, 0x84),
+        (StaticAckOperation.ANTI_LOST, 0x05, 0x85),
+        (StaticAckOperation.PHONE_MODE, 0x07, 0x87),
+        (StaticAckOperation.IDLE_TIME, 0x08, 0x88),
+        (StaticAckOperation.SLEEP_TIME, 0x09, 0x89),
+        (StaticAckOperation.ALARM, 0x0D, 0x8D),
+        (StaticAckOperation.DEVICE_MODE, 0x0E, 0x8E),
+        (StaticAckOperation.AUTO_HEART, 0x19, 0x99),
+        (StaticAckOperation.GOAL, 0x1A, 0x9A),
+        (StaticAckOperation.DEVICE_INFO_SET, 0x1B, 0x9B),
+        (StaticAckOperation.HOUR_FORMAT, 0x1D, 0x9D),
+        (StaticAckOperation.DEVICE_CODE_SET, 0x1E, 0x9E),
+        (StaticAckOperation.LANGUAGE, 0x21, 0xA1),
+        (StaticAckOperation.GENERIC_SENSOR_MODE, 0x23, 0xA3),
+        (StaticAckOperation.HEART_RATE_AREA, 0x26, 0xA6),
+    ],
+)
+def test_vendor_ack_decodes_operation_specific_success_and_failure(
+    operation, success_opcode, failure_opcode
+):
+    success = parse_vendor_ack(bytes((success_opcode,)) + bytes(19), operation)
+    failure = parse_vendor_ack(bytes((failure_opcode,)) + bytes(19), operation)
+
+    assert success.operation is operation
+    assert success.success is True
+    assert failure.operation is operation
+    assert failure.success is False
+    assert success.hardware_verified is False
+
+
+@pytest.mark.parametrize(
+    "operation,success_opcode",
+    [
+        (StaticAckOperation.DEVICE_NAME, 0x30),
+        (StaticAckOperation.REMINDER, 0x31),
+        (StaticAckOperation.REMINDER_TEXT, 0x32),
+        (StaticAckOperation.BP_ADJUST, 0x33),
+        (StaticAckOperation.DEVICE_DIAL_STATE, 0x35),
+        (StaticAckOperation.WALLPAPER_STATE, 0x36),
+        (StaticAckOperation.EDIT_DIAL_CUSTOM, 0x41),
+        (StaticAckOperation.FEMALE_REMINDER, 0x44),
+    ],
+)
+def test_vendor_success_only_ack_rejects_guessed_failure_branch(operation, success_opcode):
+    assert parse_vendor_ack(
+        bytes((success_opcode,)) + bytes(19), operation
+    ).success is True
+    with pytest.raises(ProtocolError):
+        parse_vendor_ack(bytes((success_opcode | 0x80,)) + bytes(19), operation)
+
+
+def test_vendor_ack_requires_the_expected_operation_not_just_any_known_opcode():
+    with pytest.raises(ProtocolError):
+        parse_vendor_ack(
+            bytes((0x01,)) + bytes(19),
+            StaticAckOperation.USER_INFO,
+        )
+
+
+def test_notify_ack_requires_the_outbound_marker_for_success():
+    success = parse_vendor_notify_ack(
+        bytes((0x12, 0, 7)) + bytes(17), expected_marker=7
+    )
+    failure = parse_vendor_notify_ack(
+        bytes((0x92,)) + bytes(19), expected_marker=7
+    )
+
+    assert success.success is True
+    assert failure.success is False
+    with pytest.raises(ProtocolError):
+        parse_vendor_notify_ack(
+            bytes((0x12, 0, 8)) + bytes(17), expected_marker=7
+        )
+
+
+@pytest.mark.parametrize("marker", [-1, 256, True, 1.5])
+def test_notify_ack_rejects_invalid_expected_marker(marker):
+    with pytest.raises((TypeError, ValueError)):
+        parse_vendor_notify_ack(bytes((0x12,)) + bytes(19), expected_marker=marker)
+
+
+def test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode():
+    result = parse_vendor_ecg_mode_ack(bytes((0x2A, 3)) + bytes(18))
+
+    assert result.success is True
+    assert result.response_mode == 3
+    assert result.hardware_verified is False
+    with pytest.raises(ProtocolError):
+        parse_vendor_ecg_mode_ack(bytes((0x9A,)) + bytes(19))

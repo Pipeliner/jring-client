@@ -25,6 +25,34 @@ class StaticQuery(str, Enum):
     ADVANCED_SENSOR_DAY = "advanced_sensor_day"
 
 
+class StaticAckOperation(str, Enum):
+    DEVICE_TIME = "device_time"
+    USER_INFO = "user_info"
+    VIBRATION = "vibration"
+    ANTI_LOST = "anti_lost"
+    PHONE_MODE = "phone_mode"
+    IDLE_TIME = "idle_time"
+    SLEEP_TIME = "sleep_time"
+    ALARM = "alarm"
+    DEVICE_MODE = "device_mode"
+    AUTO_HEART = "auto_heart"
+    GOAL = "goal"
+    DEVICE_INFO_SET = "device_info_set"
+    HOUR_FORMAT = "hour_format"
+    DEVICE_CODE_SET = "device_code_set"
+    LANGUAGE = "language"
+    GENERIC_SENSOR_MODE = "generic_sensor_mode"
+    HEART_RATE_AREA = "heart_rate_area"
+    DEVICE_NAME = "device_name"
+    REMINDER = "reminder"
+    REMINDER_TEXT = "reminder_text"
+    BP_ADJUST = "bp_adjust"
+    DEVICE_DIAL_STATE = "device_dial_state"
+    WALLPAPER_STATE = "wallpaper_state"
+    EDIT_DIAL_CUSTOM = "edit_dial_custom"
+    FEMALE_REMINDER = "female_reminder"
+
+
 _ZERO_ARGUMENT_OPCODES = {
     StaticQuery.CURRENT_SPORT: 0x03,
     StaticQuery.BATTERY: 0x0B,
@@ -35,6 +63,34 @@ _DAY_OPCODES = {
     StaticQuery.MULTI_SPORT_DAY: 0x25,
     StaticQuery.OXYGEN_DAY: 0x40,
     StaticQuery.ADVANCED_SENSOR_DAY: 0x55,
+}
+
+_ACK_OPCODES = {
+    StaticAckOperation.DEVICE_TIME: (0x01, 0x81),
+    StaticAckOperation.USER_INFO: (0x02, 0x82),
+    StaticAckOperation.VIBRATION: (0x04, 0x84),
+    StaticAckOperation.ANTI_LOST: (0x05, 0x85),
+    StaticAckOperation.PHONE_MODE: (0x07, 0x87),
+    StaticAckOperation.IDLE_TIME: (0x08, 0x88),
+    StaticAckOperation.SLEEP_TIME: (0x09, 0x89),
+    StaticAckOperation.ALARM: (0x0D, 0x8D),
+    StaticAckOperation.DEVICE_MODE: (0x0E, 0x8E),
+    StaticAckOperation.AUTO_HEART: (0x19, 0x99),
+    StaticAckOperation.GOAL: (0x1A, 0x9A),
+    StaticAckOperation.DEVICE_INFO_SET: (0x1B, 0x9B),
+    StaticAckOperation.HOUR_FORMAT: (0x1D, 0x9D),
+    StaticAckOperation.DEVICE_CODE_SET: (0x1E, 0x9E),
+    StaticAckOperation.LANGUAGE: (0x21, 0xA1),
+    StaticAckOperation.GENERIC_SENSOR_MODE: (0x23, 0xA3),
+    StaticAckOperation.HEART_RATE_AREA: (0x26, 0xA6),
+    StaticAckOperation.DEVICE_NAME: (0x30, None),
+    StaticAckOperation.REMINDER: (0x31, None),
+    StaticAckOperation.REMINDER_TEXT: (0x32, None),
+    StaticAckOperation.BP_ADJUST: (0x33, None),
+    StaticAckOperation.DEVICE_DIAL_STATE: (0x35, None),
+    StaticAckOperation.WALLPAPER_STATE: (0x36, None),
+    StaticAckOperation.EDIT_DIAL_CUSTOM: (0x41, None),
+    StaticAckOperation.FEMALE_REMINDER: (0x44, None),
 }
 
 
@@ -294,6 +350,26 @@ class VendorMotionFrame:
     hardware_verified: bool = False
 
 
+@dataclass(frozen=True)
+class VendorAcknowledgement:
+    operation: StaticAckOperation
+    success: bool
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorNotifyAcknowledgement:
+    success: bool
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorEcgModeAcknowledgement:
+    success: bool
+    response_mode: int
+    hardware_verified: bool = False
+
+
 def _request(operation: StaticQuery, *fields: int) -> StaticVendorRequest:
     encoded = bytes((operation_opcode(operation), *fields)) + bytes(19 - len(fields))
     return StaticVendorRequest(operation=operation, _encoded=encoded)
@@ -550,4 +626,43 @@ def parse_vendor_motion_frame(
     return VendorMotionFrame(
         subcommand=expected_subcommand,
         channels=channels,
+    )
+
+
+def parse_vendor_ack(
+    data: bytes, operation: StaticAckOperation
+) -> VendorAcknowledgement:
+    if not isinstance(operation, StaticAckOperation):
+        raise TypeError("acknowledgement operation must be a StaticAckOperation")
+    success_opcode, failure_opcode = _ACK_OPCODES[operation]
+    allowed = (
+        (success_opcode,)
+        if failure_opcode is None
+        else (success_opcode, failure_opcode)
+    )
+    response = _response(data, *allowed)
+    return VendorAcknowledgement(
+        operation=operation,
+        success=response[0] == success_opcode,
+    )
+
+
+def parse_vendor_notify_ack(
+    data: bytes, *, expected_marker: int
+) -> VendorNotifyAcknowledgement:
+    if type(expected_marker) is not int:
+        raise TypeError("expected notification marker must be an integer")
+    if not 0 <= expected_marker <= 0xFF:
+        raise ValueError("expected notification marker must fit one unsigned byte")
+    response = _response(data, 0x12, 0x92)
+    if response[0] == 0x12 and response[2] != expected_marker:
+        raise ProtocolError("vendor notification acknowledgement marker mismatch")
+    return VendorNotifyAcknowledgement(success=response[0] == 0x12)
+
+
+def parse_vendor_ecg_mode_ack(data: bytes) -> VendorEcgModeAcknowledgement:
+    response = _response(data, 0x2A)
+    return VendorEcgModeAcknowledgement(
+        success=True,
+        response_mode=response[1],
     )
