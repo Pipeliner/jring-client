@@ -74,6 +74,24 @@ class OtaBlocker:
     observation: str
 
 
+@dataclass(frozen=True)
+class SuotaStepEvidence:
+    index: int
+    trigger: str
+    action: str
+    static_role_only: bool = True
+    runnable: bool = False
+
+
+@dataclass(frozen=True)
+class SuotaStatusEvidence:
+    value: int | None
+    meaning: str
+    correlated_to_end_write: bool = False
+    proves_reboot: bool = False
+    runnable: bool = False
+
+
 @dataclass(frozen=True, init=False, repr=False)
 class SuotaGattCharacteristicRole:
     """Sanitized static role metadata, never a characteristic handle or action."""
@@ -127,6 +145,8 @@ class OfflineFirmwareAndTransferEvidence:
     dangerous_side_effects: tuple[str, ...]
     secondary_gatt_service_uuid: str | None
     secondary_gatt_characteristics: tuple[SuotaGattCharacteristicRole, ...]
+    suota_steps: tuple[SuotaStepEvidence, ...]
+    suota_statuses: tuple[SuotaStatusEvidence, ...]
     relationship_code: str | None
 
     def __init__(self) -> None:
@@ -146,6 +166,8 @@ class OfflineFirmwareAndTransferEvidence:
         secondary_gatt_characteristics: tuple[
             SuotaGattCharacteristicRole, ...
         ] = (),
+        suota_steps: tuple[SuotaStepEvidence, ...] = (),
+        suota_statuses: tuple[SuotaStatusEvidence, ...] = (),
         relationship_code: str | None = None,
     ) -> "OfflineFirmwareAndTransferEvidence":
         evidence = object.__new__(cls)
@@ -163,6 +185,8 @@ class OfflineFirmwareAndTransferEvidence:
             "secondary_gatt_characteristics",
             secondary_gatt_characteristics,
         )
+        object.__setattr__(evidence, "suota_steps", suota_steps)
+        object.__setattr__(evidence, "suota_statuses", suota_statuses)
         object.__setattr__(evidence, "relationship_code", relationship_code)
         return evidence
 
@@ -197,6 +221,9 @@ class OfflineFirmwareAndTransferEvidence:
             "owner_hardware_status_ordering",
             "safe_characteristic_timing",
             "complete_failure_callback_behavior",
+            "gpio_parameter_meaning_and_safe_values",
+            "stale_or_duplicate_status_0x02_freshness",
+            "peripheral_end_write_acceptance_and_reboot",
         )
 
     def __repr__(self) -> str:
@@ -246,6 +273,47 @@ _SUOTA_CHARACTERISTIC_ROLES = (
     ),
     _suota_role("mtu", SUOTA_MTU, "optional", "metadata_read"),
     _suota_role("l2cap_psm", SUOTA_L2CAP_PSM, "optional", "metadata_read"),
+)
+
+_SUOTA_STEPS = (
+    SuotaStepEvidence(
+        0,
+        "controller_start_or_delayed_reentry",
+        "queue Device Information and optional metadata read queue; after it empties, "
+        "request MTU only when the current value is default or below patch size plus three",
+    ),
+    SuotaStepEvidence(
+        1,
+        "transfer_reset",
+        "reset flags, locally disable status notification, and re-enable after three seconds",
+    ),
+    SuotaStepEvidence(
+        2,
+        "status_notification_ready",
+        "attempt the memory-device control write",
+    ),
+    SuotaStepEvidence(
+        3,
+        "memory-device write callback and status 0x10 in either order",
+        "after both prerequisites, attempt the GPIO-map write",
+    ),
+    SuotaStepEvidence(
+        4,
+        "GPIO-map write callback",
+        "send patch length",
+    ),
+    SuotaStepEvidence(
+        5,
+        "patch-length write callback or status 0x02",
+        "stream or advance chunks, adjust final patch length, send end, or complete "
+        "when end-sent is already set",
+    ),
+)
+
+_SUOTA_STATUSES = (
+    SuotaStatusEvidence(0x10, "step_3_prerequisite"),
+    SuotaStatusEvidence(0x02, "step_5_progress_or_local_completion"),
+    SuotaStatusEvidence(None, "active_suota_error"),
 )
 
 
@@ -429,6 +497,8 @@ _START_FILE = OfflineFirmwareAndTransferEvidence._create(
     main_channel_frame=_START_FILE_FRAME,
     secondary_gatt_service_uuid=VENDOR_SERVICE_FEF5,
     secondary_gatt_characteristics=_SUOTA_CHARACTERISTIC_ROLES,
+    suota_steps=_SUOTA_STEPS,
+    suota_statuses=_SUOTA_STATUSES,
     phases=(
         _phase(
             "resolve_current_device",

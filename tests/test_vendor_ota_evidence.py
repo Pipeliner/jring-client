@@ -127,6 +127,34 @@ def test_start_file_ota_has_closed_required_and_optional_suota_role_inventory():
     assert not hasattr(roles["status"], "subscribe")
 
 
+def test_start_file_ota_exposes_the_six_recovered_suota_states_without_execution():
+    evidence = evidence_for(FirmwareAndTransferEvidenceOperation.START_FILE_OTA)
+
+    assert tuple(step.index for step in evidence.suota_steps) == (0, 1, 2, 3, 4, 5)
+    assert evidence.suota_steps[0].trigger == "controller_start_or_delayed_reentry"
+    assert "metadata read queue" in evidence.suota_steps[0].action
+    assert "three seconds" in evidence.suota_steps[1].action
+    assert "memory-device" in evidence.suota_steps[2].action
+    assert "status 0x10" in evidence.suota_steps[3].trigger
+    assert "GPIO-map" in evidence.suota_steps[3].action
+    assert "patch length" in evidence.suota_steps[4].action
+    assert "end-sent" in evidence.suota_steps[5].action
+    assert all(step.static_role_only for step in evidence.suota_steps)
+    assert all(not step.runnable for step in evidence.suota_steps)
+
+
+def test_start_file_ota_keeps_status_progression_and_completion_uncorrelated():
+    evidence = evidence_for(FirmwareAndTransferEvidenceOperation.START_FILE_OTA)
+    statuses = {item.value: item for item in evidence.suota_statuses}
+
+    assert statuses[0x10].meaning == "step_3_prerequisite"
+    assert statuses[0x02].meaning == "step_5_progress_or_local_completion"
+    assert statuses[None].meaning == "active_suota_error"
+    assert statuses[0x02].correlated_to_end_write is False
+    assert statuses[0x02].proves_reboot is False
+    assert all(item.runnable is False for item in statuses.values())
+
+
 def test_optional_suota_metadata_roles_match_the_instruction_reviewed_apk():
     assert SUOTA_MTU == "b7de1eea-823d-43bb-a3af-c4903dfce23c"
     assert SUOTA_L2CAP_PSM == "61c8849c-f639-4765-946e-5c3419bebb2a"

@@ -835,6 +835,10 @@ patch-data, and status are its six required transfer/status roles; version,
 patch-data-size, MTU, and L2CAP PSM are four optional metadata roles. They are included
 in vendor capability discovery as metadata only. The inventory never reads,
 subscribes, writes, establishes model eligibility, or authorizes a transfer.
+The same closed evidence object exposes states 0–5 and the `0x10`, `0x02`, and
+other-status classifications. State 3 waits for memory-device write callback plus
+`0x10`; state 5 uses patch callbacks/`0x02` to stream or locally complete. `0x02` is
+explicitly uncorrelated to the end write and proves neither acceptance nor reboot.
 
 Warning-focused comparison preserves the historical structured/fallback GPIO-selector
 divergence while a private, fingerprinted instruction review now confirms only its local
