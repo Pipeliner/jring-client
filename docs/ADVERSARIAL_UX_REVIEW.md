@@ -25,6 +25,7 @@ Date: 2026-08-24
 | Missing optional battery data hid all capabilities | Status returns partial optional fields and still inventories services |
 | HID service presence was called usable | Output says `service advertised` and keeps usability unknown |
 | Interface count was inflated by helper and call-site methods | Whole-artifact output reconciles exact AIDL rows and labels 903 classified methods as supplemental |
+| Embedded-SDK classic socket references were omitted | The artifact inventory includes two RFCOMM API methods in one OTA helper without promoting them to BLE capabilities |
 | Process-local filters implied Android broadcast delivery | Receiver mismatches are blockers and no unseen bridge is invented |
 | Native substring matches implied Bluetooth behavior | Boundary-aware rescanning records zero recognized identifiers while native absence remains unproven |
 | No direct dial constructor was called runtime dormancy | Reflection, Binder, resources, and opaque native behavior keep activation inconclusive |

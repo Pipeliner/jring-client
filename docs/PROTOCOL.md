@@ -475,6 +475,9 @@ registration, phone FTP, filesystem/conversion, and four true no-op stubs; plus 
 composite OTA-info and SUOTA workflows. The local inventory documents persisted raw
 identifiers, active scanning, unsafe SDK logging, dynamic UUID state, and arbitrary
 characteristic-write authority while granting none of it to Python.
+The owned Android-Bluetooth reference inventory also includes two direct RFCOMM socket
+API methods in one embedded-SDK OTA helper (creation and close). They are classic
+transport plumbing, not BLE request rows, and do not establish activation or support.
 
 OTA evidence separates the ordinary `33f3` mode/query frames from cache, plaintext
 metadata fetch, local firmware files, and the hardware-specific `fef5` SUOTA state

@@ -101,7 +101,10 @@ def test_android_bluetooth_references_stay_platform_plumbing_categories():
     ].method_count == 9
     assert records[
         (OwnedCodeScope.EMBEDDED_SDK, AndroidBluetoothApiFamily.CLASSIC_PROFILE_SOCKET)
-    ].method_count == 0
+    ].method_count == 2
+    assert records[
+        (OwnedCodeScope.EMBEDDED_SDK, AndroidBluetoothApiFamily.CLASSIC_PROFILE_SOCKET)
+    ].class_count == 1
 
 
 def test_manifest_surface_separates_declared_features_from_dynamic_receivers():

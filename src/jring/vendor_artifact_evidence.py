@@ -390,8 +390,8 @@ _ANDROID_SURFACES = (
     _android_surface(
         OwnedCodeScope.EMBEDDED_SDK,
         AndroidBluetoothApiFamily.CLASSIC_PROFILE_SOCKET,
-        0,
-        0,
+        2,
+        1,
     ),
 )
 
