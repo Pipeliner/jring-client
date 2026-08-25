@@ -8,6 +8,10 @@ import jring.vendor_artifact_evidence as artifact_module
 from jring.vendor_artifact_evidence import (
     ActivationReviewState,
     AndroidBluetoothApiFamily,
+    AndroidBluetoothInstructionCategory,
+    AndroidBluetoothInstructionFamily,
+    DirectInstructionCountingBasis,
+    DirectInstructionReferenceState,
     ClassifiedMethodSurfaceKind,
     NativeBindingReviewState,
     NativeRootedBehaviorCategory,
@@ -130,6 +134,173 @@ def test_android_bluetooth_references_stay_platform_plumbing_categories():
     assert records[
         (OwnedCodeScope.EMBEDDED_SDK, AndroidBluetoothApiFamily.CLASSIC_PROFILE_SOCKET)
     ].class_count == 1
+    assert all(item.counting_basis == "broad_source_reference_scan" for item in records.values())
+    assert all(item.exhaustive_instruction_inventory is False for item in records.values())
+    assert all(item.semantic_specificity == "underspecified" for item in records.values())
+
+
+def test_owned_scope_direct_instruction_aggregates_are_closed_and_reconciled():
+    evidence = recovered_artifact_surface_evidence()
+    records = {item.scope: item for item in evidence.android_instruction_aggregates}
+
+    application = records[OwnedCodeScope.APPLICATION]
+    assert application.owned_class_file_denominator == 1_094
+    assert application.reference_method_count == 128
+    assert application.reference_class_count == 42
+    assert application.overlapping_reference_method_count == 16
+    assert application.overlapping_reference_class_count == 8
+    assert application.unclassified_reference_method_count == 0
+    assert application.unclassified_reference_class_count == 0
+
+    sdk = records[OwnedCodeScope.EMBEDDED_SDK]
+    assert sdk.owned_class_file_denominator == 138
+    assert sdk.reference_method_count == 108
+    assert sdk.reference_class_count == 21
+    assert sdk.overlapping_reference_method_count == 10
+    assert sdk.overlapping_reference_class_count == 5
+    assert sdk.unclassified_reference_method_count == 0
+    assert sdk.unclassified_reference_class_count == 0
+
+    for item in records.values():
+        assert item.counting_basis is DirectInstructionCountingBasis.DIRECT_EXECUTABLE_REFERENCE
+        assert item.family_buckets_overlap is True
+        assert item.direct_reference_inventory_complete_within_owned_scope is True
+        assert item.semantic_behavior_established is False
+        assert item.dependency_or_transitive_review_complete is False
+        assert item.runtime_verified is False
+        assert item.hardware_eligible is False
+        assert item.hardware_verified is False
+        assert item.owner_authorized is False
+
+
+def test_direct_instruction_family_counts_are_overlapping_not_old_reference_counts():
+    records = {
+        (item.scope, item.family): item
+        for item in recovered_artifact_surface_evidence().android_instruction_family_surfaces
+    }
+    expected = {
+        (OwnedCodeScope.APPLICATION, AndroidBluetoothInstructionFamily.GATT): (43, 12),
+        (OwnedCodeScope.APPLICATION, AndroidBluetoothInstructionFamily.LE_SCAN): (9, 3),
+        (
+            OwnedCodeScope.APPLICATION,
+            AndroidBluetoothInstructionFamily.ADAPTER_DEVICE_MANAGER,
+        ): (79, 36),
+        (
+            OwnedCodeScope.APPLICATION,
+            AndroidBluetoothInstructionFamily.CLASSIC_PROFILE_SOCKET,
+        ): (13, 4),
+        (OwnedCodeScope.EMBEDDED_SDK, AndroidBluetoothInstructionFamily.GATT): (70, 14),
+        (OwnedCodeScope.EMBEDDED_SDK, AndroidBluetoothInstructionFamily.LE_SCAN): (8, 2),
+        (
+            OwnedCodeScope.EMBEDDED_SDK,
+            AndroidBluetoothInstructionFamily.ADAPTER_DEVICE_MANAGER,
+        ): (39, 14),
+        (
+            OwnedCodeScope.EMBEDDED_SDK,
+            AndroidBluetoothInstructionFamily.CLASSIC_PROFILE_SOCKET,
+        ): (2, 1),
+    }
+
+    assert {(key): (row.method_count, row.class_count) for key, row in records.items()} == expected
+    assert all(
+        row.counting_basis
+        is DirectInstructionCountingBasis.DIRECT_EXECUTABLE_REFERENCE
+        for row in records.values()
+    )
+    assert all(row.overlap_allowed is True for row in records.values())
+    assert all(row.semantic_behavior_established is False for row in records.values())
+    assert all(row.dependency_or_transitive_review_complete is False for row in records.values())
+    assert all(row.runtime_verified is False for row in records.values())
+    assert all(row.hardware_eligible is False for row in records.values())
+    assert all(row.hardware_verified is False for row in records.values())
+    assert all(row.owner_authorized is False for row in records.values())
+
+
+def test_direct_instruction_category_rows_preserve_fine_counts_and_absence_boundary():
+    rows = recovered_artifact_surface_evidence().android_instruction_category_surfaces
+    records = {(item.scope, item.category): item for item in rows}
+    app = OwnedCodeScope.APPLICATION
+    sdk = OwnedCodeScope.EMBEDDED_SDK
+    expected = {
+        (app, AndroidBluetoothInstructionCategory.MTU): (1, 1),
+        (sdk, AndroidBluetoothInstructionCategory.MTU): (2, 2),
+        (app, AndroidBluetoothInstructionCategory.CONNECTION_PRIORITY): (0, 0),
+        (sdk, AndroidBluetoothInstructionCategory.CONNECTION_PRIORITY): (1, 1),
+        (app, AndroidBluetoothInstructionCategory.REMOTE_RSSI): (0, 0),
+        (sdk, AndroidBluetoothInstructionCategory.REMOTE_RSSI): (2, 2),
+        (app, AndroidBluetoothInstructionCategory.SERVICE_DISCOVERY): (3, 2),
+        (sdk, AndroidBluetoothInstructionCategory.SERVICE_DISCOVERY): (3, 3),
+        (app, AndroidBluetoothInstructionCategory.RFCOMM_SOCKET): (2, 1),
+        (sdk, AndroidBluetoothInstructionCategory.RFCOMM_SOCKET): (2, 1),
+        (app, AndroidBluetoothInstructionCategory.CLASSIC_PROFILES): (11, 3),
+        (sdk, AndroidBluetoothInstructionCategory.CLASSIC_PROFILES): (0, 0),
+        (app, AndroidBluetoothInstructionCategory.BONDING): (6, 6),
+        (sdk, AndroidBluetoothInstructionCategory.BONDING): (0, 0),
+        (app, AndroidBluetoothInstructionCategory.CLASSIC_DISCOVERY): (1, 1),
+        (sdk, AndroidBluetoothInstructionCategory.CLASSIC_DISCOVERY): (0, 0),
+        (app, AndroidBluetoothInstructionCategory.LEGACY_LE_SCAN): (9, 3),
+        (sdk, AndroidBluetoothInstructionCategory.LEGACY_LE_SCAN): (1, 1),
+        (app, AndroidBluetoothInstructionCategory.MODERN_LE_SCAN): (0, 0),
+        (sdk, AndroidBluetoothInstructionCategory.MODERN_LE_SCAN): (7, 2),
+        (app, AndroidBluetoothInstructionCategory.DESCRIPTOR_WRITE_SETUP): (6, 3),
+        (sdk, AndroidBluetoothInstructionCategory.DESCRIPTOR_WRITE_SETUP): (6, 4),
+        (app, AndroidBluetoothInstructionCategory.NOTIFICATION_SETUP): (2, 1),
+        (sdk, AndroidBluetoothInstructionCategory.NOTIFICATION_SETUP): (3, 2),
+        (app, AndroidBluetoothInstructionCategory.CHARACTERISTIC_READ): (1, 1),
+        (sdk, AndroidBluetoothInstructionCategory.CHARACTERISTIC_READ): (1, 1),
+        (app, AndroidBluetoothInstructionCategory.CHARACTERISTIC_WRITE): (6, 1),
+        (sdk, AndroidBluetoothInstructionCategory.CHARACTERISTIC_WRITE): (9, 2),
+        (app, AndroidBluetoothInstructionCategory.GATT_CONNECT_LIFECYCLE): (5, 5),
+        (sdk, AndroidBluetoothInstructionCategory.GATT_CONNECT_LIFECYCLE): (11, 7),
+        (app, AndroidBluetoothInstructionCategory.ADAPTER_POWER): (2, 2),
+        (sdk, AndroidBluetoothInstructionCategory.ADAPTER_POWER): (2, 2),
+    }
+    for key, counts in expected.items():
+        row = records[key]
+        assert (row.method_count, row.class_count) == counts
+        expected_state = (
+            DirectInstructionReferenceState.OBSERVED
+            if counts != (0, 0)
+            else DirectInstructionReferenceState.ABSENT_IN_OWNED_SCOPE
+        )
+        assert row.reference_state is expected_state
+
+    absent_both = {
+        AndroidBluetoothInstructionCategory.DESCRIPTOR_READ,
+        AndroidBluetoothInstructionCategory.PHY,
+        AndroidBluetoothInstructionCategory.LE_ADVERTISING,
+        AndroidBluetoothInstructionCategory.L2CAP_CHANNEL,
+        AndroidBluetoothInstructionCategory.GATT_SERVER,
+        AndroidBluetoothInstructionCategory.HID_DEVICE,
+    }
+    for scope in OwnedCodeScope:
+        for category in absent_both:
+            row = records[(scope, category)]
+            assert (row.method_count, row.class_count) == (0, 0)
+            assert row.reference_state is DirectInstructionReferenceState.ABSENT_IN_OWNED_SCOPE
+            assert row.unsupported_established is False
+            assert "direct_instruction_reference_absent_not_unsupported" in row.limitations
+
+    sdk_legacy = records[(sdk, AndroidBluetoothInstructionCategory.LEGACY_LE_SCAN)]
+    assert "no_start_or_stop_instruction_reference_observed" in sdk_legacy.limitations
+    for scope in OwnedCodeScope:
+        rfcomm = records[(scope, AndroidBluetoothInstructionCategory.RFCOMM_SOCKET)]
+        assert "construct_and_close_references_only" in rfcomm.limitations
+        assert "no_connect_read_or_write_instruction_reference_observed" in rfcomm.limitations
+
+    assert len(rows) == len(OwnedCodeScope) * len(AndroidBluetoothInstructionCategory)
+    assert all(
+        row.counting_basis
+        is DirectInstructionCountingBasis.DIRECT_EXECUTABLE_REFERENCE
+        for row in rows
+    )
+    assert all(row.overlap_allowed is True for row in rows)
+    assert all(row.semantic_behavior_established is False for row in rows)
+    assert all(row.dependency_or_transitive_review_complete is False for row in rows)
+    assert all(row.runtime_verified is False for row in rows)
+    assert all(row.hardware_eligible is False for row in rows)
+    assert all(row.hardware_verified is False for row in rows)
+    assert all(row.owner_authorized is False for row in rows)
 
 
 def test_manifest_surface_separates_declared_features_from_dynamic_receivers():
@@ -293,6 +464,9 @@ def test_artifact_evidence_is_closed_sanitized_and_without_runtime_authority():
         type(evidence), type(evidence.packaged_dex_scope),
         type(evidence.interface_parity), type(evidence.interface_links),
         type(evidence.method_surfaces[0]), type(evidence.android_api_surfaces[0]),
+        type(evidence.android_instruction_aggregates[0]),
+        type(evidence.android_instruction_family_surfaces[0]),
+        type(evidence.android_instruction_category_surfaces[0]),
         type(evidence.manifest_surface), type(evidence.dynamic_receiver_surface),
         type(evidence.resource_surface), type(evidence.native_surface),
         type(evidence.dynamic_activation_surface),
@@ -310,6 +484,9 @@ def test_artifact_evidence_is_closed_sanitized_and_without_runtime_authority():
         type(evidence), type(evidence.packaged_dex_scope),
         type(evidence.interface_parity), type(evidence.interface_links),
         type(evidence.method_surfaces[0]), type(evidence.android_api_surfaces[0]),
+        type(evidence.android_instruction_aggregates[0]),
+        type(evidence.android_instruction_family_surfaces[0]),
+        type(evidence.android_instruction_category_surfaces[0]),
         type(evidence.manifest_surface), type(evidence.dynamic_receiver_surface),
         type(evidence.resource_surface), type(evidence.native_surface),
         type(evidence.dynamic_activation_surface),

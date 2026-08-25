@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from inspect import isawaitable
+from threading import Lock
 
 from .transport import (
     GattCharacteristicMetadata,
@@ -180,6 +181,8 @@ class ScriptedVendorFakeTransport:
         self.closed = False
         self._connecting = False
         self._closing = False
+        self._simulation_lease_guard = Lock()
+        self._simulation_lease_owner: object | None = None
         self.connection_generation = 0
         self.connect_count = 0
         self.close_count = 0
@@ -208,6 +211,28 @@ class ScriptedVendorFakeTransport:
         self._target_uuid_counts: dict[str, int] = {}
         self.disconnect_event = asyncio.Event()
         self.last_disconnect_error: Exception | None = None
+
+    def acquire_simulation_lease(self, owner: object) -> bool:
+        """Claim disconnected fake lifecycle ownership for one coordinator."""
+
+        with self._simulation_lease_guard:
+            if (
+                self._simulation_lease_owner is not None
+                or self.connected
+                or self._connecting
+                or self._closing
+            ):
+                return False
+            self._simulation_lease_owner = owner
+            return True
+
+    def release_simulation_lease(self, owner: object) -> None:
+        """Release only the lease held by *owner*."""
+
+        with self._simulation_lease_guard:
+            if self._simulation_lease_owner is not owner:
+                raise RuntimeError("scripted fake simulation lease owner mismatch")
+            self._simulation_lease_owner = None
 
     @classmethod
     def vendor_route(

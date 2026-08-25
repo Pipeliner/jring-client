@@ -234,6 +234,12 @@ class FakeVendorRuntimeSimulator:
             raise SimulationBusyError("a simulation attempt is already active")
 
         await self._single_flight.acquire()
+        lease_owner = object()
+        if not self._transport.acquire_simulation_lease(lease_owner):
+            self._single_flight.release()
+            raise SimulationBusyError(
+                "scripted fake transport is already connected or in use"
+            )
         self._generation += 1
         generation = self._generation
         self._active_generation = generation
@@ -283,6 +289,7 @@ class FakeVendorRuntimeSimulator:
                 cleanup_succeeded=False,
                 force_tainted=True,
             )
+        self._transport.release_simulation_lease(lease_owner)
         self._single_flight.release()
         self.last_result_for_test = result
         return result

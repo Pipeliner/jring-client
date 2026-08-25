@@ -168,6 +168,9 @@ Desired outcomes:
   implementation and call-site methods never create additional interface rows.
 - Treat Android GATT, scanning, bonding, classic-profile, and OTA helpers as platform or
   internal transport evidence until a public interface relationship is established.
+- Separate the complete owned-scope Android Bluetooth instruction-reference inventory
+  from semantic, dependency/transitive, runtime, and hardware review, which may remain
+  incomplete even when every direct reference is classified.
 - Give every non-opcode callback either closed behavior evidence or an explicit
   declaration-without-dispatch state; never leave platform callbacks silently
   unclassified.
@@ -264,6 +267,9 @@ Desired outcomes:
 - Expose only the kernel input capability selected by the mapping.
 - Exercise the full mapping path with simulated `step` events while hardware motion
   packets remain unverified.
+- Exercise device-action, cumulative-step, and host-volume-request decoding through an
+  exact subscribe-only fake that performs zero writes, redacts values, and grants no
+  live subscription or input authority.
 - Distinguish discrete app-action events from cumulative step counters and raw motion;
   only the former may become direct input candidates without gesture inference.
 - Keep phone-call, location, camera-lifecycle, time-write, raw audio/image, Wi-Fi,

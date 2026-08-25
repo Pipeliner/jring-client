@@ -942,6 +942,29 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{artifact['exclusive_classified_method_count']} methods across "
         f"{artifact['exclusive_classified_class_count']} classes."
     )
+    instruction_scopes = artifact["android_instruction_aggregates"]
+    print(
+        "Owned-scope direct Android Bluetooth API references: "
+        f"{sum(item['reference_method_count'] for item in instruction_scopes)} "
+        "methods across "
+        f"{sum(item['reference_class_count'] for item in instruction_scopes)} "
+        "classes; "
+        f"{sum(item['unclassified_reference_method_count'] for item in instruction_scopes)} "
+        "unclassified."
+    )
+    print(
+        "Overlapping API-reference categories (do not sum): GATT lifecycle/I/O; "
+        "descriptor/notification setup; MTU/priority/RSSI; scanning/discovery; "
+        "bonding/classic/RFCOMM; adapter power."
+    )
+    print(
+        "Absent direct-reference categories: descriptor read, PHY, LE advertising, "
+        "L2CAP, GATT server, HID device; absence is not non-support."
+    )
+    print(
+        "Owned scopes only; semantic, dependency/transitive, runtime, and hardware "
+        "status remain unestablished."
+    )
     print("Artifact-surface evidence is static, sanitized, and non-runnable.")
     print(f"Requests: {summary['request_total']}")
     print(f"Callbacks: {summary['callback_total']}")
@@ -1060,8 +1083,34 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
         "JRing can inspect standard metadata and static candidates offline; "
         "none is enabled as live input."
     )
+    print(
+        "Developer-test scripted fake decoder coverage exists for device actions, "
+        "cumulative steps, and host-volume requests; there is no user command and no "
+        "live ring is contacted."
+    )
+    print(
+        "Global state for every row: runnable no; hardware eligible no; hardware "
+        "verified no; live available no; input eligible no."
+    )
+    print(
+        "Media, volume, and shutter actions cannot yet be previewed or mapped; the "
+        "input simulator generates only a separate synthetic step event."
+    )
+
+    def print_item(item: dict[str, object]) -> None:
+        candidate = "yes" if item["input_candidate"] else "no"
+        scripted_fake = (
+            "yes" if item["scripted_fake_decoder_available"] else "no"
+        )
+        print(f"- {item['label']}: {item['description']}")
+        print(
+            f"  evidence/maturity: {item['evidence']}/{item['maturity']}; "
+            f"future input candidate: {candidate}; "
+            f"scripted fake decoder: {scripted_fake}; "
+            f"privacy: {', '.join(item['privacy_classes'])}"
+        )
+
     headings = (
-        ("device_actions", "Static device actions"),
         ("sensor_candidates", "Sensor-derived candidates"),
         ("standard_metadata", "Standards metadata"),
         ("classic_bluetooth", "Classic Bluetooth evidence"),
@@ -1069,24 +1118,35 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
         ("general_use", "General-use static codecs"),
         ("raw_channel", "Raw non-health framing"),
     )
+    device_actions = [
+        item for item in payload["capabilities"] if item["group"] == "device_actions"
+    ]
+    print("Static device actions")
+    print("Possible future input candidates")
+    for item in device_actions:
+        if item["input_candidate"]:
+            print_item(item)
+    print("Blocked side-effect actions")
+    for item in device_actions:
+        if not item["input_candidate"]:
+            print_item(item)
     for group, heading in headings:
         print(heading)
         for item in payload["capabilities"]:
             if item["group"] != group:
                 continue
-            candidate = "yes" if item["input_candidate"] else "no"
-            print(f"- {item['label']}: {item['description']}")
-            print(
-                f"  evidence: {item['evidence']}; maturity: {item['maturity']}; "
-                "available now: no; input eligible: no; "
-                "hardware verified: no; live available: no; "
-                f"input candidate: {candidate}; runnable: no; "
-                f"hardware eligible: no; privacy: {', '.join(item['privacy_classes'])}"
-            )
-            print(
-                "  meaning: source-classified label; hardware meaning: unverified"
-            )
-    print("This inventory never authorizes Bluetooth writes, subscriptions, or input.")
+            print_item(item)
+    print(
+        "This inventory never authorizes live Bluetooth writes, subscriptions, or input."
+    )
+    print("Next safe actions")
+    print("- jring input-actions — list the local input vocabulary")
+    print(
+        "- jring input --simulate --map step=key:space — preview one separate, "
+        "synthetic step event"
+    )
+    print("- jring doctor — check hardware prerequisites without scanning")
+    print("Live vendor-event collection is not implemented.")
 
 
 def _capability_payload(inventory: object) -> dict[str, object]:

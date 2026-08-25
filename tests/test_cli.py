@@ -291,6 +291,19 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     ) in output
     assert "AIDL interface parity: 112 requests; 105 callbacks; 0 missing rows." in output
     assert "Exclusive owned method classification: 903 methods across 125 classes." in output
+    assert (
+        "Owned-scope direct Android Bluetooth API references: 236 methods across "
+        "63 classes; 0 unclassified."
+    ) in output
+    assert "Overlapping API-reference categories (do not sum):" in output
+    assert "MTU/priority/RSSI" in output
+    assert "descriptor/notification setup" in output
+    assert "Absent direct-reference categories:" in output
+    assert "HID device; absence is not non-support." in output
+    assert (
+        "Owned scopes only; semantic, dependency/transitive, runtime, and hardware "
+        "status remain unestablished."
+    ) in output
     assert "Dynamic receiver gaps: 3 registered actions without cases" in output
     assert "Native declarations unresolved: 7; native Bluetooth absence not established." in output
     assert "Native JNI roots: 3 image/wallpaper entries reviewed" in output
@@ -471,6 +484,19 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert len(warning_audit["scopes"]) == 3
     assert len(warning_audit["comparisons"]) == 8
     artifact = result["supplemental"]["artifact_surface"]
+    instruction_scopes = {
+        item["scope"]: item for item in artifact["android_instruction_aggregates"]
+    }
+    assert instruction_scopes["application"]["reference_method_count"] == 128
+    assert instruction_scopes["embedded_sdk"]["reference_method_count"] == 108
+    assert all(
+        item["direct_reference_inventory_complete_within_owned_scope"] is True
+        for item in instruction_scopes.values()
+    )
+    assert all(
+        item["semantic_behavior_established"] is False
+        for item in instruction_scopes.values()
+    )
     callback_surfaces = result["supplemental"]["callback_behavior_surfaces"]
     dispatcher = result["supplemental"]["dispatcher_evidence"]
     codec_registry = result["supplemental"]["codec_registry"]
@@ -607,23 +633,31 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "Classic profile attachment" in output
     assert "Classic RFCOMM socket lifecycle reference" in output
     assert "Host volume-state request" in output
+    assert "Developer-test scripted fake decoder coverage" in output
+    assert "scripted fake decoder: yes" in output
+    assert output.count("Global state for every row:") == 1
+    assert "Possible future input candidates" in output
+    assert "Blocked side-effect actions" in output
     assert "General-use static codecs" in output
     assert "Main-channel ChatGPT action" in output
     assert "Offline speech-recognition mode" in output
     assert "Wi-Fi SSID inventory" in output
     assert "Device dial metadata" in output
     assert "privacy: network_identifier" in output
-    assert "runnable: no; hardware eligible: no" in output
-    assert "available now: no; input eligible: no; hardware verified: no" in output
+    assert "runnable no; hardware eligible no; hardware verified no" in output
+    assert "live available no; input eligible no" in output
     assert output.index("Static device actions") < output.index("Sensor-derived candidates")
     assert output.index("Sensor-derived candidates") < output.index("Standards metadata")
     assert output.index("Standards metadata") < output.index("Classic Bluetooth evidence")
     assert output.index("Classic Bluetooth evidence") < output.index("Host integration")
     assert output.index("Host integration") < output.index("General-use static codecs")
     assert output.index("General-use static codecs") < output.index("Raw non-health framing")
-    first_candidate = output.index("input candidate: yes")
-    assert output.rfind("available now: no; input eligible: no", 0, first_candidate) != -1
-    assert "meaning: source-classified label; hardware meaning: unverified" in output
+    assert "Next safe actions" in output
+    assert "jring input-actions" in output
+    assert "jring input --simulate --map step=key:space" in output
+    assert "jring doctor" in output
+    assert "Live vendor-event collection is not implemented." in output
+    assert "Media, volume, and shutter actions cannot yet be previewed or mapped" in output
 
 
 def test_guided_selection_labels_name_match_as_client_heuristic(monkeypatch, capsys):
@@ -662,6 +696,7 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
         "meaning", "input_candidate", "privacy_classes", "request_operations",
         "callback_operations", "runnable", "hardware_eligible",
         "hardware_verified", "live_available", "input_eligible",
+        "scripted_fake_decoder_available",
     }
     assert all(set(item) == expected_keys for item in result["capabilities"])
     assert all(item["evidence"] and item["maturity"] for item in result["capabilities"])

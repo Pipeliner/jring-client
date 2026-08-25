@@ -397,6 +397,16 @@ volume-state request, screen-light time, touch mode, and two schedule-state vari
 They require exact 20-byte frames and exact subcommands, make no writes, and do not
 claim that the fields are supported on owner hardware.
 
+The passive MAIN fake collector makes only the safely discriminated device-action,
+cumulative-step, and host-volume-request events executable in an offline transport
+scenario. It subscribes to the exact connection-scoped fake `33f4` target and performs
+zero writes. A transport-wide fake lease rejects pre-connected caller-owned transports
+and concurrent coordinators before I/O, so cleanup closes only a connection acquired by
+that attempt. Bounded quiet/limit closure stays unknown; malformed matching frames,
+overflow, timeout, disconnect, and cleanup failure abort. Opcode `78` remains excluded
+because its subcommands collide across unrelated operations. No decoded event is live,
+hardware-verified, or input-eligible.
+
 The task-first non-health inventory also carries five supplemental rows that were easy
 to miss in an input-only view: Android classic attachment/profile plumbing, the
 embedded OTA helper's two RFCOMM socket methods, classic info and name callbacks, and
@@ -661,6 +671,18 @@ extra, or overloaded rows. An exclusive classification accounts for 903 owned
 Bluetooth-facing methods across 125 classes. Those methods include interface
 declarations, implementations, app call sites, SDK dispatch sites, Android Bluetooth
 helpers, and 188 internal OTA methods. Only the declaration sets define interface rows.
+
+The older four-family Android helper counts are retained as a broad, underspecified
+source-reference scan and are explicitly not an exhaustive instruction inventory. A
+separate executable-instruction inventory covers the complete owned application and
+embedded-SDK scopes: 128 methods/42 classes and 108 methods/21 classes respectively,
+with zero unclassified direct Android Bluetooth references. Overlapping rows expose
+GATT, adapter/device/manager, LE scan, classic profile/socket, and finer MTU, priority,
+RSSI, discovery, descriptor/notification, characteristic I/O, bonding, RFCOMM,
+legacy/modern scan, and adapter-power references. Reference absence for descriptor
+read, PHY, LE advertising, L2CAP, GATT server, and HID-device APIs is not called device
+or runtime non-support. Semantic, transitive/dependency, runtime, and hardware review
+remain incomplete.
 
 Callback declaration use is counted by invoke origin, not flattened into a generic
 “dispatched” label. The evidence records 125 main-response invokes across 85 targets,

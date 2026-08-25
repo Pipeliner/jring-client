@@ -153,6 +153,9 @@ class FakeVendorHistorySimulator:
     ) -> HistorySimulationResult:
         if self._collecting:
             raise RuntimeError("shared day-history collection is already in progress")
+        lease_owner = object()
+        if not self._transport.acquire_simulation_lease(lease_owner):
+            raise RuntimeError("scripted fake transport is already connected or in use")
         self._collecting = True
         try:
             return await self._collect(
@@ -165,6 +168,7 @@ class FakeVendorHistorySimulator:
             )
         finally:
             self._collecting = False
+            self._transport.release_simulation_lease(lease_owner)
 
     async def _collect(
         self,

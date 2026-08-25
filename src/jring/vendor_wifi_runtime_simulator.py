@@ -164,6 +164,9 @@ class FakeVendorWifiScanSimulator:
     ) -> WifiScanSimulationResult:
         if self._collecting:
             raise RuntimeError("Wi-Fi scan collection is already in progress")
+        lease_owner = object()
+        if not self._transport.acquire_simulation_lease(lease_owner):
+            raise RuntimeError("scripted fake transport is already connected or in use")
         self._collecting = True
         try:
             return await self._collect(
@@ -175,6 +178,7 @@ class FakeVendorWifiScanSimulator:
             )
         finally:
             self._collecting = False
+            self._transport.release_simulation_lease(lease_owner)
 
     async def _collect(
         self,

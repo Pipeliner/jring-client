@@ -173,6 +173,14 @@ exports, reflection, and Binder. The public aggregate retains only sanitized cou
 closed categories, mismatches, and limitations. Its method categories are mutually
 exclusive, while the direct Android API family counts are a separately labeled
 non-interface view. Neither count is added to the 112/105 ledgers.
+Those older broad rows now identify their counting basis as an underspecified source
+reference scan and explicitly deny exhaustive instruction coverage. A separate
+owned-scope direct-instruction inventory classifies all 128 application methods in 42
+classes and all 108 embedded-SDK methods in 21 classes, with zero unclassified direct
+Android Bluetooth references. Its family and fine reference-category rows overlap by
+design.
+The narrow inventory-complete flag does not alter semantic, dependency/transitive,
+runtime, authorization, or hardware flags, all of which remain false.
 The public aggregate makes the packaged-unit partition explicit: all three units are
 scope-classified, one contains the owned application/embedded-SDK population, and two
 contain no owned-scope population. This inventory reconciliation is deliberately
@@ -327,6 +335,17 @@ volume-state request. Static evidence contains socket construction and close onl
 actual OTA transfer uses GATT, with no observed RFCOMM connect, read, or write.
 These rows share no activation path with HID and remain non-live, non-input-eligible
 evidence.
+
+`FakeVendorMainEventSimulator` is the zero-write runtime boundary for three passive
+MAIN event kinds: device actions (`06`/`22`), cumulative steps (`51`), and the host
+volume-state request (`49`). It accepts only the exact scripted fake and an
+instance-bound MAIN response target. Every fake coordinator shares one transport-wide
+lifecycle lease and may claim only a disconnected fake; a caller-owned connection or a
+different active coordinator is rejected before I/O. Queue, setup, overall collection,
+and cleanup are bounded; cancellation and reuse stale callbacks. Local quiet and limits
+remain unknown, while malformed matching events, overflow, disconnect, and cleanup
+failure abort. Colliding `78` traffic is unrelated. Values stay redacted and every
+event remains hardware- and input-ineligible.
 
 `JRingClient.capability_inventory` concurrently requests service UUIDs and static GATT
 metadata under one deadline. The transport returns only characteristic properties and

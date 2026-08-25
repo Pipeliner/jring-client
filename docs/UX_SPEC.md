@@ -142,8 +142,12 @@ codecs, and raw non-health framing. A general-use section lists the 15 already-d
 AI/speech, Wi-Fi, device-system, EQ/media/dial, touch, and screen-light surfaces.
 Every item carries evidence, maturity, neutral meaning, privacy classes, recovered
 request/callback operation names, runnable/hardware-eligibility, hardware-verification,
-live, candidate, and input-eligibility states. All runnable, hardware-eligible,
-hardware-verified, live, and input-eligible states are false. Every operation link
+live, candidate, scripted-fake-decoder coverage, and input-eligibility states. All
+runnable, hardware-eligible, hardware-verified, live, and input-eligible states are false. The
+device-action, cumulative-step, and host-volume rows alone say that passive scripted
+fake event decoding is covered. This does not make media, volume, or shutter actions
+previewable or mappable, and the separate input simulator generates only a synthetic
+step event. Every operation link
 must still exist in the recovered codec or callback-behavior ledger.
 Device-action labels are source classifications only; their inventory meaning remains
 `unverified_static_action_code`, and available/input-eligible state is announced before
@@ -340,6 +344,12 @@ inconclusive dial-activation result. It never turns method, resource-keyword, Bi
 native-declaration counts into capabilities. All private digests, DEX ordinals,
 descriptors, prototypes, component/action names, code spans, native filenames, and
 resource identities stay outside human and JSON output. The aggregate may say that all
+owned-scope Android Bluetooth direct-instruction references are classified while the
+older broad source-reference counts are non-exhaustive. It reports 236 referencing
+methods across 63 classes and zero unclassified, immediately followed by the boundary
+that semantics, transitive dependencies, runtime behavior, and hardware status remain
+unestablished. Direct-reference absence is never rendered as unsupported. The aggregate
+may also say that all
 11 owned reflective calls resolve to constant Android helper categories, the reviewed
 Binder/resource/navigation routes have no standalone-dial activation edge, and all
 three packaged JNI roots perform image/wallpaper work without a rooted Bluetooth edge.
@@ -476,6 +486,14 @@ camera-lifecycle, and time-write actions remain visibly blocked and side-effecti
 Unknown action codes are never candidates. The cumulative counter is not interpreted
 as a click: reconnect baselines, resets, batching, debounce, and rate limits require
 owner-hardware evidence first.
+
+Given the exact scripted MAIN fake, passive event collection subscribes without any
+write and accepts only `06`/`22` device actions, `51` cumulative steps, and `49`
+host-volume requests. Quiet and limits remain unknown; every matching malformed frame,
+overflow, deadline, disconnect, or cleanup failure aborts. Values remain redacted,
+`78` collisions remain unrelated, and no event is hardware- or input-eligible. A shared
+fake-transport lease rejects caller-preconnected transports and competing coordinators
+before I/O; cleanup therefore never closes a connection owned outside the attempt.
 
 The offline `ExperimentalStepCounterAdapter` demonstrates that safety contract with
 synthetic counters. It ignores the first value of each connection, reset/wrap values,
@@ -679,7 +697,9 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_payload_projection_zero_fills_short_and_ignores_extra`, `test_raw_generic_callback_and_typed_projection_are_separate`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
+| Zero-write passive MAIN event simulation | `test_collects_only_closed_passive_main_events_without_any_write`, `test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown`, `test_queue_overflow_aborts_and_discards_partial_projection`, `test_preconnected_transport_is_rejected_without_closing_caller_connection`, `test_transport_lease_blocks_a_different_fake_coordinator_without_interference`, `test_cancellation_cleans_up_releases_single_flight_and_stales_callback` |
 | Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_all_thirteen_statically_mapped_device_actions_are_discoverable_once`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors`, `test_guided_capabilities_selects_ephemerally_and_reads_metadata_only`, `test_guided_capabilities_default_no_never_constructs_transport` |
+| Owned-scope Android Bluetooth instruction inventory | `test_owned_scope_direct_instruction_aggregates_are_closed_and_reconciled`, `test_direct_instruction_family_counts_are_overlapping_not_old_reference_counts`, `test_direct_instruction_category_rows_preserve_fine_counts_and_absence_boundary` |
 | Repeated HID Report metadata | `test_repeated_hid_reports_preserve_instance_and_descriptor_metadata`, `test_repeated_hid_aggregate_is_order_independent_and_preserves_malformed_peer`, `test_bleak_gatt_inventory_enumerates_metadata_without_reading_values`, `test_cli_capability_inventory_human_copy_is_honest` |
 | Fail-closed offline vendor transaction | `test_notification_subscription_confirmation_is_required_before_any_write_intent`, `test_late_subscription_confirmation_from_old_connection_cannot_ready_a_reconnect`, `test_unknown_write_outcome_is_uncertain_and_blocks_work_until_disconnect`, `test_notification_cannot_complete_before_characteristic_write_confirmation`, `test_success_requires_the_closed_operation_specific_parser`, `test_unrelated_frames_never_refresh_the_immutable_deadline`, `test_disconnect_closes_once_and_clears_every_pending_layer`, `test_operation_constructor_is_closed_over_typed_static_requests` |
 | Fake-only race coordinator | `test_success_discards_early_frames_and_processes_write_hook_frame_after_ack`, `test_preflight_requires_one_unambiguous_response_write_and_notify_cccd`, `test_write_error_after_invocation_is_uncertain_tainted_and_never_retried`, `test_retained_callback_from_old_generation_is_ignored`, `test_unsubscribe_failure_after_write_makes_cleanup_uncertain_and_taints` |

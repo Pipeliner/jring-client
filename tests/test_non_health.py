@@ -73,6 +73,9 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert by_name["cumulative_step_counter"].input_candidate is False
     assert by_name["unknown_motion_channels"].meaning == "unknown"
     assert by_name["unknown_motion_channels"].label == "Nine unknown motion channels"
+    assert by_name["unknown_motion_channels"].privacy_classes == (
+        "motion_sensor_data",
+    )
     assert by_name["classic_profile_attachment"].group == "classic_bluetooth"
     rfcomm = by_name["classic_rfcomm_socket_lifecycle"]
     assert rfcomm.label == "Classic RFCOMM socket lifecycle reference"
@@ -81,7 +84,36 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert "actual OTA transfer uses GATT" in rfcomm.description
     assert by_name["classic_bt_info_callback"].maturity == "offline_decoder"
     assert by_name["classic_bt_name_callback"].meaning == "private_classic_metadata"
+    assert by_name["classic_bt_name_callback"].privacy_classes == ("device_name",)
     assert by_name["host_volume_state_request"].group == "host_integration"
+    assert by_name["host_volume_state_request"].scripted_fake_decoder_available is True
+    assert by_name["host_volume_state_request"].privacy_classes == (
+        "host_audio_state_request",
+    )
+    assert by_name["host_volume_state_request"].callback_operations == (
+        "onGetPhoneVolume",
+    )
+    assert by_name["cumulative_step_counter"].scripted_fake_decoder_available is True
+    assert by_name["cumulative_step_counter"].privacy_classes == ("activity_count",)
+    assert by_name["cumulative_step_counter"].callback_operations == (
+        "onGetSportSteps",
+    )
+    assert by_name["unknown_motion_channels"].scripted_fake_decoder_available is False
+    assert all(
+        item.scripted_fake_decoder_available
+        for item in items
+        if item.group == "device_actions"
+    )
+    assert all(
+        item.privacy_classes == ("user_intent",)
+        for item in items
+        if item.group == "device_actions"
+    )
+    assert all(
+        item.callback_operations == ("onGetDeviceAction",)
+        for item in items
+        if item.group == "device_actions"
+    )
     assert "discards" in by_name["raw_ai_actions"].description
     assert "discards" in by_name["unknown_motion_channels"].description
     assert all(item.hardware_verified is False for item in items)

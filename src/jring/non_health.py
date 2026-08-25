@@ -23,6 +23,7 @@ class NonHealthCapability:
     hardware_verified: bool
     live_available: bool
     input_eligible: bool
+    scripted_fake_decoder_available: bool
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
         raise TypeError("non-health capability rows are closed")
@@ -44,8 +45,14 @@ def _capability(
     privacy: tuple[str, ...] = ("not_applicable",),
     requests: tuple[str, ...] = (),
     callbacks: tuple[str, ...] = (),
+    scripted_fake_decoder_available: bool = False,
 ) -> NonHealthCapability:
     row = object.__new__(NonHealthCapability)
+    resolved_privacy = (
+        ("user_intent",)
+        if group == "device_actions" and privacy == ("not_applicable",)
+        else privacy
+    )
     for field_name, value in {
         "name": name,
         "label": label,
@@ -55,7 +62,7 @@ def _capability(
         "maturity": maturity,
         "meaning": meaning,
         "input_candidate": input_candidate,
-        "privacy_classes": tuple(privacy),
+        "privacy_classes": tuple(resolved_privacy),
         "request_operations": tuple(requests),
         "callback_operations": tuple(callbacks),
         "runnable": False,
@@ -63,6 +70,7 @@ def _capability(
         "hardware_verified": False,
         "live_available": False,
         "input_eligible": False,
+        "scripted_fake_decoder_available": scripted_fake_decoder_available,
     }.items():
         object.__setattr__(row, field_name, value)
     return row
@@ -118,6 +126,7 @@ _CAPABILITIES = (
         "offline_decoder",
         "private_classic_metadata",
         False,
+        privacy=("device_name",),
     ),
     _capability(
         "host_volume_state_request",
@@ -128,81 +137,101 @@ _CAPABILITIES = (
         "offline_decoder",
         "host_audio_state_request",
         False,
+        privacy=("host_audio_state_request",),
+        callbacks=("onGetPhoneVolume",),
+        scripted_fake_decoder_available=True,
     ),
     _capability(
         "find_phone_alarm", "Find-phone alarm", "device_actions",
         "statically classified device action code 1; host alarm side effect blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "camera_shutter", "Camera shutter", "device_actions",
         "statically classified device action code 2", "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "call_hangup", "Call hang up", "device_actions",
         "statically classified device action code 4; phone-call side effect blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "weather_location_refresh", "Weather/location refresh", "device_actions",
         "statically classified device action code 5; location access blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "call_answer", "Call answer", "device_actions",
         "statically classified device action code 8; phone-call side effect blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "media_play_pause", "Media play/pause", "device_actions",
         "statically classified device action code 16", "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "media_next", "Media next", "device_actions",
         "statically classified device action code 32", "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "media_previous", "Media previous", "device_actions",
         "statically classified device action code 64", "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "camera_open", "Camera open request", "device_actions",
         "statically classified device action code 65; camera lifecycle blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "camera_close", "Camera close request", "device_actions",
         "statically classified device action code 66; camera lifecycle blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "time_sync_request", "Time sync request", "device_actions",
         "statically classified device action code 67; device write request blocked",
         "static_apk", "offline_decoder", "unverified_static_action_code", False,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "volume_up", "Volume up", "device_actions",
         "statically classified device action code 68", "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "volume_down", "Volume down", "device_actions",
         "statically classified device action code 69", "static_apk",
         "offline_decoder", "unverified_static_action_code", True,
+        callbacks=("onGetDeviceAction",), scripted_fake_decoder_available=True,
     ),
     _capability(
         "cumulative_step_counter", "Cumulative step counter", "sensor_candidates",
         "receive-only unsigned counter; one increment is not yet a verified gesture",
         "static_apk", "offline_decoder", "cumulative_counter", False,
+        privacy=("activity_count",),
+        callbacks=("onGetSportSteps",),
+        scripted_fake_decoder_available=True,
     ),
     _capability(
         "unknown_motion_channels", "Nine unknown motion channels", "sensor_candidates",
         "nine signed 16-bit channels with unproven axes; reviewed app callback discards its argument",
         "static_apk", "offline_decoder", "unknown", False,
+        privacy=("motion_sensor_data",),
     ),
     _capability(
         "raw_ai_actions", "Raw AI action notifications", "raw_channel",

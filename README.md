@@ -137,6 +137,14 @@ fixed 20-byte, checksum-free builders; 31 use the source main queue and six the 
 queue. Only sensor-session start/stop are front-inserted. Source gates, logging, queue
 draining, alarm partial-enqueue behavior, and dial-state queue clearing are explicitly
 not reproduced.
+The artifact supplement now keeps the older broad Android Bluetooth source-reference
+counts explicitly non-exhaustive and publishes a separate direct-instruction inventory
+for the complete owned application/SDK scope. That inventory classifies 236 referencing
+methods across 63 classes with zero unclassified, including GATT lifecycle, reads and
+writes, descriptor/notification setup, MTU, connection priority, RSSI, discovery,
+legacy/modern scanning, bonding, classic profiles/RFCOMM, and adapter power. This is
+reference classification—not semantic, dependency/transitive, runtime, or hardware
+completion.
 The report also gives every deterministic request codec one request/callback
 correlation row. Proven single responses, shared streams, stateful families, raw event
 candidates, callback-silent failures, and explicit unknowns remain distinct. Eighteen
@@ -246,8 +254,16 @@ jring non-health-capabilities
 jring non-health-capabilities --json
 ```
 
-The simulator can then exercise a non-health `step` event as an allowlisted keyboard
-key or mouse click. Preview is the default and never emits operating-system input:
+That inventory now labels the device-action, cumulative-step, and host-volume rows
+whose passive MAIN notifications can be exercised with the exact scripted fake. The
+fake collector subscribes to its instance-bound synthetic response target, performs
+zero writes, ignores ambiguous `78` motion traffic, redacts decoded values, and remains
+hardware- and input-ineligible. It is a library test surface, not a live-ring command.
+
+Separately, the input simulator generates one synthetic non-health `step` event; it
+does not consume passive MAIN events. That synthetic event can preview an allowlisted
+keyboard key or mouse click, but media, volume, and shutter actions cannot yet be
+previewed or mapped. Preview is the default and never emits operating-system input:
 
 ```sh
 jring input-actions
@@ -299,7 +315,9 @@ actual OTA transfer uses GATT, and no RFCOMM connect, read, or write was observe
 the same view, 15 general-use rows link these static surfaces back to their recovered
 request/callback ledger names. Network names, credentials, media references, and
 AI/voice state are privacy-classified but never stored. Every row remains non-runnable,
-hardware-ineligible, and hardware-unverified. With an explicitly selected device,
+hardware-ineligible, and hardware-unverified; a separate
+`scripted_fake_decoder_available` field identifies decoder coverage exercised only by
+the passive scripted fake. With an explicitly selected device,
 `jring capabilities --address-file ...` enumerates only
 standard service/characteristic/descriptor metadata. It never reads a HID Report Map
 or report value and never subscribes. A read property is only advertised metadata; no
