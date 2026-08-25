@@ -78,6 +78,14 @@ class VendorGattObservation:
 
 
 @dataclass(frozen=True)
+class HidReportMetadataInstance:
+    instance: int
+    state: str
+    report_reference_state: str
+    value_state: str = "not_read"
+
+
+@dataclass(frozen=True)
 class CapabilityInventory:
     inventory_state: str
     metadata_state: str
@@ -85,6 +93,7 @@ class CapabilityInventory:
     characteristics: tuple[CapabilityFeature, ...]
     report_reference_state: str
     vendor_gatt: tuple[VendorGattObservation, ...] = ()
+    hid_report_instances: tuple[HidReportMetadataInstance, ...] = ()
     usability_state: str = "not_verified"
     os_attachment_state: str = "not_checked"
     neutral_event_state: str = "unsupported"
@@ -237,10 +246,50 @@ class JRingClient:
                 state = "malformed"
             else:
                 properties = {value.lower() for value in record.properties}
-                state = "readable" if "read" in properties else "advertised"
+                state = (
+                    "read_property_advertised"
+                    if "read" in properties
+                    else "advertised"
+                )
             features.append(CapabilityFeature(name, uuid, state))
 
         report_records = tuple(record for record in hid_records if record.uuid.lower() == HID_REPORT)
+        report_instances = []
+        for index, record in enumerate(report_records, start=1):
+            if not isinstance(record.properties, tuple) or not all(
+                isinstance(value, str) for value in record.properties
+            ):
+                report_state = "malformed"
+            else:
+                report_properties = {
+                    value.lower() for value in record.properties
+                }
+                report_state = (
+                    "read_property_advertised"
+                    if "read" in report_properties
+                    else "advertised"
+                )
+            if not isinstance(record.descriptor_uuids, tuple):
+                instance_descriptor_state = "malformed"
+            elif REPORT_REFERENCE_DESCRIPTOR in {
+                value.lower()
+                for value in record.descriptor_uuids
+                if isinstance(value, str)
+            }:
+                instance_descriptor_state = "advertised"
+            elif any(
+                not _valid_uuid(value) for value in record.descriptor_uuids
+            ):
+                instance_descriptor_state = "malformed"
+            else:
+                instance_descriptor_state = "unsupported"
+            report_instances.append(
+                HidReportMetadataInstance(
+                    instance=index,
+                    state=report_state,
+                    report_reference_state=instance_descriptor_state,
+                )
+            )
         descriptor_values = tuple(
             value for record in report_records for value in record.descriptor_uuids
         )
@@ -270,6 +319,7 @@ class JRingClient:
             hid_service_state=service_state,
             characteristics=tuple(features),
             report_reference_state=descriptor_state,
+            hid_report_instances=tuple(report_instances),
             vendor_gatt=tuple(
                 VendorGattObservation(uuid, observed_as)
                 for uuid, observed_as in sorted(

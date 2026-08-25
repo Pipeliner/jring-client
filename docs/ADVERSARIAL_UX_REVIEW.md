@@ -34,6 +34,9 @@ Date: 2026-08-24
 | Non-opcode callbacks disappeared behind one `not_reproduced` label | Every row now has behavior or declaration evidence, with side effects and payload semantics still unclaimed |
 | Callback inventory exposed sensitive transport and platform values | Coverage emits privacy categories only, never the values themselves |
 | An eight-channel parser silently discarded the final motion value | The fixed-frame decoder consumes nine signed pairs while keeping every axis meaning unknown |
+| Input-focused inventory hid blocked device actions | All 13 mapped actions are discoverable; seven side-effecting actions remain visibly blocked and input-ineligible |
+| HID Report UUID deduplication hid multiple report instances | Each observed report record keeps a numbered property/descriptor state and an explicit `not_read` value state |
+| `readable` sounded like a successful read | The state is `read_property_advertised`; human output says the value was not read |
 | Backend errors could leak addresses or BlueZ paths | The final error boundary redacts identifiers, paths, and long payload hex |
 | Address selection required a sensitive argv value | Mode-0600 `--address-file` is the documented path; argv is marked legacy |
 | History silently replaced an existing file | Existing exports require `--force` |

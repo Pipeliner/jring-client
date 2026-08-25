@@ -748,6 +748,9 @@ def _capability_payload(inventory: object) -> dict[str, object]:
         "standard_hid": {
             "service_state": inventory.hid_service_state,
             "characteristics": characteristics,
+            "report_instances": [
+                asdict(item) for item in inventory.hid_report_instances
+            ],
             "report_reference_descriptor": {
                 "state": inventory.report_reference_state,
             },
@@ -778,6 +781,12 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
         label = feature["name"].replace("_", " ").title().replace("Hid", "HID")
         print(f"{label}: {feature['state']}")
     print(f"Report Reference descriptor: {hid['report_reference_descriptor']['state']}")
+    print(f"HID Report instances: {len(hid['report_instances'])}")
+    for report in hid["report_instances"]:
+        print(
+            f"- Report instance {report['instance']}: {report['state']}; "
+            f"Report Reference {report['report_reference_state']}; value not read"
+        )
     print("Report Map contents: not read")
     print(f"HID usability: {hid['usability_state'].replace('_', ' ')}")
     print(f"OS attachment: {hid['os_attachment_state'].replace('_', ' ')}")

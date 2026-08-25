@@ -10,6 +10,7 @@ from jring.uuids import (
     HID_INFORMATION,
     HID_REPORT,
     HUMAN_INTERFACE_DEVICE_SERVICE,
+    REPORT_REFERENCE_DESCRIPTOR,
     VENDOR_CHARACTERISTIC_33F4,
     VENDOR_SERVICE_56FF,
 )
@@ -46,8 +47,8 @@ def test_standard_hid_metadata_has_explicit_states():
             states = feature_states(inventory)
             assert inventory.inventory_state == "available"
             assert inventory.hid_service_state == "advertised"
-            assert states["hid_information"] == "readable"
-            assert states["report_map"] == "readable"
+            assert states["hid_information"] == "read_property_advertised"
+            assert states["report_map"] == "read_property_advertised"
             assert states["report"] == "advertised"
             assert inventory.report_reference_state == "advertised"
             assert inventory.neutral_event_state == "unsupported"
@@ -73,9 +74,48 @@ def test_malformed_optional_descriptor_preserves_inventory():
     async def scenario():
         async with JRingClient(transport) as client:
             inventory = await client.capability_inventory()
-            assert feature_states(inventory)["hid_information"] == "readable"
+            assert feature_states(inventory)["hid_information"] == (
+                "read_property_advertised"
+            )
             assert feature_states(inventory)["report"] == "advertised"
             assert inventory.report_reference_state == "malformed"
+
+    run(scenario())
+
+
+def test_repeated_hid_reports_preserve_instance_and_descriptor_metadata():
+    transport = FakeTransport(
+        {},
+        {HUMAN_INTERFACE_DEVICE_SERVICE},
+        gatt_metadata=(
+            GattCharacteristicMetadata(
+                HUMAN_INTERFACE_DEVICE_SERVICE,
+                HID_REPORT,
+                ("notify",),
+                (REPORT_REFERENCE_DESCRIPTOR,),
+            ),
+            GattCharacteristicMetadata(
+                HUMAN_INTERFACE_DEVICE_SERVICE,
+                HID_REPORT,
+                ("read",),
+                (),
+            ),
+        ),
+    )
+
+    async def scenario():
+        async with JRingClient(transport) as client:
+            inventory = await client.capability_inventory()
+            assert len(inventory.hid_report_instances) == 2
+            first, second = inventory.hid_report_instances
+            assert first.instance == 1
+            assert first.state == "advertised"
+            assert first.report_reference_state == "advertised"
+            assert first.value_state == "not_read"
+            assert second.instance == 2
+            assert second.state == "read_property_advertised"
+            assert second.report_reference_state == "unsupported"
+            assert second.value_state == "not_read"
 
     run(scenario())
 
@@ -218,6 +258,7 @@ def test_cli_capability_inventory_is_private(capsys):
     assert result["simulator_profile"] == "basic"
     assert result["ok"] is True
     assert result["standard_hid"]["service_state"] == "unsupported"
+    assert result["standard_hid"]["report_instances"] == []
     assert result["neutral_events"] == {"events": [], "state": "unsupported"}
     assert result["vendor_gatt"] == []
     assert "AA:BB" not in serialized
@@ -236,6 +277,8 @@ def test_cli_capability_inventory_human_copy_is_honest(capsys):
     assert "HID usability: not verified" in output
     assert "OS attachment: not checked" in output
     assert "Report Map contents: not read" in output
+    assert "HID Report instances: 1" in output
+    assert "Report instance 1: advertised; Report Reference advertised; value not read" in output
     assert "Verified hardware events: none (unsupported)" in output
     assert "Known vendor UUID observations: none" in output
     assert "Vendor meanings: unknown; values not read; writes disabled" in output
@@ -261,3 +304,6 @@ def test_simulator_profile_is_consistent_between_status_and_capabilities(
     assert status["simulator_profile"] == capabilities["simulator_profile"] == profile
     assert status["capabilities"]["hid_service_advertised"] is advertised
     assert capabilities["standard_hid"]["service_state"] == service_state
+    assert len(capabilities["standard_hid"]["report_instances"]) == (
+        1 if advertised else 0
+    )

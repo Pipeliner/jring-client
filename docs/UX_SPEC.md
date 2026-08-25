@@ -143,15 +143,19 @@ neither a BLE transport nor an input sink.
 
 Given a selected device or the HID simulator, when a person runs `jring capabilities`,
 then the client enumerates standard GATT metadata only. Human and schema-1 JSON output
-distinguish service `advertised`, characteristic `readable` or `advertised`, missing
+distinguish service `advertised`, characteristic `read_property_advertised` or
+`advertised`, missing
 `unsupported`, malformed optional descriptor metadata, `not_verified` usability, and
 `not_checked` OS attachment.
 
-`readable` means the GATT characteristic advertises a read property; it does not mean
-the value was read or understood. Inventory never reads the HID Report Map, captures a
+`read_property_advertised` means only that the GATT characteristic metadata advertises
+a read property; no value was read or understood. Inventory never reads the HID Report Map, captures a
 report, subscribes to HID/vendor/health notifications, starts a measurement, or prints
 addresses, D-Bus paths, descriptor values, report maps, or payloads. A missing or
 malformed Report Reference descriptor does not hide valid HID characteristic states.
+Repeated HID Report characteristics are rendered as separate numbered instances with
+per-instance property and Report Reference states; UUID deduplication never hides
+multiplicity.
 No hardware motion event appears as verified until an accepted issue-#1 fixture proves
 its non-health meaning.
 
@@ -336,8 +340,9 @@ step, describes the mouse click it would emit, and produces no operating-system 
 
 Static APK evidence distinguishes two non-health event families without making either
 live: discrete device actions and a cumulative step counter. Offline action decoding
-labels media navigation, volume, and shutter codes as possible future input candidates,
-while phone, location, camera-lifecycle, and time-write actions remain side-effecting.
+lists all 13 mapped actions exactly once. It labels six media, volume, and shutter codes
+as possible future input candidates, while seven find-phone, call, location,
+camera-lifecycle, and time-write actions remain visibly blocked and side-effecting.
 Unknown action codes are never candidates. The cumulative counter is not interpreted
 as a click: reconnect baselines, resets, batching, debounce, and rate limits require
 owner-hardware evidence first.
@@ -515,7 +520,8 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
-| Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors` |
+| Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_all_thirteen_statically_mapped_device_actions_are_discoverable_once`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors` |
+| Repeated HID Report metadata | `test_repeated_hid_reports_preserve_instance_and_descriptor_metadata`, `test_cli_capability_inventory_human_copy_is_honest` |
 | Fail-closed offline vendor transaction | `test_notification_subscription_confirmation_is_required_before_any_write_intent`, `test_late_subscription_confirmation_from_old_connection_cannot_ready_a_reconnect`, `test_unknown_write_outcome_is_uncertain_and_blocks_work_until_disconnect`, `test_notification_cannot_complete_before_characteristic_write_confirmation`, `test_success_requires_the_closed_operation_specific_parser`, `test_unrelated_frames_never_refresh_the_immutable_deadline`, `test_disconnect_closes_once_and_clears_every_pending_layer`, `test_operation_constructor_is_closed_over_typed_static_requests` |
 | Fake-only race coordinator | `test_success_discards_early_frames_and_processes_write_hook_frame_after_ack`, `test_preflight_requires_one_unambiguous_response_write_and_notify_cccd`, `test_write_error_after_invocation_is_uncertain_tainted_and_never_retried`, `test_retained_callback_from_old_generation_is_ignored`, `test_unsubscribe_failure_after_write_makes_cleanup_uncertain_and_taints` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |

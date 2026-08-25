@@ -448,6 +448,9 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert output.startswith("LIVE RING INPUT UNAVAILABLE — no ring contacted\n")
     assert "Standard HID metadata" in output
     assert "Media play/pause" in output
+    assert "Call answer" in output
+    assert "location access blocked" in output
+    assert "device write request blocked" in output
     assert "Cumulative step counter" in output
     assert "hardware verified: no; live available: no; input eligible: no" in output
     assert output.index("Standard HID metadata") < output.index("Static device actions")
@@ -462,7 +465,10 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     assert result["source"] == "local"
     assert result["ok"] is True
     assert result["live_ring_input"] == "unavailable"
-    assert len(result["capabilities"]) == 11
+    assert len(result["capabilities"]) == 18
+    assert sum(
+        item["group"] == "device_actions" for item in result["capabilities"]
+    ) == 13
     assert all("evidence" in item for item in result["capabilities"])
     assert all(item["input_eligible"] is False for item in result["capabilities"])
     serialized = json.dumps(result).lower()

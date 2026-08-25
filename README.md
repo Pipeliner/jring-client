@@ -182,10 +182,14 @@ Hardware JRing motion events are not enabled yet: the vendor event frames are no
 verified. This boundary prevents a guessed packet or misclassified health payload from
 generating desktop input.
 
-`jring capabilities --simulate` demonstrates the versioned non-health inventory. With
+`jring capabilities --simulate` demonstrates the versioned non-health inventory. The
+offline `jring non-health-capabilities` view lists all 13 statically mapped device
+actions: six input candidates and seven blocked side-effecting actions. With
 an explicitly selected device, `jring capabilities --address-file ...` enumerates only
 standard service/characteristic/descriptor metadata. It never reads a HID Report Map
-or report value and never subscribes. `readable` describes an advertised GATT property;
+or report value and never subscribes. A read property is only advertised metadata; no
+value was read. Repeated HID Report characteristics remain separate numbered metadata
+instances with their own Report Reference descriptor state.
 HID usability and operating-system attachment remain unverified/not checked.
 
 `time-sync` is the sole hardware write and targets the standard Bluetooth Current Time

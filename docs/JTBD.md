@@ -236,6 +236,8 @@ Desired outcomes:
   eligibility separately so a static candidate cannot look usable.
 - Inspect standard HID characteristic and descriptor metadata without reading report
   maps, subscribing to reports, or claiming operating-system usability.
+- Preserve repeated HID Report characteristics as separate numbered metadata instances
+  with their own descriptor state.
 - Discover the complete local action vocabulary without Bluetooth, optional packages,
   or an input device.
 - Preview a mapping before it can generate operating-system input.

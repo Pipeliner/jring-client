@@ -32,9 +32,29 @@ _CAPABILITIES = (
         False,
     ),
     NonHealthCapability(
+        "find_phone_alarm", "Find-phone alarm", "device_actions",
+        "statically classified device action code 1; host alarm side effect blocked",
+        "static_apk", "offline_decoder", "host_alarm", False,
+    ),
+    NonHealthCapability(
         "camera_shutter", "Camera shutter", "device_actions",
         "statically classified device action code 2", "static_apk",
         "offline_decoder", "host_camera", True,
+    ),
+    NonHealthCapability(
+        "call_hangup", "Call hang up", "device_actions",
+        "statically classified device action code 4; phone-call side effect blocked",
+        "static_apk", "offline_decoder", "phone_call", False,
+    ),
+    NonHealthCapability(
+        "weather_location_refresh", "Weather/location refresh", "device_actions",
+        "statically classified device action code 5; location access blocked",
+        "static_apk", "offline_decoder", "location_access", False,
+    ),
+    NonHealthCapability(
+        "call_answer", "Call answer", "device_actions",
+        "statically classified device action code 8; phone-call side effect blocked",
+        "static_apk", "offline_decoder", "phone_call", False,
     ),
     NonHealthCapability(
         "media_play_pause", "Media play/pause", "device_actions",
@@ -50,6 +70,21 @@ _CAPABILITIES = (
         "media_previous", "Media previous", "device_actions",
         "statically classified device action code 64", "static_apk",
         "offline_decoder", "host_media", True,
+    ),
+    NonHealthCapability(
+        "camera_open", "Camera open request", "device_actions",
+        "statically classified device action code 65; camera lifecycle blocked",
+        "static_apk", "offline_decoder", "host_camera_lifecycle", False,
+    ),
+    NonHealthCapability(
+        "camera_close", "Camera close request", "device_actions",
+        "statically classified device action code 66; camera lifecycle blocked",
+        "static_apk", "offline_decoder", "host_camera_lifecycle", False,
+    ),
+    NonHealthCapability(
+        "time_sync_request", "Time sync request", "device_actions",
+        "statically classified device action code 67; device write request blocked",
+        "static_apk", "offline_decoder", "device_write_request", False,
     ),
     NonHealthCapability(
         "volume_up", "Volume up", "device_actions",
