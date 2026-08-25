@@ -224,9 +224,13 @@ therefore makes the recovered enable-on-disable defect visible without making it
 
 Given `jring protocol-coverage`, a person receives a local-only summary of all request
 and callback entries, offline codec counts, route/source totals, and zero live or
-hardware-verified vendor operations. `--json` returns every ledger entry in a schema-1
-success envelope without frame bytes. The command constructs no transport and rejects
-simulation, address, and timeout options because none apply.
+hardware-verified vendor operations. A separately labeled supplemental section reports
+recovered session transitions, adversarial races, and source-labeled binding reactions;
+it explicitly says these are not interface entries and therefore never inflates the
+112-request or 105-callback ledgers. `--json` returns every ledger entry and that closed,
+non-runnable evidence graph in a schema-1 success envelope without frame bytes. The
+command constructs no transport and rejects simulation, address, and timeout options
+because none apply.
 
 Offline acknowledgement parsing is operation-specific. A response for one known
 operation cannot complete another, success-only branches do not gain invented failure
@@ -468,7 +472,8 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Strict offline mutation encoders | `test_twenty_six_mutations_have_offline_codecs_without_live_eligibility`, `test_device_settings_preserve_the_exact_profile_layout_and_inverted_calling_bit`, `test_alarm_batch_builds_base_and_exact_content_chunks_without_state`, `test_request_bytes_and_sensitive_inputs_are_structurally_hidden`, `test_requests_are_closed_offline_private_and_never_hardware_eligible`, `test_safety_metadata_refuses_unsafe_apk_runtime_behaviors` |
 | Additional main-command codecs | `test_forty_six_additional_main_requests_have_offline_codecs`, `test_wifi_scan_is_an_active_network_action_not_a_read_only_query`, `test_every_main_operation_has_closed_privacy_and_risk_metadata`, `test_ai_language_is_opaque_explicit_utf8_and_never_uses_host_locale`, `test_private_text_rejects_controls_formatting_and_malformed_unicode`, `test_plans_exact_header_title_and_content_frames_without_live_side_effects` |
 | Complete non-runnable behavior surface | `test_twenty_six_non_codec_requests_have_closed_behavior_evidence`, `test_all_fourteen_local_ble_or_dynamic_gatt_requests_are_accounted_once`, `test_ten_non_bluetooth_requests_are_closed_and_accounted_once`, `test_get_ota_info_models_exact_main_request_without_exposing_a_frame`, `test_start_file_ota_is_descriptive_only_and_lists_dangerous_side_effects` |
-| Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_all_eighty_six_wire_callback_families_have_offline_response_codecs`, `test_three_apk_generated_end_callbacks_are_local_projections_not_wire_codecs` |
+| Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_opcode_sources`, `test_all_eighty_six_wire_callback_families_have_offline_response_codecs`, `test_three_apk_generated_end_callbacks_are_local_projections_not_wire_codecs` |
+| Static session sequencing and race evidence | `test_session_evidence_is_a_closed_immutable_singleton`, `test_session_graph_has_closed_unique_codes_and_only_known_interface_links`, `test_source_connected_is_dispatch_acceptance_not_descriptor_acknowledgement`, `test_device_policy_occurs_after_connected_and_does_not_become_owner_authority`, `test_all_adversarial_session_races_have_python_safety_rules` |
 | Offline device/config decoding | `test_device_code_discards_all_identifier_bytes`, `test_device_dial_decodes_every_field_in_the_twenty_byte_layout`, `test_eq_info_decodes_signed_values_and_requires_expected_kind`, `test_factory_test_bytes_are_hidden_and_byte_19_is_not_claimed` |
 | Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |
 | Operation-specific acknowledgements | `test_vendor_ack_decodes_operation_specific_success_and_failure`, `test_vendor_success_only_ack_rejects_guessed_failure_branch`, `test_notify_ack_requires_the_outbound_marker_for_success`, `test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode` |

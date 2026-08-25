@@ -21,8 +21,8 @@ class PlatformSurfaceOperation(str, Enum):
 
 class PlatformBehaviorClass(str, Enum):
     CACHE_THEN_VENDOR_NETWORK = "cache_then_vendor_network"
-    CALLBACK_REGISTRATION_AND_SDK_AUTHORIZATION = (
-        "callback_registration_and_sdk_authorization"
+    CALLBACK_REGISTRATION_AND_SDK_VALIDATION = (
+        "callback_registration_and_sdk_validation"
     )
     PHONE_MANAGED_FTP_DOWNLOAD = "phone_managed_ftp_download"
     ANDROID_MEDIA_STORE_AND_BROADCAST = "android_media_store_and_broadcast"
@@ -32,7 +32,8 @@ class PlatformBehaviorClass(str, Enum):
 
 class PlatformPrivacyClass(str, Enum):
     DEVICE_MODEL_OR_DIAL_REQUEST = "device_model_or_dial_request"
-    APP_OR_SDK_CREDENTIALS = "app_or_sdk_credentials"
+    BUNDLED_SDK_CREDENTIALS = "bundled_sdk_credentials"
+    CALLER_PROVIDED_SDK_CREDENTIALS = "caller_provided_sdk_credentials"
     REMOTE_CREDENTIALS_AND_LOCAL_PATH = "remote_credentials_and_local_path"
     LOCAL_FILE_PATH = "local_file_path"
     LOCAL_FILE_PATHS_AND_IMAGE = "local_file_paths_and_image"
@@ -41,11 +42,31 @@ class PlatformPrivacyClass(str, Enum):
 
 class PlatformSideEffectClass(str, Enum):
     ANDROID_CACHE_AND_VENDOR_NETWORK = "android_cache_and_vendor_network"
-    ANDROID_STATE_AND_VENDOR_NETWORK = "android_state_and_vendor_network"
+    ANDROID_CALLBACK_STATE_CACHE_OR_VENDOR_NETWORK = (
+        "android_callback_state_cache_or_vendor_network"
+    )
     PHONE_NETWORK_AND_FILESYSTEM = "phone_network_and_filesystem"
     PHONE_FILESYSTEM_AND_BROADCAST = "phone_filesystem_and_broadcast"
     PHONE_FILESYSTEM_AND_CONVERSION = "phone_filesystem_and_conversion"
     NONE = "none"
+
+
+class CallbackCredentialSource(str, Enum):
+    NONE = "none"
+    BUNDLED_CONFIGURATION = "bundled_configuration"
+    CALLER_ARGUMENTS = "caller_arguments"
+
+
+class SdkValidationPath(str, Enum):
+    NONE = "none"
+    FRESH_CACHE_OR_VENDOR_NETWORK = "fresh_cache_or_vendor_network"
+
+
+class FutureCallbackScope(str, Enum):
+    NONE = "none"
+    GLOBAL_SERVICE_EVENTS_INCLUDING_BLUETOOTH = (
+        "global_service_events_including_bluetooth"
+    )
 
 
 @dataclass(frozen=True)
@@ -54,7 +75,14 @@ class StaticPlatformSurface:
     behavior_class: PlatformBehaviorClass
     privacy_class: PlatformPrivacyClass
     side_effect_class: PlatformSideEffectClass
-    touches_bluetooth: bool = False
+    callback_credential_source: CallbackCredentialSource = (
+        CallbackCredentialSource.NONE
+    )
+    sdk_validation_path: SdkValidationPath = SdkValidationPath.NONE
+    future_callback_scope: FutureCallbackScope = FutureCallbackScope.NONE
+    static_findings: tuple[str, ...] = ()
+    directly_touches_bluetooth: bool = False
+    establishes_owner_authorization: bool = False
     python_callable: bool = False
     hardware_eligible: bool = False
     hardware_verified: bool = False
@@ -75,15 +103,39 @@ _SURFACE = (
     ),
     StaticPlatformSurface(
         PlatformSurfaceOperation.REGISTER_CALLBACK,
-        PlatformBehaviorClass.CALLBACK_REGISTRATION_AND_SDK_AUTHORIZATION,
-        PlatformPrivacyClass.APP_OR_SDK_CREDENTIALS,
-        PlatformSideEffectClass.ANDROID_STATE_AND_VENDOR_NETWORK,
+        PlatformBehaviorClass.CALLBACK_REGISTRATION_AND_SDK_VALIDATION,
+        PlatformPrivacyClass.BUNDLED_SDK_CREDENTIALS,
+        PlatformSideEffectClass.ANDROID_CALLBACK_STATE_CACHE_OR_VENDOR_NETWORK,
+        callback_credential_source=CallbackCredentialSource.BUNDLED_CONFIGURATION,
+        sdk_validation_path=SdkValidationPath.FRESH_CACHE_OR_VENDOR_NETWORK,
+        future_callback_scope=(
+            FutureCallbackScope.GLOBAL_SERVICE_EVENTS_INCLUDING_BLUETOOTH
+        ),
+        static_findings=(
+            "installs_one_shared_service_callback_slot",
+            "fresh_validation_cache_reports_current_shared_sdk_status",
+            "stale_validation_cache_starts_vendor_network_request",
+            "registration_does_not_establish_device_gear_policy",
+            "registration_does_not_establish_owner_authorization",
+        ),
     ),
     StaticPlatformSurface(
         PlatformSurfaceOperation.REGISTER_CALLBACK_WITH_CREDENTIALS,
-        PlatformBehaviorClass.CALLBACK_REGISTRATION_AND_SDK_AUTHORIZATION,
-        PlatformPrivacyClass.APP_OR_SDK_CREDENTIALS,
-        PlatformSideEffectClass.ANDROID_STATE_AND_VENDOR_NETWORK,
+        PlatformBehaviorClass.CALLBACK_REGISTRATION_AND_SDK_VALIDATION,
+        PlatformPrivacyClass.CALLER_PROVIDED_SDK_CREDENTIALS,
+        PlatformSideEffectClass.ANDROID_CALLBACK_STATE_CACHE_OR_VENDOR_NETWORK,
+        callback_credential_source=CallbackCredentialSource.CALLER_ARGUMENTS,
+        sdk_validation_path=SdkValidationPath.FRESH_CACHE_OR_VENDOR_NETWORK,
+        future_callback_scope=(
+            FutureCallbackScope.GLOBAL_SERVICE_EVENTS_INCLUDING_BLUETOOTH
+        ),
+        static_findings=(
+            "installs_one_shared_service_callback_slot",
+            "fresh_validation_cache_reports_current_shared_sdk_status",
+            "stale_validation_cache_starts_vendor_network_request",
+            "registration_does_not_establish_device_gear_policy",
+            "registration_does_not_establish_owner_authorization",
+        ),
     ),
     StaticPlatformSurface(
         PlatformSurfaceOperation.START_FTP_DOWNLOAD,

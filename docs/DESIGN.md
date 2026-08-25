@@ -32,15 +32,16 @@ claims that a selected ring exposes them or that request/response direction has 
 confirmed on Linux. The client reports matching service and characteristic metadata
 with `meaning: unknown`; it reads no values and performs no vendor writes.
 
-**Hypothesis (low):** vendor frames use an application checksum and session command
-queue. Static strings mention CRC/XOR, command responses, authorization and session
-timeouts, but do not establish an unambiguous frame format. Consequently no guessed
-frame is sent to hardware. The simulator uses a documented, client-owned envelope
-solely to test reassembly, event parsing, and history export.
+**Verified statically (high confidence):** the recovered SDK has a global application
+command queue, Android characteristic-write completion state, and local timeout paths.
+Those mechanics are not an owner-authentication session and do not prove a safe retry
+contract. CRC/XOR references still do not establish one checksum rule for all frames.
+Consequently no guessed frame is sent to hardware. The simulator uses a documented,
+client-owned envelope solely to test reassembly, event parsing, and history export.
 
-**Unknown:** exact pairing/authentication exchange, vendor opcodes, byte ordering,
-checksum coverage, live vendor payloads, history pagination/acknowledgement, and
-which UUID family applies to a particular ring firmware.
+**Unknown:** the legitimate physical owner-confirmation behavior for binding, checksum
+coverage across frame families, live endpoint behavior, history acknowledgement and
+pagination on real firmware, and which UUID family applies to a particular ring model.
 
 ## Architecture and safety
 
@@ -99,6 +100,26 @@ available with a shell-history/process-list warning. Vendor writes, pairing,
 firmware/DFU, destructive history operations, cloud access, and telemetry are absent.
 The recovered vendor cloud checks, Android bonding, BLE binding mutation, and startup
 device-time mutation are separate state machines; none is inferred or run implicitly.
+
+The word “session” is not used as a catch-all authorization state. Five domains remain
+separate in the design:
+
+1. developer-cloud SDK validation, which is asynchronous application licensing;
+2. device-cloud gear policy, which starts after the recovered SDK has exposed BLE
+   readiness and can later disconnect it;
+3. the explicit `4b` application binding exchange;
+4. Android OS bonding for optional classic-Bluetooth behavior; and
+5. the local command transaction from subscription activation through write outcome
+   to a matched application response.
+
+Recovered startup ordering is also not copied as a safety contract. The SDK exposes
+its connected state after notification setup is submitted, before a descriptor callback,
+then starts device-cloud policy. Its descriptor callback schedules an implicit device-time
+write. A Python live bridge must instead expose `connected`, `endpoints_checked`,
+`subscription_activated`, `write_outcome`, and `response_matched` as distinct evidence.
+High-level notification activation is never described as a peripheral CCCD
+acknowledgement. Cloud denial, local binding, and Android bond state cannot promote any
+of those transport facts.
 
 `status --select --active-scan` retains the scan's private address association only in
 an in-process selection candidate whose representation and public summary omit it.

@@ -1,13 +1,19 @@
 from collections import Counter
+from types import MappingProxyType
+
+import pytest
 
 from jring.vendor_coverage import (
     BEHAVIOR_EVIDENCE_LOCATORS,
+    CALLBACK_SEQUENCE_EVIDENCE_LOCATORS,
     OFFLINE_REQUEST_CODEC_STATES,
+    REQUEST_SEQUENCE_EVIDENCE_LOCATORS,
     SUPPLEMENTAL_EVIDENCE_LOCATORS,
     VendorPythonState,
     static_vendor_callback_coverage,
     static_vendor_operation_coverage,
 )
+from jring.vendor_session_evidence import recovered_session_evidence
 
 
 def test_static_vendor_operation_coverage_accounts_for_all_112_requests_once():
@@ -28,6 +34,51 @@ def test_static_vendor_operation_coverage_accounts_for_all_112_requests_once():
         "dfu": 1,
         "no_op_stub": 4,
     }
+
+
+def test_session_sequence_request_locators_are_additive_to_the_112_row_ledger():
+    coverage = static_vendor_operation_coverage()
+    by_name = {entry.name: entry for entry in coverage}
+
+    assert type(REQUEST_SEQUENCE_EVIDENCE_LOCATORS) is MappingProxyType
+    assert set(REQUEST_SEQUENCE_EVIDENCE_LOCATORS) == {
+        "closeConnection",
+        "connectBt",
+        "disconnectBt",
+        "registerCallback",
+        "registerCallback2",
+        "setBindedInfo",
+        "setDeviceTime",
+    }
+    assert all(
+        type(locators) is tuple
+        for locators in REQUEST_SEQUENCE_EVIDENCE_LOCATORS.values()
+    )
+    assert all(name in by_name for name in REQUEST_SEQUENCE_EVIDENCE_LOCATORS)
+    assert all(
+        entry.session_sequence_locators
+        == REQUEST_SEQUENCE_EVIDENCE_LOCATORS.get(entry.name, ())
+        for entry in coverage
+    )
+    assert len(coverage) == 112
+
+    with pytest.raises(TypeError):
+        REQUEST_SEQUENCE_EVIDENCE_LOCATORS["inventedRequest"] = ()
+
+
+def test_request_sequence_locators_exactly_follow_recovered_transition_links():
+    expected = {
+        (name, transition.code.value)
+        for transition in recovered_session_evidence().transitions
+        for name in transition.related_requests
+    }
+    actual = {
+        (name, locator.rsplit(":", 1)[-1])
+        for name, locators in REQUEST_SEQUENCE_EVIDENCE_LOCATORS.items()
+        for locator in locators
+    }
+
+    assert actual == expected
 
 
 def test_only_seven_operations_have_offline_request_and_response_codecs():
@@ -230,7 +281,50 @@ def test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once():
     }
 
 
-def test_callback_coverage_distinguishes_unused_and_non_ble_sources():
+def test_session_sequence_callback_locators_are_additive_to_the_105_row_ledger():
+    coverage = static_vendor_callback_coverage()
+    by_name = {entry.name: entry for entry in coverage}
+
+    assert type(CALLBACK_SEQUENCE_EVIDENCE_LOCATORS) is MappingProxyType
+    assert set(CALLBACK_SEQUENCE_EVIDENCE_LOCATORS) == {
+        "onAuthDeviceResult",
+        "onAuthSdkResult",
+        "onConnectStateChanged",
+        "onNotifyBindedInfo",
+        "onSetDeviceTime",
+    }
+    assert all(
+        type(locators) is tuple
+        for locators in CALLBACK_SEQUENCE_EVIDENCE_LOCATORS.values()
+    )
+    assert all(name in by_name for name in CALLBACK_SEQUENCE_EVIDENCE_LOCATORS)
+    assert all(
+        entry.session_sequence_locators
+        == CALLBACK_SEQUENCE_EVIDENCE_LOCATORS.get(entry.name, ())
+        for entry in coverage
+    )
+    assert len(coverage) == 105
+
+    with pytest.raises(TypeError):
+        CALLBACK_SEQUENCE_EVIDENCE_LOCATORS["inventedCallback"] = ()
+
+
+def test_callback_sequence_locators_exactly_follow_recovered_transition_links():
+    expected = {
+        (name, transition.code.value)
+        for transition in recovered_session_evidence().transitions
+        for name in transition.related_callbacks
+    }
+    actual = {
+        (name, locator.rsplit(":", 1)[-1])
+        for name, locators in CALLBACK_SEQUENCE_EVIDENCE_LOCATORS.items()
+        for locator in locators
+    }
+
+    assert actual == expected
+
+
+def test_callback_coverage_distinguishes_unused_and_non_opcode_sources():
     by_name = {entry.name: entry for entry in static_vendor_callback_coverage()}
 
     assert by_name["onGetDeviceTime"].source == "declared_without_invocation"

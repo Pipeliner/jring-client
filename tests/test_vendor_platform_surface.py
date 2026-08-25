@@ -1,8 +1,11 @@
 from jring.vendor_platform_surface import (
+    CallbackCredentialSource,
+    FutureCallbackScope,
     PlatformBehaviorClass,
     PlatformPrivacyClass,
     PlatformSideEffectClass,
     PlatformSurfaceOperation,
+    SdkValidationPath,
     static_platform_surface,
 )
 
@@ -12,7 +15,8 @@ def test_ten_non_bluetooth_requests_are_closed_and_accounted_once():
 
     assert len(surface) == 10
     assert {item.operation for item in surface} == set(PlatformSurfaceOperation)
-    assert all(item.touches_bluetooth is False for item in surface)
+    assert all(item.directly_touches_bluetooth is False for item in surface)
+    assert all(item.establishes_owner_authorization is False for item in surface)
     assert all(item.python_callable is False for item in surface)
     assert all(item.hardware_eligible is False for item in surface)
     assert all(item.hardware_verified is False for item in surface)
@@ -51,7 +55,7 @@ def test_platform_and_network_work_remains_distinct_from_ring_bluetooth():
     )
 
 
-def test_callback_registration_is_local_state_with_authorization_side_effects():
+def test_callback_registration_is_validation_not_owner_authorization():
     by_operation = {item.operation: item for item in static_platform_surface()}
 
     for operation in (
@@ -60,10 +64,55 @@ def test_callback_registration_is_local_state_with_authorization_side_effects():
     ):
         item = by_operation[operation]
         assert item.behavior_class is (
-            PlatformBehaviorClass.CALLBACK_REGISTRATION_AND_SDK_AUTHORIZATION
+            PlatformBehaviorClass.CALLBACK_REGISTRATION_AND_SDK_VALIDATION
         )
-        assert item.privacy_class is PlatformPrivacyClass.APP_OR_SDK_CREDENTIALS
         assert item.side_effect_class is (
-            PlatformSideEffectClass.ANDROID_STATE_AND_VENDOR_NETWORK
+            PlatformSideEffectClass.ANDROID_CALLBACK_STATE_CACHE_OR_VENDOR_NETWORK
+        )
+        assert item.sdk_validation_path is (
+            SdkValidationPath.FRESH_CACHE_OR_VENDOR_NETWORK
+        )
+        assert item.future_callback_scope is (
+            FutureCallbackScope.GLOBAL_SERVICE_EVENTS_INCLUDING_BLUETOOTH
+        )
+        assert item.directly_touches_bluetooth is False
+        assert "registration_does_not_establish_device_gear_policy" in (
+            item.static_findings
+        )
+        assert "registration_does_not_establish_owner_authorization" in (
+            item.static_findings
         )
         assert "Bluetooth" not in repr(item)
+
+
+def test_callback_variants_distinguish_credential_source():
+    by_operation = {item.operation: item for item in static_platform_surface()}
+    bundled = by_operation[PlatformSurfaceOperation.REGISTER_CALLBACK]
+    supplied = by_operation[
+        PlatformSurfaceOperation.REGISTER_CALLBACK_WITH_CREDENTIALS
+    ]
+
+    assert bundled.callback_credential_source is (
+        CallbackCredentialSource.BUNDLED_CONFIGURATION
+    )
+    assert bundled.privacy_class is PlatformPrivacyClass.BUNDLED_SDK_CREDENTIALS
+    assert supplied.callback_credential_source is (
+        CallbackCredentialSource.CALLER_ARGUMENTS
+    )
+    assert supplied.privacy_class is (
+        PlatformPrivacyClass.CALLER_PROVIDED_SDK_CREDENTIALS
+    )
+
+
+def test_only_registration_installs_future_bluetooth_callback_scope():
+    by_operation = {item.operation: item for item in static_platform_surface()}
+
+    assert {
+        item.operation
+        for item in by_operation.values()
+        if item.future_callback_scope
+        is FutureCallbackScope.GLOBAL_SERVICE_EVENTS_INCLUDING_BLUETOOTH
+    } == {
+        PlatformSurfaceOperation.REGISTER_CALLBACK,
+        PlatformSurfaceOperation.REGISTER_CALLBACK_WITH_CREDENTIALS,
+    }

@@ -39,6 +39,7 @@ from .vendor_coverage import (
     static_vendor_callback_coverage,
     static_vendor_operation_coverage,
 )
+from .vendor_session_evidence import recovered_session_evidence
 
 
 class ExitCode(IntEnum):
@@ -254,6 +255,7 @@ def _print_input_actions(inventory: dict[str, list[dict[str, object]]]) -> None:
 def _protocol_coverage_payload() -> dict[str, object]:
     requests = static_vendor_operation_coverage()
     callbacks = static_vendor_callback_coverage()
+    session = recovered_session_evidence()
     return {
         "summary": {
             "request_total": len(requests),
@@ -290,6 +292,9 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "hardware_verified_vendor_operations": sum(
                 entry.hardware_verified for entry in requests
             ),
+            "supplemental_session_transitions": len(session.transitions),
+            "supplemental_session_races": len(session.races),
+            "supplemental_binding_reactions": len(session.binding_reactions),
             "request_routes": dict(sorted(Counter(
                 entry.route for entry in requests
             ).items())),
@@ -299,6 +304,22 @@ def _protocol_coverage_payload() -> dict[str, object]:
         },
         "requests": [asdict(entry) for entry in requests],
         "callbacks": [asdict(entry) for entry in callbacks],
+        "supplemental": {
+            "session_sequence": {
+                "interface_entries": False,
+                "maturity": session.maturity,
+                "evidence_scope": session.evidence_scope,
+                "runnable": session.runnable,
+                "hardware_eligible": session.hardware_eligible,
+                "hardware_verified": session.hardware_verified,
+                "owner_authorized": session.owner_authorized,
+                "transitions": [asdict(item) for item in session.transitions],
+                "races": [asdict(item) for item in session.races],
+                "binding_reactions": [
+                    asdict(item) for item in session.binding_reactions
+                ],
+            },
+        },
     }
 
 
@@ -313,6 +334,15 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     print(f"Unclassified requests: {summary['unclassified_requests']}")
     print(f"Offline response codecs: {summary['offline_response_codecs']}")
     print(f"Offline local projections: {summary['offline_local_projections']}")
+    print(
+        "Supplemental session transitions (not interface entries): "
+        f"{summary['supplemental_session_transitions']}"
+    )
+    print(f"Adversarial session races: {summary['supplemental_session_races']}")
+    print(
+        "Source-labeled binding reactions: "
+        f"{summary['supplemental_binding_reactions']}"
+    )
     print(f"Live vendor operations: {summary['live_vendor_operations']}")
     print(
         "Hardware-eligible vendor operations: "
@@ -323,6 +353,7 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{summary['hardware_verified_vendor_operations']}"
     )
     print("Static coverage never authorizes Bluetooth writes or subscriptions.")
+    print("Supplemental session evidence is static and non-runnable.")
 
 
 def _non_health_payload() -> dict[str, object]:

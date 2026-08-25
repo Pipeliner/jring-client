@@ -42,7 +42,7 @@ class ArgumentPrivacy(str, Enum):
     RAW_GATT_PAYLOAD = "raw_gatt_payload"
 
 
-class BluetoothBehavior(str, Enum):
+class DirectBluetoothEffect(str, Enum):
     NONE = "none"
     GATT_CLOSE = "gatt_close"
     GATT_CONNECT_WITH_RECONNECT = "gatt_connect_with_reconnect"
@@ -58,7 +58,9 @@ class BluetoothBehavior(str, Enum):
 class PersistedState(str, Enum):
     NONE = "none"
     CLEARS_ADDRESS_ONLY = "clears_address_only"
-    STORES_NAME_AND_ADDRESS = "stores_name_and_address"
+    CONDITIONALLY_STORES_NAME_AND_ADDRESS = (
+        "conditionally_stores_name_and_address"
+    )
     CONDITIONAL_ADDRESS_CLEAR = "conditional_address_clear"
     RUNTIME_LOG_CONFIGURATION = "runtime_log_configuration"
     RUNTIME_PROFILE_CACHE = "runtime_profile_cache"
@@ -67,10 +69,16 @@ class PersistedState(str, Enum):
     RUNTIME_CALLBACK_SLOT = "runtime_callback_slot"
 
 
-class CloudAuthorization(str, Enum):
-    NONE = "none"
-    REQUIRES_STATUS_200 = "requires_cached_status_200"
-    RETURNS_CACHED_STATUS = "returns_cached_status"
+class SharedSdkValidationStatusUse(str, Enum):
+    """How a request uses the SDK-wide validation result field.
+
+    This is neither the later per-device gear policy nor evidence that the ring owner
+    authorized an operation.
+    """
+
+    NOT_CONSULTED = "not_consulted"
+    REQUIRES_200 = "requires_shared_status_200"
+    RETURNS_CURRENT = "returns_current_shared_status"
 
 
 class PythonAnalogue(str, Enum):
@@ -79,7 +87,7 @@ class PythonAnalogue(str, Enum):
     TRANSPORT_CLOSE_NO_RETAIN_POLICY = "transport_close_no_retain_policy"
     PRIVATE_SELECTION_ONLY = "private_selection_only"
     DISCOVERY_RSSI_ONLY = "discovery_rssi_only"
-    NO_VENDOR_CLOUD_AUTH = "no_vendor_cloud_auth"
+    SDK_VALIDATION_STATUS_ONLY = "sdk_validation_status_only"
     CONTEXT_MANAGED_CONNECTION = "context_managed_connection"
     REDACTED_DIAGNOSTICS = "redacted_diagnostics"
     BOUNDED_REDACTED_DISCOVERY = "bounded_redacted_discovery"
@@ -96,15 +104,18 @@ class StaticLocalBleOperation:
     argument_privacy: tuple[ArgumentPrivacy, ...]
     returns_privacy: ArgumentPrivacy | None
     android_local_side_effects: tuple[str, ...]
-    bluetooth_behavior: BluetoothBehavior
+    effects_when_shared_sdk_validation_status_200: tuple[str, ...]
+    direct_bluetooth_effect: DirectBluetoothEffect
     unsafe_logging: tuple[str, ...]
     persisted_state: PersistedState
-    cloud_authorization: CloudAuthorization
+    shared_sdk_validation_status_use: SharedSdkValidationStatusUse
     python_analogue: PythonAnalogue
     static_findings: tuple[str, ...]
     recovered_sdk_performs_gatt_write: bool = False
     recovered_sdk_grants_arbitrary_write_authority: bool = False
     recovered_sdk_callback_exposes_raw_payload: bool = False
+    directly_consults_device_gear_policy: bool = False
+    establishes_owner_authorization: bool = False
     python_callable: bool = False
     python_grants_arbitrary_write_authority: bool = False
     evidence_scope: str = "android_sdk_behavior_inventory"
@@ -123,10 +134,13 @@ def _item(
     arguments: tuple[ArgumentPrivacy, ...] = (),
     returns: ArgumentPrivacy | None = None,
     effects: tuple[str, ...] = (),
-    bluetooth: BluetoothBehavior = BluetoothBehavior.NONE,
+    validated_effects: tuple[str, ...] = (),
+    bluetooth: DirectBluetoothEffect = DirectBluetoothEffect.NONE,
     logging: tuple[str, ...] = (),
     persisted: PersistedState = PersistedState.NONE,
-    authorization: CloudAuthorization = CloudAuthorization.NONE,
+    validation_status: SharedSdkValidationStatusUse = (
+        SharedSdkValidationStatusUse.NOT_CONSULTED
+    ),
     analogue: PythonAnalogue,
     findings: tuple[str, ...] = (),
     performs_write: bool = False,
@@ -138,10 +152,11 @@ def _item(
         argument_privacy=arguments,
         returns_privacy=returns,
         android_local_side_effects=effects,
-        bluetooth_behavior=bluetooth,
+        effects_when_shared_sdk_validation_status_200=validated_effects,
+        direct_bluetooth_effect=bluetooth,
         unsafe_logging=logging,
         persisted_state=persisted,
-        cloud_authorization=authorization,
+        shared_sdk_validation_status_use=validation_status,
         python_analogue=analogue,
         static_findings=findings,
         recovered_sdk_performs_gatt_write=performs_write,
@@ -159,7 +174,7 @@ _INVENTORY = (
             "releases_notification_state",
             "resets_connection_state",
         ),
-        bluetooth=BluetoothBehavior.GATT_CLOSE,
+        bluetooth=DirectBluetoothEffect.GATT_CLOSE,
         persisted=PersistedState.CLEARS_ADDRESS_ONLY,
         analogue=PythonAnalogue.TRANSPORT_CLOSE,
         findings=(
@@ -171,17 +186,25 @@ _INVENTORY = (
         LocalBleOperation.CONNECT_BT,
         arguments=(ArgumentPrivacy.DEVICE_NAME, ArgumentPrivacy.BLUETOOTH_ADDRESS),
         effects=(
-            "stores_current_target",
             "clears_user_disconnected",
+            "resets_last_connection_state",
+        ),
+        validated_effects=(
+            "stores_current_target",
+            "persists_name_and_address",
             "starts_sdk_reconnect_flow",
         ),
-        bluetooth=BluetoothBehavior.GATT_CONNECT_WITH_RECONNECT,
+        bluetooth=DirectBluetoothEffect.GATT_CONNECT_WITH_RECONNECT,
         logging=("raw_address",),
-        persisted=PersistedState.STORES_NAME_AND_ADDRESS,
-        authorization=CloudAuthorization.REQUIRES_STATUS_200,
+        persisted=PersistedState.CONDITIONALLY_STORES_NAME_AND_ADDRESS,
+        validation_status=SharedSdkValidationStatusUse.REQUIRES_200,
         analogue=PythonAnalogue.EXPLICIT_PRIVATE_CONNECT,
         findings=(
             "persists_raw_name_and_address",
+            "target_store_and_reconnect_require_shared_sdk_status_200",
+            "shared_sdk_validation_status_is_not_device_gear_policy",
+            "shared_sdk_validation_status_is_not_owner_authorization",
+            "device_gear_policy_runs_later_after_notification_setup",
             "python_selection_keeps_address_private_and_does_not_persist_it",
         ),
     ),
@@ -193,7 +216,7 @@ _INVENTORY = (
             "conditionally_clears_in_memory_target",
             "releases_notification_state",
         ),
-        bluetooth=BluetoothBehavior.GATT_DISCONNECT,
+        bluetooth=DirectBluetoothEffect.GATT_DISCONNECT,
         persisted=PersistedState.CONDITIONAL_ADDRESS_CLEAR,
         analogue=PythonAnalogue.TRANSPORT_CLOSE_NO_RETAIN_POLICY,
         findings=(
@@ -204,7 +227,7 @@ _INVENTORY = (
     _item(
         LocalBleOperation.GET_CONNECTED_DEVICE,
         returns=ArgumentPrivacy.BLUETOOTH_ADDRESS,
-        bluetooth=BluetoothBehavior.LOCAL_STATE_QUERY,
+        bluetooth=DirectBluetoothEffect.LOCAL_STATE_QUERY,
         analogue=PythonAnalogue.PRIVATE_SELECTION_ONLY,
         findings=(
             "returns_raw_address",
@@ -214,31 +237,39 @@ _INVENTORY = (
     _item(
         LocalBleOperation.GET_DEVICE_RSSI,
         effects=("schedules_rssi_callback",),
-        bluetooth=BluetoothBehavior.REMOTE_RSSI_READ,
+        bluetooth=DirectBluetoothEffect.REMOTE_RSSI_READ,
         analogue=PythonAnalogue.DISCOVERY_RSSI_ONLY,
         findings=(
             "result_arrives_via_callback",
             "immediate_return_is_not_rssi",
-            "common_sdk_gate_does_not_use_cloud_authorization_field",
+            "common_operation_gate_does_not_consult_shared_sdk_validation_status",
         ),
     ),
     _item(
         LocalBleOperation.IS_AUTHORIZE,
-        effects=("reads_cached_sdk_authorization_code",),
-        bluetooth=BluetoothBehavior.LOCAL_STATE_QUERY,
-        authorization=CloudAuthorization.RETURNS_CACHED_STATUS,
-        analogue=PythonAnalogue.NO_VENDOR_CLOUD_AUTH,
+        effects=("reads_current_shared_sdk_validation_status",),
+        bluetooth=DirectBluetoothEffect.LOCAL_STATE_QUERY,
+        validation_status=SharedSdkValidationStatusUse.RETURNS_CURRENT,
+        analogue=PythonAnalogue.SDK_VALIDATION_STATUS_ONLY,
         findings=(
-            "does_not_authorize_or_contact_cloud",
-            "authorization_is_sdk_vendor_status_not_ring_owner_state",
+            "does_not_validate_or_contact_vendor_network",
+            "does_not_return_device_gear_policy",
+            "does_not_establish_ring_owner_authorization",
         ),
     ),
     _item(
         LocalBleOperation.IS_CONNECT_BT,
         effects=("reads_sdk_connection_state",),
-        bluetooth=BluetoothBehavior.LOCAL_STATE_QUERY,
+        bluetooth=DirectBluetoothEffect.LOCAL_STATE_QUERY,
         analogue=PythonAnalogue.CONTEXT_MANAGED_CONNECTION,
-        findings=("true_for_every_sdk_state_other_than_zero_or_one",),
+        findings=(
+            "true_for_every_sdk_state_other_than_zero_or_one",
+            "does_not_query_android_gatt_connection_state",
+            "does_not_prove_link_connected",
+            "does_not_prove_services_discovered",
+            "does_not_prove_notification_ready",
+            "does_not_prove_sdk_validation_device_policy_or_owner_authorization",
+        ),
     ),
     _item(
         LocalBleOperation.OPEN_SDK_LOG,
@@ -251,7 +282,7 @@ _INVENTORY = (
         logging=(
             "raw_address",
             "raw_gatt_payload",
-            "sdk_credentials_and_authorization_body",
+            "sdk_credentials_and_validation_body",
             "personal_and_environment_values",
             "caller_selected_file_destination",
         ),
@@ -266,10 +297,10 @@ _INVENTORY = (
     _item(
         LocalBleOperation.SCAN_DEVICE,
         arguments=(ArgumentPrivacy.SCAN_ENABLE_STATE,),
-        effects=("android_scan_timers_and_retry_counter",),
-        bluetooth=BluetoothBehavior.ACTIVE_SCAN_TOGGLE,
+        validated_effects=("android_scan_timers_and_retry_counter",),
+        bluetooth=DirectBluetoothEffect.ACTIVE_SCAN_TOGGLE,
         logging=("raw_discovery_identifiers",),
-        authorization=CloudAuthorization.REQUIRES_STATUS_200,
+        validation_status=SharedSdkValidationStatusUse.REQUIRES_200,
         analogue=PythonAnalogue.BOUNDED_REDACTED_DISCOVERY,
         findings=(
             "start_and_stop_share_one_boolean_method",
@@ -279,14 +310,14 @@ _INVENTORY = (
     _item(
         LocalBleOperation.SET_OPTION,
         arguments=(ArgumentPrivacy.PROFILE_AND_WEATHER_MODELS,),
-        effects=(
+        validated_effects=(
             "caches_user_profile",
             "caches_device_profile",
             "caches_alarm_list",
             "caches_weather_list",
         ),
         persisted=PersistedState.RUNTIME_PROFILE_CACHE,
-        authorization=CloudAuthorization.REQUIRES_STATUS_200,
+        validation_status=SharedSdkValidationStatusUse.REQUIRES_200,
         analogue=PythonAnalogue.TYPED_OFFLINE_MODELS_ONLY,
         findings=(
             "later_commands_consume_cached_values",
@@ -298,7 +329,7 @@ _INVENTORY = (
         LocalBleOperation.SET_SCAN_MODE,
         arguments=(ArgumentPrivacy.SCAN_POLICY_CODE,),
         effects=("sets_android_scan_settings_mode_for_future_scans",),
-        bluetooth=BluetoothBehavior.SCAN_CONFIGURATION,
+        bluetooth=DirectBluetoothEffect.SCAN_CONFIGURATION,
         persisted=PersistedState.RUNTIME_SCAN_CONFIGURATION,
         analogue=PythonAnalogue.NO_PUBLIC_SCAN_MODE,
         findings=(
@@ -317,7 +348,7 @@ _INVENTORY = (
             "future_arbitrary_write_lookup",
             "configures_raw_local_broadcast_suppression",
         ),
-        bluetooth=BluetoothBehavior.DYNAMIC_GATT_CONFIGURATION,
+        bluetooth=DirectBluetoothEffect.DYNAMIC_GATT_CONFIGURATION,
         persisted=PersistedState.RUNTIME_DYNAMIC_GATT_CONFIGURATION,
         analogue=PythonAnalogue.PASSIVE_GATT_INVENTORY_ONLY,
         findings=(
@@ -345,12 +376,13 @@ _INVENTORY = (
             "sets_characteristic_value",
             "returns_write_result_via_global_callback",
         ),
-        bluetooth=BluetoothBehavior.ARBITRARY_GATT_WRITE,
+        bluetooth=DirectBluetoothEffect.ARBITRARY_GATT_WRITE,
         logging=("raw_characteristic_uuid",),
         analogue=PythonAnalogue.NO_PUBLIC_ARBITRARY_WRITE,
         findings=(
             "bypasses_vendor_command_queue",
-            "bypasses_cloud_authorization_gate",
+            "bypasses_shared_sdk_validation_status_gate",
+            "does_not_establish_device_gear_policy_or_owner_authorization",
             "same_uuid_is_used_for_service_map_and_characteristic_lookup",
             "returns_sdk_status_even_when_android_write_returns_false",
             "missing_service_returns_one_which_can_be_mistaken_for_success",
@@ -370,11 +402,11 @@ def static_local_ble_operations() -> tuple[StaticLocalBleOperation, ...]:
 
 __all__ = [
     "ArgumentPrivacy",
-    "BluetoothBehavior",
-    "CloudAuthorization",
+    "DirectBluetoothEffect",
     "LocalBleOperation",
     "PersistedState",
     "PythonAnalogue",
+    "SharedSdkValidationStatusUse",
     "StaticLocalBleOperation",
     "static_local_ble_operations",
 ]

@@ -263,6 +263,9 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Offline request codecs: 85" in output
     assert "Offline response codecs: 86" in output
     assert "Offline local projections: 3" in output
+    assert "Supplemental session transitions (not interface entries): 33" in output
+    assert "Adversarial session races: 22" in output
+    assert "Source-labeled binding reactions: 6" in output
     assert "Offline control models: 1" in output
     assert "Offline behavior evidence: 26" in output
     assert "Unclassified requests: 0" in output
@@ -270,6 +273,7 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Hardware-eligible vendor operations: 0" in output
     assert "Hardware-verified vendor operations: 0" in output
     assert "Static coverage never authorizes Bluetooth writes or subscriptions." in output
+    assert "Supplemental session evidence is static and non-runnable." in output
 
 
 def test_protocol_coverage_json_accounts_for_every_entry(capsys):
@@ -284,6 +288,9 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["offline_request_codecs"] == 85
     assert result["summary"]["offline_response_codecs"] == 86
     assert result["summary"]["offline_local_projections"] == 3
+    assert result["summary"]["supplemental_session_transitions"] == 33
+    assert result["summary"]["supplemental_session_races"] == 22
+    assert result["summary"]["supplemental_binding_reactions"] == 6
     assert result["summary"]["offline_control_models"] == 1
     assert result["summary"]["offline_behavior_evidence"] == 26
     assert result["summary"]["unclassified_requests"] == 0
@@ -292,6 +299,15 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["hardware_verified_vendor_operations"] == 0
     assert len(result["requests"]) == 112
     assert len(result["callbacks"]) == 105
+    session = result["supplemental"]["session_sequence"]
+    assert session["interface_entries"] is False
+    assert session["runnable"] is False
+    assert session["hardware_eligible"] is False
+    assert session["hardware_verified"] is False
+    assert session["owner_authorized"] is False
+    assert len(session["transitions"]) == 33
+    assert len(session["races"]) == 22
+    assert len(session["binding_reactions"]) == 6
     assert "frame" not in json.dumps(result).lower()
 
 

@@ -29,8 +29,10 @@ Desired outcomes:
   vector with proven behavior on my ring.
 - Preserve raw device timestamps and opaque field names where the app's timezone
   handling or user-facing labels are not independently proven.
-- Use only legitimate owner pairing/session flows; extracted secrets, token replay,
-  authorization bypasses, and device impersonation are out of scope.
+- Keep developer-cloud validation, device-cloud policy, application binding, Android
+  bonding, and command-transaction state distinct. Use only legitimate owner flows;
+  extracted secrets, token replay, authorization bypasses, and device impersonation
+  are out of scope.
 - Keep the APK, decompiled code, captures, identifiers, and real measurements private.
 - Treat firmware update as a destructive multi-boundary workflow—main GATT, cloud,
   files, and SUOTA—not as a normal vendor request that static bytes can authorize.
@@ -84,6 +86,28 @@ Desired outcomes:
   automation never needs to scrape English diagnostics.
 - Useful partial results from firmware with missing, malformed, or slow optional
   fields, without multiplying the command deadline by the number of fields.
+
+### Understand connection progress and uncertainty
+
+When a connection is slow, denied, interrupted, or racing a late callback, I want the
+client to name the exact stage and safest next action, so I do not retry a command that
+the ring may already have received or mistake cloud policy for ownership.
+
+Desired outcomes:
+
+- Distinguish link connection, endpoint validation, notification activation, write
+  outcome, and matched application response.
+- Never describe high-level notification activation as a confirmed CCCD write or
+  peripheral acknowledgement.
+- Report developer-cloud policy, device-cloud policy, application binding, and Android
+  bonding independently; no state silently promotes another.
+- Ignore callbacks from an earlier connection generation.
+- Buffer a valid early response only within its operation and generation, without
+  extending the original deadline.
+- After an accepted write loses confirmation, report `uncertain`, do not replay, and
+  require a fresh connection before another vendor operation.
+- Make cancellation and cleanup bounded; explain whether work stopped before or after
+  possible dispatch without printing frame bytes or identifiers.
 
 ### Select my ring without exposing its address
 

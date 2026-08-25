@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from types import MappingProxyType
+from typing import Mapping
+
+from .vendor_session_evidence import recovered_session_evidence
 
 
 class VendorPythonState(str, Enum):
@@ -40,6 +44,7 @@ class StaticVendorOperation:
     evidence_locator: str | None = None
     evidence_scope: str | None = None
     known_limitations: tuple[str, ...] = ()
+    session_sequence_locators: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -50,6 +55,7 @@ class StaticVendorCallback:
     maturity: str = "static_apk_only"
     hardware_eligible: bool = False
     hardware_verified: bool = False
+    session_sequence_locators: tuple[str, ...] = ()
 
 
 _MAIN_COMMANDS = (
@@ -273,6 +279,34 @@ SUPPLEMENTAL_EVIDENCE_LOCATORS = {
         "notify_ftp_download_completed"
     )
 }
+
+
+def _session_sequence_locator(code: str) -> str:
+    return f"jring.vendor_session_evidence:SessionTransitionCode:{code}"
+
+
+def _session_sequence_locator_index(
+    relationship: str,
+) -> Mapping[str, tuple[str, ...]]:
+    indexed: dict[str, list[str]] = {}
+    for transition in recovered_session_evidence().transitions:
+        locator = _session_sequence_locator(transition.code.value)
+        for name in getattr(transition, relationship):
+            indexed.setdefault(name, []).append(locator)
+    return MappingProxyType(
+        {name: tuple(locators) for name, locators in indexed.items()}
+    )
+
+
+# These supplemental indexes point from existing interface declarations to recovered
+# internal sequencing evidence.  They are deliberately not routes, operations, or
+# callbacks and therefore cannot change the 112/105 interface ledgers.
+REQUEST_SEQUENCE_EVIDENCE_LOCATORS: Mapping[str, tuple[str, ...]] = (
+    _session_sequence_locator_index("related_requests")
+)
+CALLBACK_SEQUENCE_EVIDENCE_LOCATORS: Mapping[str, tuple[str, ...]] = (
+    _session_sequence_locator_index("related_callbacks")
+)
 _OFFLINE_MUTATION_CODECS = frozenset(
     {
         "editDeviceDialCustom",
@@ -348,6 +382,9 @@ def static_vendor_operation_coverage() -> tuple[StaticVendorOperation, ...]:
                 ("not_behavioral_parity", "no_runtime_or_hardware_verification")
                 if name in BEHAVIOR_EVIDENCE_LOCATORS
                 else ()
+            ),
+            session_sequence_locators=REQUEST_SEQUENCE_EVIDENCE_LOCATORS.get(
+                name, ()
             ),
         )
         for route, names in _ROUTES
@@ -463,7 +500,7 @@ _CALLBACKS = (
     "setAutoHeartMode",
 )
 
-_NON_BLE_CALLBACKS = frozenset(
+_NON_OPCODE_CALLBACKS = frozenset(
     {
         "onAuthDeviceResult",
         "onAuthSdkResult",
@@ -583,7 +620,7 @@ _OFFLINE_RESPONSE_CODECS = frozenset(
 
 def static_vendor_callback_coverage() -> tuple[StaticVendorCallback, ...]:
     def source(name: str) -> str:
-        if name in _NON_BLE_CALLBACKS:
+        if name in _NON_OPCODE_CALLBACKS:
             return "android_network_ota_or_transport"
         if name in _UNUSED_CALLBACKS:
             return "declared_without_invocation"
@@ -601,6 +638,9 @@ def static_vendor_callback_coverage() -> tuple[StaticVendorCallback, ...]:
                 else VendorPythonState.OFFLINE_LOCAL_PROJECTION
                 if name in _LOCAL_PROJECTION_CALLBACKS
                 else VendorPythonState.NOT_REPRODUCED
+            ),
+            session_sequence_locators=CALLBACK_SEQUENCE_EVIDENCE_LOCATORS.get(
+                name, ()
             ),
         )
         for name in _CALLBACKS

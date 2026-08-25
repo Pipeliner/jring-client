@@ -14,11 +14,11 @@ decompiled vendor material.
 | Vendor GATT | SDK constants place `56ff` as a service with `33f3`/`33f4` transport characteristics and `33f5`/`33f6` raw-data characteristics; `ffe5`/`ffe9` form a second path; `57ff` and `fef5` also occur | High static roles; unverified on hardware | Service/characteristic metadata only |
 | Battery | SDK methods/callbacks and Android UI actions mention battery | High capability; unknown UUID | Standard `2a19` safe read |
 | Device info | SDK get-device-info operations and standard DIS UUIDs | High | Safe reads |
-| Time | get/set device-time operations | High capability; unknown vendor frame | Standard CTS only, guarded |
-| Live events | HR, oxygen, blood pressure, temperature, ECG, sensor/sport callbacks | High capability; unknown bytes | Standard HR only |
-| History | by-day, oxygen offline, sensor offline, multiple sport, ECG history operations | High capability; unknown bytes | Simulator/export only |
-| Pair/session | authorize, bind, session timeout/response strings | Medium | No automation or bypass |
-| Integrity | CRC/XOR/check-CRC strings | Medium; coverage/algorithm unknown | No vendor frame implementation |
+| Time | get/set device-time operations | Exact static opcode-`01` request codec; live behavior unverified | Offline codec plus guarded standard CTS read |
+| Live events | HR, oxygen, blood pressure, temperature, ECG, sensor/sport callbacks | Strict static response codecs for recovered families; live direction and firmware behavior unverified | Offline response codecs; standard HR only on hardware |
+| History | by-day, oxygen offline, sensor offline, multiple sport, ECG history operations | Strict static codecs for recovered families; pagination and acknowledgement remain unresolved | Offline codec/simulator/export only |
+| Control domains | developer-cloud validation, device-cloud policy, `4b` binding, Android bonding, and command-transaction timeouts are separate flows | High static separation; live owner flow unverified | No cloud replay, implicit binding, bonding, or live vendor transaction |
+| Integrity | Family-specific checksums plus unresolved CRC/XOR references | High where a strict codec exists; no universal rule inferred | Offline strict codecs only; no hardware eligibility |
 | Other | alarms, sedentary/sleep, user profile, goals, notifications, contacts, weather, dials/OTA, Wi-Fi/AI | High API surface | Parity tracked; intentionally not transmitted |
 | Native | One arm64 native library in ABI split | High | Not redistributed or invoked |
 
@@ -45,7 +45,7 @@ callbacks. The public capability groups are:
 | Live sensors | heart rate, oxygen, blood pressure, temperature, ECG, G-sensor/raw sensor | Standard HR library API only; no vendor subscription |
 | Personalization | goal, profile, alarms, reminders, sleep/idle, language, display, anti-lost, vibration | Static surface tracked; vendor transmission disabled |
 | Phone integration | notifications, contacts, call/media state, volume, weather, messages and cards | Static surface tracked; private data never sent |
-| Session | authorization, binding, application/device identifiers, command queue and response timeout | Unknown owner-session protocol; no bypass or replay |
+| Control domains | cloud validation/policy, explicit binding, Android bonding, and command-transaction state | Separately modeled; no bypass, replay, or inferred equivalence |
 | Bulk/high risk | dials, wallpapers, files, FTP, OTA/DFU, factory test, Wi-Fi and AI/audio features | Deferred and separately threat-modelled |
 
 Static analysis can establish endpoint labels, candidate opcodes, fixed frame widths,
@@ -150,29 +150,53 @@ events, five raw notification families, operation-specific acknowledgements, and
 generic by-day history decoder. The three local end projections are modeled separately
 rather than invented as wire frames. All 105 remain hardware-ineligible.
 
-Four authorization or attachment domains remain separate: vendor developer-cloud SDK
-validation, device-cloud gear policy, the local BLE binding mutation, and Android OS
-bonding. Static control-flow review shows that the two cloud checks do not perform a
-ring wire challenge, and ordinary `33f3` queries can be queued after GATT readiness
-before the asynchronous device-cloud result. The independent Python client therefore
-does not copy cloud credentials or endpoints, replay cloud decisions, or relabel cloud
-policy as ring authentication. Local bind/unbind remains disabled because its three
-fields, physical confirmation behavior, timeout state, and firmware coverage are
-unproven. Android bonding is not treated as vendor binding.
+## Control-flow domains and recovered ordering
 
-The recovered SDK also schedules an automatic `01` device-time mutation after its
-notification-descriptor callback. Its timestamp uses the current total timezone offset
-while its separate offset byte uses the raw non-DST whole-hour offset, so the two can
-disagree. The SDK accepts nearly every descriptor result and has timeout/resend behavior;
-the Python client does not reproduce that unsafe startup write. The exact frame remains
-available only through the explicit, hardware-ineligible offline codec. Binding (`4b`)
-is likewise an explicit mutation, not an implicit part of connection or cloud auth.
+Five domains must not be collapsed into one “authorized session”:
+
+| Domain | Recovered role | What it does not prove |
+|---|---|---|
+| Developer-cloud validation | Asynchronous application/SDK policy with a time cache and one mutable callback slot | Ring ownership, GATT readiness, or a wire challenge |
+| Device-cloud gear policy | Per-device cloud decision launched after the SDK reports BLE readiness | Descriptor acknowledgement, binding, or Android bond state |
+| Application binding | Explicit `4b` request/notification exchange | Cloud approval or Android pairing |
+| Android bonding | OS bond and optional classic-Bluetooth profile attachment | Vendor-GATT ownership or `4b` completion |
+| Command transaction | Notification activation, one characteristic-write outcome, and an operation-matched response | Any of the four authorization/attachment decisions above |
+
+Static control-flow review shows that developer validation is not awaited before the
+app requests a connection. Device-cloud policy starts after notification configuration
+has merely been submitted and after the SDK has already exposed connected state; normal
+application initialization may therefore overlap its result. A later policy denial can
+disconnect an otherwise ready-looking connection. The independent Python client does
+not copy cloud credentials or endpoints, replay decisions, or relabel either cloud
+flow as ring authentication.
+
+Local bind/unbind remains disabled because physical confirmation behavior, timeout
+state, and firmware coverage are unproven. The recovered request contains three fields;
+the app uses explicit initialize, acknowledge, and unbind actions rather than treating
+binding as connection setup. Android bonding remains a separate optional classic-
+Bluetooth path and is not a prerequisite for vendor GATT.
+
+The recovered SDK exposes connected state when its descriptor write is submitted, not
+when the descriptor callback proves success. A submission failure schedules disconnect;
+the callback handles one generic failure specially but otherwise schedules an automatic
+`01` device-time mutation. Its timestamp uses the current total timezone offset while
+its separate offset byte uses the raw non-DST whole-hour offset, so the two can disagree.
+The Python client does not reproduce that premature readiness claim or startup write.
+The exact frame remains available only through the explicit, hardware-ineligible offline
+codec. Binding (`4b`) is likewise an explicit mutation, not an implicit part of
+connection, subscription, or cloud policy.
 
 Before any future live vendor command path can be ready, it must serialize notification
 activation and characteristic writes, require successful primary subscription
 readiness without relabeling it as direct CCCD evidence, match responses by an
 operation-specific shape, clear pending work on disconnect, redact frames from logs,
-and fail uncertain without automatically replaying a write.
+and fail uncertain without automatically replaying a write. Every callback must carry
+the active connection generation; a late callback from a closed GATT cannot advance a
+replacement connection. Human and machine output must keep `connected`, endpoint
+validation, subscription activation, write completion, application response, cloud
+policy, binding, and Android bonding separately named. A timeout after write submission
+must say that delivery is unknown and require a fresh connection, not invite a blind
+retry.
 
 ## Non-health and general-use findings
 
