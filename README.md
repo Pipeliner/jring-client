@@ -126,9 +126,10 @@ wrappers now have exact start selectors and a common stop selector; five raw cal
 rows remain explicitly unresolved rather than being invented as one-to-one parsers.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
-are local/composite, and four are no-op stubs. It also reconciles 103 directly
-dispatched callbacks and two declarations without direct dispatch. These static counts
-do not prove runtime reachability.
+are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke
+sites: 125 in the main response handler, six in the raw handler, and 50 elsewhere.
+Those sites reach 103 of 105 declarations; two have no direct invoke. These static
+counts do not prove runtime reachability.
 The sanitized Binder crosswalk adds exact transaction IDs and semantic-versus-Parcel
 kinds for all 217 rows. Every ID is contiguous and agrees across interface, Proxy,
 Stub, and implementation; all calls are synchronous and all ordered marshalling checks

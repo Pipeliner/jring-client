@@ -251,7 +251,9 @@ Python safety rules without becoming executable.
 An app-use supplement separately partitions the same request ledger into 51 directly
 invoked APK targets at 152 static sites, 43 uninvoked wire entries, 14 uninvoked
 local/composite entries, and four uninvoked no-op stubs. Its callback side records 103
-directly dispatched declarations and names the two without direct dispatch. This keeps
+declarations with direct invokes and names the two without one. It preserves 181 exact
+invoke sites by origin—125 main-response, six raw-response, and 50 outside those
+dispatchers—without double-counting the four targets shared by main and outside code. This keeps
 “available in the SDK,” “referenced by the APK,” and “runnable in Python” as separate
 claims. Same-spelled request and callback rows remain separate interface roles.
 The Binder supplement exposes exact transaction IDs and safe semantic/Parcel kinds for
@@ -551,7 +553,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_cli_capability_inventory_is_private` |
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_multi_sport_frame_also_reports_generic_sensor_mode_success`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Complete request accounting | `test_static_vendor_operation_coverage_accounts_for_all_112_requests_once`, `test_only_seven_operations_have_offline_request_and_response_codecs`, `test_static_coverage_never_promotes_an_operation_to_hardware` |
-| APK-owned interface use | `test_every_request_has_one_exact_app_use_classification`, `test_direct_app_use_counts_are_occurrences_not_distinct_methods`, `test_every_callback_is_directly_dispatched_or_explicitly_unobserved`, `test_request_and_callback_namespaces_remain_descriptor_distinct` |
+| APK-owned interface use | `test_every_request_has_one_exact_app_use_classification`, `test_direct_app_use_counts_are_occurrences_not_distinct_methods`, `test_every_callback_has_exact_invoke_origin_counts_or_is_unobserved`, `test_callback_origin_counts_preserve_overlap_and_repeated_invokes` |
 | Exact Binder parity | `test_request_and_callback_binder_surfaces_have_exact_contiguous_parity`, `test_every_binder_transaction_is_synchronous_and_parcel_order_matches`, `test_semantic_boolean_kinds_remain_distinct_from_parcel_int32`, `test_binder_rows_link_app_use_and_codec_status_without_inference`, `test_binder_evidence_is_closed_sanitized_and_non_runnable` |
 | Strict offline mutation encoders | `test_twenty_six_mutations_have_offline_codecs_without_live_eligibility`, `test_device_settings_preserve_the_exact_profile_layout_and_inverted_calling_bit`, `test_alarm_batch_builds_base_and_exact_content_chunks_without_state`, `test_request_bytes_and_sensitive_inputs_are_structurally_hidden`, `test_requests_are_closed_offline_private_and_never_hardware_eligible`, `test_safety_metadata_refuses_unsafe_apk_runtime_behaviors` |
 | Additional main-command codecs | `test_forty_six_additional_main_requests_have_offline_codecs`, `test_wifi_scan_is_an_active_network_action_not_a_read_only_query`, `test_every_main_operation_has_closed_privacy_and_risk_metadata`, `test_ai_language_is_opaque_explicit_utf8_and_never_uses_host_locale`, `test_private_text_rejects_controls_formatting_and_malformed_unicode`, `test_plans_exact_header_title_and_content_frames_without_live_side_effects` |

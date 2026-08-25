@@ -21,7 +21,7 @@ class RequestAppUseState(str, Enum):
 
 
 class CallbackDispatchState(str, Enum):
-    DIRECT_SDK_DISPATCH = "direct_sdk_dispatch"
+    DIRECT_INVOKE_OBSERVED = "direct_invoke_observed"
     DECLARED_WITHOUT_DIRECT_DISPATCH = "declared_without_direct_dispatch"
 
 
@@ -41,9 +41,24 @@ class CallbackDispatchRow:
     name: str
     interface_role: str
     state: CallbackDispatchState
+    main_response_invoke_count: int
+    raw_response_invoke_count: int
+    outside_dispatcher_invoke_count: int
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
         raise TypeError("callback dispatch evidence is closed")
+
+    @property
+    def invoke_counts(self) -> tuple[int, int, int]:
+        return (
+            self.main_response_invoke_count,
+            self.raw_response_invoke_count,
+            self.outside_dispatcher_invoke_count,
+        )
+
+    @property
+    def direct_invoke_count(self) -> int:
+        return sum(self.invoke_counts)
 
 
 @dataclass(frozen=True, init=False, repr=False)
@@ -68,11 +83,45 @@ class RecoveredVendorAppUseEvidence:
         return sum(row.direct_invoke_count for row in self.requests)
 
     @property
-    def directly_dispatched_callback_count(self) -> int:
+    def directly_invoked_callback_count(self) -> int:
         return sum(
-            row.state is CallbackDispatchState.DIRECT_SDK_DISPATCH
+            row.state is CallbackDispatchState.DIRECT_INVOKE_OBSERVED
             for row in self.callbacks
         )
+
+    @property
+    def direct_callback_invoke_count(self) -> int:
+        return sum(row.direct_invoke_count for row in self.callbacks)
+
+    def _callback_target_count(self, field: str) -> int:
+        return sum(getattr(row, field) > 0 for row in self.callbacks)
+
+    def _callback_invoke_count(self, field: str) -> int:
+        return sum(getattr(row, field) for row in self.callbacks)
+
+    @property
+    def main_response_callback_target_count(self) -> int:
+        return self._callback_target_count("main_response_invoke_count")
+
+    @property
+    def main_response_callback_invoke_count(self) -> int:
+        return self._callback_invoke_count("main_response_invoke_count")
+
+    @property
+    def raw_response_callback_target_count(self) -> int:
+        return self._callback_target_count("raw_response_invoke_count")
+
+    @property
+    def raw_response_callback_invoke_count(self) -> int:
+        return self._callback_invoke_count("raw_response_invoke_count")
+
+    @property
+    def outside_dispatcher_callback_target_count(self) -> int:
+        return self._callback_target_count("outside_dispatcher_invoke_count")
+
+    @property
+    def outside_dispatcher_callback_invoke_count(self) -> int:
+        return self._callback_invoke_count("outside_dispatcher_invoke_count")
 
     @property
     def maturity(self) -> str:
@@ -181,6 +230,117 @@ _NO_OP_STUBS_WITHOUT_APP_INVOKE = frozenset(
     {"connectFtp", "getDeviceFileState", "getWifiState", "setDeviceFileState"}
 )
 
+# Exact direct interface-invoke occurrences in three mutually exclusive source
+# regions: the main response dispatcher, the raw response dispatcher, and all other
+# owned SDK/app code. A callback may appear in both main and outside regions.
+_CALLBACK_INVOKE_COUNTS = {
+    "onAuthDeviceResult": (0, 0, 3),
+    "onAuthSdkResult": (0, 0, 6),
+    "onCharacteristicChanged": (0, 0, 1),
+    "onCharacteristicWrite": (0, 0, 1),
+    "onConnectStateChanged": (0, 0, 4),
+    "onDeviceConnectedWifi": (1, 0, 0),
+    "onDeviceTestCmd": (1, 0, 0),
+    "onEditDeviceDialCustom": (1, 0, 0),
+    "onGetAdvSensorOfflineData": (1, 0, 0),
+    "onGetAdvSensorOfflineDataEnd": (1, 0, 1),
+    "onGetAiAction": (0, 1, 0),
+    "onGetAiCommandType": (0, 1, 0),
+    "onGetAiState": (0, 1, 0),
+    "onGetBandFunction": (2, 0, 0),
+    "onGetChatgptAction": (1, 0, 0),
+    "onGetCurSportData": (2, 0, 0),
+    "onGetDataByDay": (7, 0, 0),
+    "onGetDataByDayEnd": (5, 0, 4),
+    "onGetDeviceAction": (2, 0, 0),
+    "onGetDeviceBatery": (1, 0, 0),
+    "onGetDeviceCode": (2, 0, 0),
+    "onGetDeviceDial": (1, 0, 0),
+    "onGetDeviceDialCustom": (1, 0, 0),
+    "onGetDeviceFileState": (1, 0, 0),
+    "onGetDeviceInfo": (1, 0, 0),
+    "onGetDeviceRssi": (0, 0, 1),
+    "onGetDeviceState": (1, 0, 0),
+    "onGetDeviceTime": (0, 0, 0),
+    "onGetEcgHistory": (1, 0, 0),
+    "onGetEcgHistoryData": (1, 0, 0),
+    "onGetEcgStartEnd": (1, 0, 0),
+    "onGetEcgValue": (1, 0, 0),
+    "onGetEqInfo2": (1, 0, 0),
+    "onGetFactoryTestData": (1, 0, 0),
+    "onGetGSensorData": (1, 0, 0),
+    "onGetMultipleSportData": (2, 0, 1),
+    "onGetOfflineSpeechRecognitionMode": (2, 0, 0),
+    "onGetOtaInfo": (0, 0, 4),
+    "onGetOtaUpdate": (0, 0, 15),
+    "onGetOxygenOfflineData": (1, 0, 0),
+    "onGetOxygenOfflineDataEnd": (1, 0, 1),
+    "onGetPhoneVolume": (1, 0, 0),
+    "onGetRawData": (0, 2, 0),
+    "onGetScreenLightTime": (1, 0, 0),
+    "onGetSenserData": (4, 0, 0),
+    "onGetSportSteps": (1, 0, 0),
+    "onGetTemperatureData": (1, 0, 0),
+    "onGetTouchMode": (1, 0, 0),
+    "onGetWifiSsid": (1, 0, 0),
+    "onGetWifiSsidCount": (1, 0, 0),
+    "onGetWifiState": (1, 0, 0),
+    "onGetWorshipInfo": (1, 0, 0),
+    "onGetWorshipTimesData": (1, 0, 0),
+    "onNotifyAiConnectionMethod": (1, 0, 0),
+    "onNotifyAppId": (1, 0, 0),
+    "onNotifyBindedInfo": (1, 0, 0),
+    "onNotifyClassicBtInfo": (1, 0, 0),
+    "onNotifyClassicBtName": (1, 0, 0),
+    "onNotifyContactCrc": (1, 0, 0),
+    "onNotifyDeviceSystemStateInfo": (1, 0, 0),
+    "onNotifyDeviceWifiApState": (1, 0, 0),
+    "onNotifyDialJsonContent": (0, 0, 2),
+    "onNotifyECardNeedUpdate": (1, 0, 0),
+    "onNotifyFtpStateInfo": (0, 0, 3),
+    "onNotifyNewMediaInfo": (0, 0, 1),
+    "onNotifySmsRspNeedUpdate": (1, 0, 0),
+    "onNotifySmsRspSend": (1, 0, 0),
+    "onOpenRawDataNotificationState": (0, 0, 1),
+    "onReadCurrentSportData": (1, 0, 0),
+    "onReceiveSensorData": (1, 0, 0),
+    "onReceiveSensorOxygenData": (1, 0, 0),
+    "onRecvDeviceVoiceCommandConfirm": (0, 1, 0),
+    "onScanCallback": (0, 0, 1),
+    "onSendVibrationSignal": (2, 0, 0),
+    "onSendWeather": (0, 0, 0),
+    "onSensorStateChange": (2, 0, 0),
+    "onSetAlarm": (2, 0, 0),
+    "onSetAntiLost": (2, 0, 0),
+    "onSetBPAdjust": (1, 0, 0),
+    "onSetBloodOxygenMode": (1, 0, 0),
+    "onSetBloodPressureMode": (3, 0, 0),
+    "onSetDeviceCode": (2, 0, 0),
+    "onSetDeviceDialState": (1, 0, 0),
+    "onSetDeviceHeartRateArea": (2, 0, 0),
+    "onSetDeviceInfo": (2, 0, 0),
+    "onSetDeviceMode": (2, 0, 0),
+    "onSetDeviceName": (1, 0, 0),
+    "onSetDeviceTime": (2, 0, 0),
+    "onSetDeviceWallpaperState": (1, 0, 0),
+    "onSetEcgMode": (2, 0, 0),
+    "onSetEqInfo2": (1, 0, 0),
+    "onSetFemaleReminder": (1, 0, 0),
+    "onSetGoalStep": (2, 0, 0),
+    "onSetHourFormat": (2, 0, 0),
+    "onSetIdleTime": (2, 0, 0),
+    "onSetLanguage": (2, 0, 0),
+    "onSetNotify": (2, 0, 0),
+    "onSetPhontMode": (2, 0, 0),
+    "onSetReminder": (1, 0, 0),
+    "onSetReminderText": (1, 0, 0),
+    "onSetSleepTime": (2, 0, 0),
+    "onSetTemperatureMode": (1, 0, 0),
+    "onSetUserInfo": (2, 0, 0),
+    "onTemperatureModeChange": (1, 0, 0),
+    "setAutoHeartMode": (2, 0, 0),
+}
+
 
 def _request_row(name: str) -> RequestAppUseRow:
     if name in _DIRECT_REQUEST_INVOKE_COUNTS:
@@ -206,15 +366,22 @@ def _request_row(name: str) -> RequestAppUseRow:
 
 
 def _callback_row(name: str) -> CallbackDispatchRow:
+    try:
+        main_count, raw_count, outside_count = _CALLBACK_INVOKE_COUNTS[name]
+    except KeyError as error:
+        raise RuntimeError(f"unclassified callback invoke row: {name}") from error
     state = (
         CallbackDispatchState.DECLARED_WITHOUT_DIRECT_DISPATCH
-        if name in {"onGetDeviceTime", "onSendWeather"}
-        else CallbackDispatchState.DIRECT_SDK_DISPATCH
+        if main_count + raw_count + outside_count == 0
+        else CallbackDispatchState.DIRECT_INVOKE_OBSERVED
     )
     row = object.__new__(CallbackDispatchRow)
     object.__setattr__(row, "name", name)
     object.__setattr__(row, "interface_role", "callback")
     object.__setattr__(row, "state", state)
+    object.__setattr__(row, "main_response_invoke_count", main_count)
+    object.__setattr__(row, "raw_response_invoke_count", raw_count)
+    object.__setattr__(row, "outside_dispatcher_invoke_count", outside_count)
     return row
 
 

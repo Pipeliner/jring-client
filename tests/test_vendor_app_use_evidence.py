@@ -49,7 +49,7 @@ def test_direct_app_use_counts_are_occurrences_not_distinct_methods():
     )
 
 
-def test_every_callback_is_directly_dispatched_or_explicitly_unobserved():
+def test_every_callback_has_exact_invoke_origin_counts_or_is_unobserved():
     evidence = recovered_vendor_app_use_evidence()
 
     assert len(evidence.callbacks) == 105
@@ -58,7 +58,7 @@ def test_every_callback_is_directly_dispatched_or_explicitly_unobserved():
         row.name for row in static_vendor_callback_coverage()
     }
     assert Counter(row.state for row in evidence.callbacks) == {
-        CallbackDispatchState.DIRECT_SDK_DISPATCH: 103,
+        CallbackDispatchState.DIRECT_INVOKE_OBSERVED: 103,
         CallbackDispatchState.DECLARED_WITHOUT_DIRECT_DISPATCH: 2,
     }
     assert {
@@ -66,6 +66,42 @@ def test_every_callback_is_directly_dispatched_or_explicitly_unobserved():
         for row in evidence.callbacks
         if row.state is CallbackDispatchState.DECLARED_WITHOUT_DIRECT_DISPATCH
     } == {"onGetDeviceTime", "onSendWeather"}
+
+    assert evidence.main_response_callback_target_count == 85
+    assert evidence.main_response_callback_invoke_count == 125
+    assert evidence.raw_response_callback_target_count == 5
+    assert evidence.raw_response_callback_invoke_count == 6
+    assert evidence.outside_dispatcher_callback_target_count == 17
+    assert evidence.outside_dispatcher_callback_invoke_count == 50
+    assert evidence.direct_callback_invoke_count == 181
+
+
+def test_callback_origin_counts_preserve_overlap_and_repeated_invokes():
+    evidence = recovered_vendor_app_use_evidence()
+    rows = {row.name: row for row in evidence.callbacks}
+
+    assert rows["onGetDataByDayEnd"].invoke_counts == (5, 0, 4)
+    assert rows["onGetMultipleSportData"].invoke_counts == (2, 0, 1)
+    assert rows["onGetRawData"].invoke_counts == (0, 2, 0)
+    assert rows["onGetOtaUpdate"].invoke_counts == (0, 0, 15)
+    assert rows["onGetDeviceTime"].invoke_counts == (0, 0, 0)
+    assert rows["onGetDataByDayEnd"].direct_invoke_count == 9
+
+    main = {row.name for row in evidence.callbacks if row.main_response_invoke_count}
+    raw = {row.name for row in evidence.callbacks if row.raw_response_invoke_count}
+    outside = {
+        row.name
+        for row in evidence.callbacks
+        if row.outside_dispatcher_invoke_count
+    }
+    assert main & outside == {
+        "onGetAdvSensorOfflineDataEnd",
+        "onGetDataByDayEnd",
+        "onGetMultipleSportData",
+        "onGetOxygenOfflineDataEnd",
+    }
+    assert not main & raw
+    assert not raw & outside
 
 
 def test_request_and_callback_namespaces_remain_descriptor_distinct():

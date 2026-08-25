@@ -314,7 +314,8 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     ) in output
     assert (
         "Owned app interface use: 51/112 request targets across 152 direct "
-        "invokes; 103/105 callbacks directly dispatched."
+        "invokes; 103/105 callbacks have a direct invoke (181 sites: "
+        "125 main, 6 raw, 50 outside dispatchers)."
     ) in output
     assert (
         "Binder parity: 217 transactions; 217 synchronous; 0 Parcel-order "
@@ -359,7 +360,14 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["request_no_fixed_packets"] == 23
     assert result["summary"]["app_direct_request_targets"] == 51
     assert result["summary"]["app_direct_request_invokes"] == 152
-    assert result["summary"]["directly_dispatched_callbacks"] == 103
+    assert result["summary"]["directly_invoked_callbacks"] == 103
+    assert result["summary"]["direct_callback_invokes"] == 181
+    assert result["summary"]["main_response_callback_targets"] == 85
+    assert result["summary"]["main_response_callback_invokes"] == 125
+    assert result["summary"]["raw_response_callback_targets"] == 5
+    assert result["summary"]["raw_response_callback_invokes"] == 6
+    assert result["summary"]["outside_dispatcher_callback_targets"] == 17
+    assert result["summary"]["outside_dispatcher_callback_invokes"] == 50
     assert result["summary"]["binder_transactions"] == 217
     assert result["summary"]["binder_synchronous_transactions"] == 217
     assert result["summary"]["binder_parcel_order_mismatches"] == 0
@@ -444,7 +452,14 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert len(app_use["callbacks"]) == 105
     assert app_use["direct_request_target_count"] == 51
     assert app_use["direct_request_invoke_count"] == 152
-    assert app_use["directly_dispatched_callback_count"] == 103
+    assert app_use["directly_invoked_callback_count"] == 103
+    assert app_use["direct_callback_invoke_count"] == 181
+    assert app_use["main_response_callback_target_count"] == 85
+    assert app_use["main_response_callback_invoke_count"] == 125
+    assert app_use["raw_response_callback_target_count"] == 5
+    assert app_use["raw_response_callback_invoke_count"] == 6
+    assert app_use["outside_dispatcher_callback_target_count"] == 17
+    assert app_use["outside_dispatcher_callback_invoke_count"] == 50
     assert app_use["cross_namespace_name_collisions"] == ["setAutoHeartMode"]
     assert app_use["dynamic_request_interface_invokes_observed"] is False
     assert app_use["hardware_eligible"] is False

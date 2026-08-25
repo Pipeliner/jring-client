@@ -541,10 +541,16 @@ Bluetooth-facing methods across 125 classes. Those methods include interface
 declarations, implementations, app call sites, SDK dispatch sites, Android Bluetooth
 helpers, and 188 internal OTA methods. Only the declaration sets define interface rows.
 
+Callback declaration use is counted by invoke origin, not flattened into a generic
+“dispatched” label. The evidence records 125 main-response invokes across 85 targets,
+six raw-response invokes across five targets, and 50 invokes outside those dispatchers
+across 17 targets. Four delayed projection callbacks occur in both the main and outside
+sets; the union is 103 invoked declarations, with two declarations unobserved.
+
 The 16 callbacks outside the wire-opcode decoder are also explicitly accounted for.
 Fourteen have closed, non-runnable behavior evidence for Android GATT, connection,
 authorization, scan, network, OTA, raw-control, or local-file dispatch. Two are retained
-as declarations with no observed direct dispatch. Their privacy classes identify raw
+as declarations with no observed direct invoke. Their privacy classes identify raw
 GATT values, Bluetooth addresses, advertisement data, network material, cloud content,
 and file references without storing those values. None is a live callback adapter or a
 hardware-support claim.

@@ -334,8 +334,27 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "request_no_fixed_packets": request_routing.no_fixed_packet_count,
             "app_direct_request_targets": app_use.direct_request_target_count,
             "app_direct_request_invokes": app_use.direct_request_invoke_count,
-            "directly_dispatched_callbacks": (
-                app_use.directly_dispatched_callback_count
+            "directly_invoked_callbacks": (
+                app_use.directly_invoked_callback_count
+            ),
+            "direct_callback_invokes": app_use.direct_callback_invoke_count,
+            "main_response_callback_targets": (
+                app_use.main_response_callback_target_count
+            ),
+            "main_response_callback_invokes": (
+                app_use.main_response_callback_invoke_count
+            ),
+            "raw_response_callback_targets": (
+                app_use.raw_response_callback_target_count
+            ),
+            "raw_response_callback_invokes": (
+                app_use.raw_response_callback_invoke_count
+            ),
+            "outside_dispatcher_callback_targets": (
+                app_use.outside_dispatcher_callback_target_count
+            ),
+            "outside_dispatcher_callback_invokes": (
+                app_use.outside_dispatcher_callback_invoke_count
             ),
             "binder_transactions": binder.total_transaction_count,
             "binder_synchronous_transactions": (
@@ -463,8 +482,29 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 **asdict(app_use),
                 "direct_request_target_count": app_use.direct_request_target_count,
                 "direct_request_invoke_count": app_use.direct_request_invoke_count,
-                "directly_dispatched_callback_count": (
-                    app_use.directly_dispatched_callback_count
+                "directly_invoked_callback_count": (
+                    app_use.directly_invoked_callback_count
+                ),
+                "direct_callback_invoke_count": (
+                    app_use.direct_callback_invoke_count
+                ),
+                "main_response_callback_target_count": (
+                    app_use.main_response_callback_target_count
+                ),
+                "main_response_callback_invoke_count": (
+                    app_use.main_response_callback_invoke_count
+                ),
+                "raw_response_callback_target_count": (
+                    app_use.raw_response_callback_target_count
+                ),
+                "raw_response_callback_invoke_count": (
+                    app_use.raw_response_callback_invoke_count
+                ),
+                "outside_dispatcher_callback_target_count": (
+                    app_use.outside_dispatcher_callback_target_count
+                ),
+                "outside_dispatcher_callback_invoke_count": (
+                    app_use.outside_dispatcher_callback_invoke_count
                 ),
                 "maturity": app_use.maturity,
                 "evidence_scope": app_use.evidence_scope,
@@ -832,8 +872,11 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         "Owned app interface use: "
         f"{summary['app_direct_request_targets']}/112 request targets across "
         f"{summary['app_direct_request_invokes']} direct invokes; "
-        f"{summary['directly_dispatched_callbacks']}/105 callbacks directly "
-        "dispatched."
+        f"{summary['directly_invoked_callbacks']}/105 callbacks have a direct "
+        f"invoke ({summary['direct_callback_invokes']} sites: "
+        f"{summary['main_response_callback_invokes']} main, "
+        f"{summary['raw_response_callback_invokes']} raw, "
+        f"{summary['outside_dispatcher_callback_invokes']} outside dispatchers)."
     )
     print(
         "Binder parity: "
