@@ -181,6 +181,10 @@ No decoded frame becomes eligible for hardware merely because the parser accepts
 The decoder also preserves the recovered many-to-many dispatch for opcode `25`: one
 synthetic frame can be decoded as multiple-sport data and can satisfy the generic
 sensor-mode acknowledgement parser, without inventing a second opcode family.
+Four-byte values on SDK paths backed by Java's signed integer parser fail closed above
+`7fffffff`; ECG paths proven to use a wider parser keep the full unsigned range. A
+failed sensor open or close result reports requested direction separately and leaves
+actual active state unknown.
 
 Given a typed offline mutation request, its encoder preserves the proven 20-byte layout
 while rejecting low-byte wrapping, implicit host locale/charset use, partial alarm
@@ -534,7 +538,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Whole-artifact parity without method-count inflation | `test_all_dex_interface_declarations_exactly_match_public_ledgers`, `test_call_and_dispatch_links_are_evidence_not_new_interface_rows`, `test_exclusive_owned_method_classification_reconciles_without_inflating_ledgers`, `test_android_bluetooth_references_stay_platform_plumbing_categories` |
 | Manifest, receiver, resource, native, and dynamic activation honesty | `test_manifest_surface_separates_declared_features_from_dynamic_receivers`, `test_dynamic_receiver_mismatches_are_blockers_not_capabilities`, `test_resource_keyword_counts_never_become_capability_counts`, `test_native_false_positive_is_corrected_without_claiming_native_absence`, `test_dynamic_dial_activation_remains_inconclusive_across_all_surfaces`, `test_artifact_evidence_is_closed_sanitized_and_without_runtime_authority` |
 | Offline device/config decoding | `test_device_code_discards_all_identifier_bytes`, `test_device_dial_decodes_every_field_in_the_twenty_byte_layout`, `test_eq_info_decodes_signed_values_and_requires_expected_kind`, `test_factory_test_bytes_are_hidden_and_byte_19_is_not_claimed` |
-| Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |
+| Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_sdk_integer_parse_fields_reject_values_above_signed_ceiling`, `test_sdk_integer_parse_ceiling_is_inclusive_but_ecg_long_path_stays_unsigned`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |
 | Operation-specific acknowledgements | `test_vendor_ack_decodes_operation_specific_success_and_failure`, `test_vendor_success_only_ack_rejects_guessed_failure_branch`, `test_notify_ack_requires_the_outbound_marker_for_success`, `test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode` |
 | Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |

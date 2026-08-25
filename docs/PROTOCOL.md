@@ -343,6 +343,13 @@ operation-specific one-byte temperature/oxygen state events, and two little-endi
 temperature values. Labels remain callback-family descriptions rather than medical
 interpretations or hardware claims.
 
+Callback-faithful four-byte fields parsed through Java `Integer.parseInt` reject values
+above `7fffffff`; accepting the unsigned wire value would incorrectly create a callback
+the SDK suppresses on parse failure. ECG timestamp paths use the wider Java parser and
+retain the full unsigned 32-bit range. Failed sensor open/close opcodes expose the
+requested direction but report actual `active` state as unknown, because failure does
+not establish device state.
+
 ECG codecs cover the history descriptor, start/end event, and both live and history
 sample frames. Six three-byte groups unpack into twelve unsigned 12-bit values. These
 functions perform no subscription or measurement start, keep device timestamps raw,

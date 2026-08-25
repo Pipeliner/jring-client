@@ -50,6 +50,20 @@ def test_day_type_frames_decode_fifteen_raw_minute_samples():
     assert second.samples[-1].values == (29, 0)
 
 
+@pytest.mark.parametrize(
+    "data",
+    [
+        bytes((0x10,)) + bytes.fromhex("00000080") + bytes(15),
+        bytes((0x11,)) + bytes.fromhex("00000080") + bytes(15),
+        bytes((0x16, 0xA0)) + bytes.fromhex("00000080") + bytes(14),
+        bytes((0x39,)) + bytes.fromhex("00000080") + bytes(15),
+    ],
+)
+def test_history_sdk_integer_parse_fields_reject_values_above_signed_ceiling(data):
+    with pytest.raises(ProtocolError, match="APK signed range"):
+        decode_vendor_history_frame(data)
+
+
 def test_daily_stream_has_one_rescheduled_idle_close_not_a_wire_terminal():
     stream = VendorHistoryStream(
         HistoryStreamKind.DAILY,

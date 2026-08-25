@@ -196,6 +196,37 @@ def test_current_sport_rejects_failure_and_unrelated_opcodes(opcode):
         parse_vendor_current_sport(bytes((opcode,)) + bytes(19))
 
 
+@pytest.mark.parametrize(
+    "parser,data",
+    [
+        (parse_vendor_current_sport, bytes((0x03,)) + bytes.fromhex("00000080") + bytes(15)),
+        (parse_vendor_current_sport, bytes((0x03,)) + bytes(4) + bytes.fromhex("00000080") + bytes(11)),
+        (parse_vendor_multi_sport_day, bytes((0x25,)) + bytes.fromhex("00000080") + bytes(15)),
+        (parse_vendor_oxygen_day, bytes((0x40,)) + bytes.fromhex("00000080") + bytes(15)),
+        (parse_vendor_advanced_sensor_day, bytes((0x55,)) + bytes.fromhex("00000080") + bytes(15)),
+        (parse_vendor_step_counter, bytes((0x51,)) + bytes.fromhex("00000080") + bytes(15)),
+        (parse_vendor_read_current_sport, bytes((0x29, 0)) + bytes.fromhex("00000080") + bytes(14)),
+        (parse_vendor_worship_times, bytes((0x78, 0x08)) + bytes.fromhex("00000080") + bytes(14)),
+        (parse_vendor_sensor_measurement, bytes((0x14,)) + bytes.fromhex("00000080") + bytes(15)),
+    ],
+)
+def test_sdk_integer_parse_fields_reject_values_above_signed_ceiling(parser, data):
+    with pytest.raises(ProtocolError, match="APK signed range"):
+        parser(data)
+
+
+def test_sdk_integer_parse_ceiling_is_inclusive_but_ecg_long_path_stays_unsigned():
+    maximum = (0x7FFFFFFF).to_bytes(4, "little")
+    sport = parse_vendor_current_sport(bytes((0x03,)) + maximum * 4 + bytes(3))
+    ecg = parse_vendor_ecg_history_info(
+        bytes((0x2C,)) + bytes.fromhex("ffffffff") + bytes(15)
+    )
+
+    assert sport.device_epoch_seconds == 0x7FFFFFFF
+    assert sport.steps == 0x7FFFFFFF
+    assert ecg.device_epoch_seconds == 0xFFFFFFFF
+
+
 def test_device_info_redacts_unique_identifier_and_verifies_seeded_crc32():
     body = bytes(range(1, 16))
     data = bytes((0x0C,)) + body + bytes.fromhex("47b17004")
@@ -617,11 +648,16 @@ def test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode():
 
 
 @pytest.mark.parametrize(
-    "opcode,success,active",
-    [(0x14, True, True), (0x15, True, False), (0x94, False, True), (0x95, False, False)],
+    "opcode,success,requested_active,active",
+    [
+        (0x14, True, True, True),
+        (0x15, True, False, False),
+        (0x94, False, True, None),
+        (0x95, False, False, None),
+    ],
 )
 def test_sensor_measurement_state_distinguishes_open_close_and_failure(
-    opcode, success, active
+    opcode, success, requested_active, active
 ):
     data = (
         bytes((opcode,))
@@ -633,6 +669,7 @@ def test_sensor_measurement_state_distinguishes_open_close_and_failure(
     result = parse_vendor_sensor_measurement(data)
 
     assert result.success is success
+    assert result.requested_active is requested_active
     assert result.active is active
     if opcode == 0x14:
         assert (result.device_epoch_seconds, result.first_value, result.second_value) == (

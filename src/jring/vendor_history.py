@@ -12,6 +12,7 @@ from enum import Enum
 import itertools
 import math
 
+from ._vendor_decode import apk_hex_u32
 from .protocol import ProtocolError
 from .vendor_protocol import (
     parse_vendor_advanced_sensor_day,
@@ -242,7 +243,7 @@ def _response(data: bytes) -> bytes:
 def _minute_samples(
     response: bytes, family: HistoryFamily
 ) -> tuple[VendorHistorySample, ...]:
-    base = int.from_bytes(response[1:5], "little")
+    base = apk_hex_u32(response[1:5])
     return tuple(
         VendorHistorySample(
             family=family,
@@ -279,7 +280,7 @@ def _decode_detail(response: bytes) -> DecodedVendorHistoryFrame:
     if marker != 0xA0:
         raise ProtocolError("unsupported vendor detail-history marker")
 
-    base = int.from_bytes(response[2:6], "little")
+    base = apk_hex_u32(response[2:6])
     samples = []
     for index, offset in enumerate((8, 14)):
         # Java Math.round is floor(x + 0.5) for these non-negative byte sums;
@@ -318,7 +319,7 @@ def decode_vendor_history_frame(data: bytes) -> DecodedVendorHistoryFrame:
     if opcode == 0x16:
         return _decode_detail(response)
     if opcode == 0x39:
-        base = int.from_bytes(response[1:5], "little")
+        base = apk_hex_u32(response[1:5])
         samples = tuple(
             VendorHistorySample(
                 family=HistoryFamily.TEMPERATURE,

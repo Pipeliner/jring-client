@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import zlib
 
+from ._vendor_decode import apk_hex_u32
 from .protocol import ProtocolError
 from .uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 
@@ -403,7 +404,8 @@ class VendorEcgModeAcknowledgement:
 @dataclass(frozen=True)
 class VendorSensorMeasurement:
     success: bool
-    active: bool
+    requested_active: bool
+    active: bool | None
     device_epoch_seconds: int
     first_value: int
     second_value: int
@@ -714,10 +716,10 @@ def parse_vendor_battery(data: bytes) -> VendorBattery:
 
 def parse_vendor_current_sport(data: bytes) -> VendorCurrentSport:
     response = _response(data, 0x03, 0x13)
-    timestamp = int.from_bytes(response[1:5], "little")
-    first = int.from_bytes(response[5:9], "little")
-    second = int.from_bytes(response[9:13], "little")
-    third = int.from_bytes(response[13:17], "little")
+    timestamp = apk_hex_u32(response[1:5])
+    first = apk_hex_u32(response[5:9])
+    second = apk_hex_u32(response[9:13])
+    third = apk_hex_u32(response[13:17])
     if response[0] == 0x03:
         return VendorCurrentSport(
             variant="activity_summary",
@@ -760,7 +762,7 @@ def parse_vendor_band_functions(data: bytes) -> VendorBandFunctions:
 
 def parse_vendor_multi_sport_day(data: bytes) -> VendorMultiSportDay:
     response = _response(data, 0x25)
-    base = int.from_bytes(response[1:5], "little")
+    base = apk_hex_u32(response[1:5])
     samples: list[VendorMultiSportSample] = []
     for index in range(6):
         first = response[5 + (index * 2)]
@@ -779,7 +781,7 @@ def parse_vendor_multi_sport_day(data: bytes) -> VendorMultiSportDay:
 
 def parse_vendor_oxygen_day(data: bytes) -> VendorOxygenDay:
     response = _response(data, 0x40)
-    base = int.from_bytes(response[1:5], "little")
+    base = apk_hex_u32(response[1:5])
     samples = tuple(
         VendorOxygenSample(
             device_epoch_seconds=base + (index * 60),
@@ -792,7 +794,7 @@ def parse_vendor_oxygen_day(data: bytes) -> VendorOxygenDay:
 
 def parse_vendor_advanced_sensor_day(data: bytes) -> VendorAdvancedSensorDay:
     response = _response(data, 0x55)
-    base = int.from_bytes(response[1:5], "little")
+    base = apk_hex_u32(response[1:5])
     samples = tuple(
         VendorAdvancedSensorSample(
             device_epoch_seconds=base + (index * 900),
@@ -820,7 +822,7 @@ def parse_vendor_device_action(data: bytes) -> VendorDeviceAction:
 def parse_vendor_step_counter(data: bytes) -> VendorStepCounter:
     response = _response(data, 0x51)
     return VendorStepCounter(
-        cumulative_steps=int.from_bytes(response[1:5], "little")
+        cumulative_steps=apk_hex_u32(response[1:5])
     )
 
 
@@ -844,9 +846,9 @@ def parse_vendor_read_current_sport(data: bytes) -> VendorReadCurrentSport:
     response = _response(data, 0x29)
     return VendorReadCurrentSport(
         discriminator=response[1],
-        device_epoch_seconds=int.from_bytes(response[2:6], "little"),
-        first_value=int.from_bytes(response[6:10], "little"),
-        second_value=int.from_bytes(response[10:14], "little"),
+        device_epoch_seconds=apk_hex_u32(response[2:6]),
+        first_value=apk_hex_u32(response[6:10]),
+        second_value=apk_hex_u32(response[10:14]),
     )
 
 
@@ -879,7 +881,7 @@ def parse_vendor_worship_info(data: bytes) -> VendorWorshipInfo:
 
 def parse_vendor_worship_times(data: bytes) -> VendorWorshipTimes:
     response = _subresponse(data, 0x08)
-    return VendorWorshipTimes(value=int.from_bytes(response[2:6], "little"))
+    return VendorWorshipTimes(value=apk_hex_u32(response[2:6]))
 
 
 _KNOWN_78_SUBCOMMANDS = frozenset({0x03, 0x07, 0x08, 0x09, 0x0B, 0x0C})
@@ -956,14 +958,16 @@ def parse_vendor_sensor_measurement(data: bytes) -> VendorSensorMeasurement:
     if response[0] == 0x14:
         return VendorSensorMeasurement(
             success=True,
+            requested_active=True,
             active=True,
-            device_epoch_seconds=int.from_bytes(response[1:5], "little"),
+            device_epoch_seconds=apk_hex_u32(response[1:5]),
             first_value=response[5],
             second_value=response[6],
         )
     return VendorSensorMeasurement(
         success=response[0] == 0x15,
-        active=response[0] in {0x14, 0x94},
+        requested_active=response[0] in {0x14, 0x94},
+        active=False if response[0] == 0x15 else None,
         device_epoch_seconds=0,
         first_value=0,
         second_value=0,
