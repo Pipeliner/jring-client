@@ -221,6 +221,9 @@ Seven no-argument main queries and the typed screen-light request also compose t
 closed response bindings. Multiplexed `54`/`78` families require exact subcommands;
 the EQ route preserves its get-kind discriminator. Wi-Fi scan is rejected because its
 count and fragment assembly have no proven whole-scan terminal.
+Twelve strict command encoders have exact response bindings and therefore compose into
+the fake engine; six without a closed correlation fail at the factory boundary. Health,
+binding, and factory-mode risk labels do not change this rule or make an operation live.
 
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime

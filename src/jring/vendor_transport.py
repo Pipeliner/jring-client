@@ -24,6 +24,7 @@ from .uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 from .vendor_protocol import (
     StaticAckOperation,
     Static54ValueEvent,
+    StaticValueEvent,
     StaticQuery,
     StaticVendorRequest,
     encode_static_query,
@@ -32,6 +33,7 @@ from .vendor_protocol import (
     parse_vendor_ack,
     parse_vendor_band_functions,
     parse_vendor_battery,
+    parse_vendor_binding_info,
     parse_vendor_current_sport,
     parse_vendor_device_info,
     parse_vendor_device_code,
@@ -39,10 +41,15 @@ from .vendor_protocol import (
     parse_vendor_device_dial_custom,
     parse_vendor_device_file_state,
     parse_vendor_eq_info,
+    parse_vendor_ecg_mode_ack,
+    parse_vendor_factory_test_data,
     parse_vendor_multi_sport_day,
     parse_vendor_offline_speech_mode,
     parse_vendor_oxygen_day,
     parse_vendor_screen_light_time,
+    parse_vendor_sensor_measurement,
+    parse_vendor_touch_mode,
+    parse_vendor_value_event,
     parse_vendor_54_value_event,
     static_protocol_coverage,
 )
@@ -69,6 +76,10 @@ from .vendor_main_commands import (
     NoArgumentMainCommand,
     NoArgumentMainCommandRequest,
     ScreenLightTimeRequest,
+)
+from .vendor_commands import (
+    StaticVendorCommandOperation,
+    StaticVendorCommandRequest,
 )
 
 _ENGINE_IDS = itertools.count()
@@ -227,6 +238,49 @@ _NO_ARGUMENT_MAIN_RESPONSES = {
     ),
     NoArgumentMainCommand.OFFLINE_SPEECH_STATE: (
         (0x78,), (), 0x0C, parse_vendor_offline_speech_mode,
+    ),
+}
+_COMMAND_RESPONSES = {
+    StaticVendorCommandOperation.DEVICE_TIME: (
+        0x01, (0x01,), (0x81,), None,
+        partial(parse_vendor_ack, operation=StaticAckOperation.DEVICE_TIME),
+    ),
+    StaticVendorCommandOperation.ECG_MODE: (
+        0x2A, (0x2A,), (), None, parse_vendor_ecg_mode_ack,
+    ),
+    StaticVendorCommandOperation.EQ_INFO: (
+        0x53, (0x53,), (), 0x00,
+        partial(parse_vendor_eq_info, expected_kind="set"),
+    ),
+    StaticVendorCommandOperation.HEART_RATE_SESSION_START: (
+        0x14, (0x14,), (0x94,), None, parse_vendor_sensor_measurement,
+    ),
+    StaticVendorCommandOperation.HEART_RATE_SESSION_STOP: (
+        0x15, (0x15,), (0x95,), None, parse_vendor_sensor_measurement,
+    ),
+    StaticVendorCommandOperation.OFFLINE_SPEECH_RECOGNITION: (
+        0x78, (0x78,), (), 0x03, parse_vendor_offline_speech_mode,
+    ),
+    StaticVendorCommandOperation.TEMPERATURE_MODE: (
+        0x37, (0x37,), (), None,
+        partial(parse_vendor_value_event, event=StaticValueEvent.TEMPERATURE_MODE),
+    ),
+    StaticVendorCommandOperation.TOUCH_MODE: (
+        0x78, (0x78,), (), 0x09, parse_vendor_touch_mode,
+    ),
+    StaticVendorCommandOperation.FACTORY_TEST_MODE: (
+        0x50, (0x50,), (), None, parse_vendor_factory_test_data,
+    ),
+    StaticVendorCommandOperation.AI_CONNECTION_METHOD: (
+        0x54, (0x54,), (), 0x14,
+        partial(parse_vendor_54_value_event, event=Static54ValueEvent.AI_CONNECTION_METHOD),
+    ),
+    StaticVendorCommandOperation.BINDING_INFO: (
+        0x4B, (0x4B,), (), None, parse_vendor_binding_info,
+    ),
+    StaticVendorCommandOperation.BLOOD_OXYGEN_MODE: (
+        0x3E, (0x3E,), (), None,
+        partial(parse_vendor_value_event, event=StaticValueEvent.BLOOD_OXYGEN_MODE),
     ),
 }
 
@@ -416,6 +470,30 @@ class OfflineVendorOperation:
         frame = frames[0].synthetic_bytes_for_test()
         if len(frame) != 20:
             raise ValueError("main command request must be exactly 20 bytes")
+        return cls._create(
+            name=request.operation.value,
+            request_frame=frame,
+            success_opcodes=success,
+            failure_opcodes=failure,
+            expected_subcommand=expected_subcommand,
+            parser=parser,
+        )
+
+    @classmethod
+    def from_command_request(
+        cls, request: StaticVendorCommandRequest
+    ) -> "OfflineVendorOperation":
+        """Compose only command families with an exact static response correlation."""
+
+        if type(request) is not StaticVendorCommandRequest:
+            raise TypeError("request must be a StaticVendorCommandRequest")
+        binding = _COMMAND_RESPONSES.get(request.operation)
+        if binding is None:
+            raise TypeError("command has no exact response correlation")
+        request_opcode, success, failure, expected_subcommand, parser = binding
+        frame = request.synthetic_bytes_for_test()
+        if len(frame) != 20 or frame[0] != request_opcode:
+            raise ValueError("vendor command does not match its closed operation")
         return cls._create(
             name=request.operation.value,
             request_frame=frame,

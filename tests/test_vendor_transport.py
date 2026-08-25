@@ -39,6 +39,7 @@ from jring.vendor_main_commands import (
     NoArgumentMainCommandRequest,
     ScreenLightTimeRequest,
 )
+from jring.vendor_commands import encode_ai_language, encode_device_time
 
 
 def _operation(name: str = "battery") -> OfflineVendorOperation:
@@ -861,3 +862,26 @@ def test_streaming_wifi_scan_is_rejected_by_single_response_factory():
 
     with pytest.raises(TypeError, match="streaming"):
         OfflineVendorOperation.from_main_command_request(request)
+
+
+def test_typed_vendor_command_with_exact_ack_composes_fake_operation():
+    request = encode_device_time(
+        local_epoch_seconds=1_700_000_000, raw_utc_offset_hours=0
+    )
+    operation = OfflineVendorOperation.from_command_request(request)
+
+    assert operation.name == "device_time"
+    assert operation.success_opcodes == (0x01,)
+    assert operation.failure_opcodes == (0x81,)
+    disposition, parsed = operation._match(
+        VENDOR_CHARACTERISTIC_33F4, bytes((0x01,)) + bytes(19)
+    )
+    assert disposition.value == "success"
+    assert parsed.operation.value == "device_time"
+
+
+def test_command_without_exact_response_correlation_is_rejected():
+    request = encode_ai_language("en")
+
+    with pytest.raises(TypeError, match="correlation"):
+        OfflineVendorOperation.from_command_request(request)

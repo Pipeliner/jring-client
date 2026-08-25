@@ -150,6 +150,10 @@ source-sequential semantics require a separate state machine.
 Seven additional no-argument main queries and the typed screen-light request use
 subcommand-aware fake matchers. Streaming Wi-Fi scan is rejected rather than being
 misrepresented as a singleton response.
+Twelve typed command families with exact static correlations also compose in the fake
+runtime, including value-event and health/factory-shaped test vectors. Six command
+families with no exact response relationship are rejected; fake composition grants no
+live or hardware authority regardless of risk class.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke

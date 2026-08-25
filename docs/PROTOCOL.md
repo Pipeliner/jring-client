@@ -217,6 +217,10 @@ The fake operation layer additionally accepts seven exact no-argument main queri
 the typed screen-light request. Response matching retains `54`/`78` subcommands and EQ
 get/set discrimination. Wi-Fi scan remains outside the singleton engine because its
 fragment stream has no proven whole-operation terminal.
+Twelve of the 18 typed command families have exact callback eligibility and can be
+simulated. The other six are rejected because silence or name similarity is not a
+response contract. This includes no exception for factory, binding, or health-shaped
+commands: all remain synthetic and hardware-ineligible.
 
 Within those routes, 37 statically reviewed builder families have a second,
 domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum
