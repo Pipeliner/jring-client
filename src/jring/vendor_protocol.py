@@ -12,7 +12,7 @@ from enum import Enum
 import zlib
 
 from .protocol import ProtocolError
-from .uuids import VENDOR_CHARACTERISTIC_33F3
+from .uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 
 
 class StaticQuery(str, Enum):
@@ -59,6 +59,30 @@ class StaticVendorRequest:
         """Return the public synthetic vector for offline verification only."""
 
         return bytes(self._encoded)
+
+
+@dataclass(frozen=True)
+class StaticProtocolCoverage:
+    operation: StaticQuery
+    request_opcode: int
+    success_opcodes: tuple[int, ...]
+    failure_opcodes: tuple[int, ...]
+
+    @property
+    def request_endpoint_uuid(self) -> str:
+        return VENDOR_CHARACTERISTIC_33F3
+
+    @property
+    def response_endpoint_uuid(self) -> str:
+        return VENDOR_CHARACTERISTIC_33F4
+
+    @property
+    def maturity(self) -> str:
+        return "static_apk_only"
+
+    @property
+    def hardware_eligible(self) -> bool:
+        return False
 
 
 @dataclass(frozen=True)
@@ -191,6 +215,27 @@ def operation_opcode(operation: StaticQuery) -> int:
         return (_ZERO_ARGUMENT_OPCODES | _DAY_OPCODES)[operation]
     except (KeyError, TypeError) as exc:
         raise ValueError("unsupported static query") from exc
+
+
+def static_protocol_coverage() -> tuple[StaticProtocolCoverage, ...]:
+    response_opcodes = {
+        StaticQuery.CURRENT_SPORT: ((0x03, 0x13), (0x83,)),
+        StaticQuery.BATTERY: ((0x0B,), (0x8B,)),
+        StaticQuery.DEVICE_INFO: ((0x0C,), (0x8C,)),
+        StaticQuery.BAND_FUNCTIONS: ((0x20,), (0xA0,)),
+        StaticQuery.MULTI_SPORT_DAY: ((0x25,), (0xA5,)),
+        StaticQuery.OXYGEN_DAY: ((0x40,), ()),
+        StaticQuery.ADVANCED_SENSOR_DAY: ((0x55,), ()),
+    }
+    return tuple(
+        StaticProtocolCoverage(
+            operation=operation,
+            request_opcode=operation_opcode(operation),
+            success_opcodes=response_opcodes[operation][0],
+            failure_opcodes=response_opcodes[operation][1],
+        )
+        for operation in StaticQuery
+    )
 
 
 def encode_static_query(operation: StaticQuery) -> StaticVendorRequest:

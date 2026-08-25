@@ -1,6 +1,6 @@
 import pytest
 
-from jring.uuids import VENDOR_CHARACTERISTIC_33F3
+from jring.uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 from jring.vendor_protocol import (
     StaticQuery,
     StaticVendorRequest,
@@ -13,6 +13,7 @@ from jring.vendor_protocol import (
     parse_vendor_device_info,
     parse_vendor_multi_sport_day,
     parse_vendor_oxygen_day,
+    static_protocol_coverage,
 )
 from jring.protocol import ProtocolError
 
@@ -286,3 +287,26 @@ def test_advanced_sensor_day_preserves_three_neutral_five_byte_records():
 def test_day_decoders_reject_failure_or_unrelated_opcodes(parser, opcode):
     with pytest.raises(ProtocolError):
         parser(bytes((opcode,)) + bytes(19))
+
+
+def test_static_protocol_coverage_is_complete_and_cannot_claim_hardware_support():
+    coverage = static_protocol_coverage()
+
+    assert [entry.operation for entry in coverage] == list(StaticQuery)
+    assert [entry.request_opcode for entry in coverage] == [
+        0x03,
+        0x0B,
+        0x0C,
+        0x20,
+        0x25,
+        0x40,
+        0x55,
+    ]
+    assert coverage[0].success_opcodes == (0x03, 0x13)
+    assert coverage[0].failure_opcodes == (0x83,)
+    assert coverage[4].failure_opcodes == (0xA5,)
+    assert coverage[5].failure_opcodes == ()
+    assert all(entry.request_endpoint_uuid == VENDOR_CHARACTERISTIC_33F3 for entry in coverage)
+    assert all(entry.response_endpoint_uuid == VENDOR_CHARACTERISTIC_33F4 for entry in coverage)
+    assert all(entry.maturity == "static_apk_only" for entry in coverage)
+    assert all(entry.hardware_eligible is False for entry in coverage)

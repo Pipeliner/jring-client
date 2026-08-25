@@ -76,6 +76,9 @@ integration; every result is permanently marked `static_apk_only` and
 These are protocol facts and synthetic golden vectors, not captured owner frames.
 Health-related names describe the SDK operation; the repository contains no owner
 measurement or raw capture. An opcode match alone cannot activate a live operation.
+`static_protocol_coverage()` provides the same seven-entry inventory to Python callers,
+including request/response endpoints, known success and failure opcodes, static-only
+maturity, and an unconditionally false hardware-eligibility flag.
 
 The first strict response decoders cover:
 
