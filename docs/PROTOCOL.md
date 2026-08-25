@@ -293,6 +293,38 @@ observation limit all leave delivery and high-level completion unknown. A clean
 than claiming a correlated abort; invoked write uncertainty and post-write cleanup
 failure are uncertain. The result retains no alarm request, schedule, content, frame,
 or acknowledgement object and grants no live, owner, hardware, or input authority.
+The notification planner has its own fake-only batch coordinator rather than entering
+the singleton engine. It reconstructs the closed state/request, preserves the exact
+`12` header/title/content frame order, and issues sequential calls only to the scripted
+MAIN fake. A 20-byte inbound `12` frame is marker-correlated only after that marker's
+outbound frame has been invoked in the same operation and connection generation. The
+other callback body bytes have no proven meaning. A future/uninvoked marker is an
+unowned diagnostic: it is never buffered or later correlated and does not refresh the
+quiet deadline, abort, or taint the attempt. Duplicate and multiple marker observations
+preserve per-frame multiplicity without establishing marker coverage as success.
+An exact `92` callback is a direct failure-shaped projection, but no response marker or
+body semantics are proven. It cannot identify a frame, acknowledge a batch, or establish
+a batch failure or terminal. The fake conservatively stops only not-yet-invoked calls
+and taints reuse; earlier fake calls are not rolled back. This stop policy, atomic input
+validation, and direct sequential fake calls are simulator hardening/divergences, not
+source queue or atomic-enqueue reproduction.
+Returned fake calls, callback multiplicity or coverage, local quiet, and observation
+limits leave delivery and high-level completion unknown and never commit the planner's
+proposed UID/digest state. Caller throttling, the source's global callback-overlap race,
+planner serialization, atomic enqueue/delivery, ring display, and source queue acceptance
+remain unreproduced. Results retain no notification request, text, ID, category, UID,
+digest, marker identity, frame, or frame count. The explicit scripted transport does
+retain private response-write calls for test-only inspection, so it is not a privacy-free
+store and must never be exposed as a user result. No client method or live/hardware/input
+authority is added.
+Machine-readable results fix `disposition_scope` to `offline_planner_only` and
+`transport_scope` to `exact_scripted_fake_only`. `fake_write_plan` distinguishes
+`planned_batch` from `none_deduplicated`; the dynamic
+`scripted_transport_contains_private_test_frames` snapshots actual retained fake
+transport storage, including calls from earlier attempts, until the test transport is
+explicitly cleared. `result_retains_private_notification_data` and
+`source_global_overlap_race_reproduced` stay false, while
+`simulator_single_batch_serialized` records only local fake single-flight behavior.
 The fake operation layer additionally accepts seven exact no-argument main queries and
 the typed screen-light request. Response matching retains `54`/`78` subcommands and EQ
 get/set discrimination. Wi-Fi scan remains outside the singleton engine because its
@@ -313,6 +345,9 @@ marker-bounded streams. A callback value cannot yield `SUCCEEDED` unless its req
 in the first set, and every row explicitly remains live-ineligible, owner-unauthorized,
 and hardware-ineligible. The other capabilities retain their codecs and parsers for dedicated
 collectors whose completion remains unknown or aborted.
+`setNotify` remains in the six ambiguous/batched per-frame rows after adding its
+dedicated simulator; marker correlation does not promote it to a singleton terminal or
+change any live, owner-authorized, hardware-eligible, or hardware-verified count.
 
 Raw fake reproduction now uses the distinct `33f5` write and `33f6` notification
 roles. A bounded collector accepts an optional typed raw command and decodes event

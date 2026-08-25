@@ -234,6 +234,22 @@ uninterpreted. Privacy-safe callback multiplicity is preserved, but returned fak
 calls, callback counts, local quiet, and observation limits never establish batch
 success. An observed failure stops only future synthetic writes and taints reuse; no
 alarm data is retained in the result.
+A separate fake-only notification batch simulator composes the existing bounded
+notification planner with the scripted MAIN route. It issues the planner's header,
+title, and content frames as ordered sequential fake calls. An exact `12` callback is
+associated only with a marker whose frame has already been invoked in that attempt;
+this is a per-frame callback observation, not proof of display, delivery, whole-batch
+acknowledgement, or a terminal. A future marker is unowned diagnostic traffic: it is
+not buffered or later correlated and does not extend quiet, abort, or taint the attempt.
+The `92` projection has no proven marker or body semantics, so it cannot identify a
+failed frame. The simulator conservatively stops only not-yet-invoked fake writes and
+taints reuse without rolling back earlier calls or claiming batch failure.
+Returned calls, marker coverage, quiet, and limits never commit the planner's proposed
+UID/deduplication state. Caller throttling, source global-overlap behavior, atomic
+enqueue/delivery, and source queue acceptance are not reproduced. Results retain no
+notification data or frame shape, although the explicit scripted-test transport keeps
+private frame calls for focused test inspection. This adds no client method, live
+vendor write authority, owner authorization, hardware verification, or input path.
 All fake transaction and stream coordinators now share one pure main/raw GATT resolver.
 It checks that connection-scoped characteristic metadata is structurally consistent
 and refuses UUID ambiguity, missing response-write/notify properties, and CCCD metadata
@@ -259,6 +275,10 @@ Across all 85 deterministic requests, a closed fake-singleton eligibility ledger
 batched per-frame routes, 29 with no proven terminal, and three locally/marker-bounded
 streams. Only the first group can enter the success-returning fake engine; this grants
 no live, owner-authorized, or hardware eligibility.
+Dedicated alarm and notification batch simulators do not change that crosswalk.
+`setNotify` remains one of the six ambiguous/batched per-frame rows: its invoked-marker
+relationship is not a whole-batch terminal, and every live and hardware count remains
+zero.
 The scripted fake now has a distinct raw `33f5`/`33f6` route and bounded event
 collector. It can write a closed raw command and parse typed raw notifications, but
 always reports unknown completeness: an event is not an acknowledgement, reaching an

@@ -298,6 +298,9 @@ offline state machine. Its output state is proposed only after atomic enqueue an
 not imply delivery; acknowledgement, planner/overlap serialization, throttling, and
 atomic live delivery remain blocked. Together with the seven paired queries, six raw requests, and 26 settings
 mutations, the ledger reports 85 offline request codecs.
+The separate notification fake may exercise that frame plan, but its sequential fake
+calls do not satisfy the planner's atomic-enqueue condition and never commit the
+proposed state.
 
 Given the complete request ledger, the other 26 SDK methods expose non-runnable static
 behavior evidence—not behavioral parity—and the raw CCCD method exposes one
@@ -491,6 +494,43 @@ unsubscribe and close are then independently bounded during cleanup. An invoked 
 without a confirmed return is uncertain. Results
 retain no request, frames, acknowledgement objects, private content, or schedule and
 state that no ring or OS input was touched.
+
+Given an exact notification planner state, request, and scripted fake transport, the
+notification batch simulator reconstructs the private inputs before acquiring the fake
+lease, subscribes on the resolved current-generation MAIN route, and invokes the exact
+header, title, and content frames in planner order. A deduplicated plan performs no
+connection, subscription, write, or state commit. For a planned batch, an exact `12`
+callback is correlated only to a marker whose frame has already been invoked in this
+attempt. That observation is per-frame only: even every marker being observed cannot
+mean ring delivery, display change, batch acknowledgement, terminal completion, or
+planner-state commit. The remaining `12` body bytes are uninterpreted. A future marker
+is unowned diagnostic traffic and is discarded without buffering, later correlation,
+quiet extension, abort, or taint.
+
+An exact `92` callback is an unmarked failure-shaped projection whose body is also
+uninterpreted. It cannot name a frame or prove batch failure or completion. The fake
+stops not-yet-invoked writes, leaves returned earlier calls untouched, and taints reuse;
+this is a conservative simulator policy, not recovered source queue behavior. Direct
+sequential fake calls likewise do not reproduce source queue acceptance, atomic enqueue
+or delivery, caller throttling, planner/overlap serialization, or the source's global
+callback-overlap race. Quiet, marker multiplicity or coverage, returned calls, and local
+limits remain unknown. Setup, writes, observation, cancellation, and cleanup stay
+bounded and generation-owned, with no automatic retry after uncertainty.
+
+The result retains no notification text, ID, category, UID, digest, marker identity,
+frame, or frame count and grants no live, owner, hardware, or input authority. The exact
+scripted transport deliberately retains private write calls through test-only access;
+that storage is disclosed and is never serialized as the result. `setNotify` remains an
+ambiguous/batched per-frame eligibility row outside the singleton success engine, so
+coverage totals and all live/hardware counts remain unchanged.
+Structured output labels the disposition `offline_planner_only` and transport
+`exact_scripted_fake_only`. It reports `planned_batch` versus `none_deduplicated`, and
+the private-test-frame storage flag snapshots the scripted transport's actual retained
+calls, including earlier attempts, until `clear_sensitive_test_state()` is called.
+`test_retained_frame_warning_reflects_transport_storage_across_attempts` verifies the
+planned, deduplicated, and explicitly cleared states.
+The result-retention and source-global-overlap-race reproduction flags remain false;
+single-batch serialization describes this simulator only, not recovered source safety.
 
 Given an exact fake ECG-history request, one descriptor must precede arrival-ordered
 event and sample callbacks, and each packed sample frame projects one callback carrying
@@ -854,6 +894,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Zero-write passive MAIN event simulation | `test_collects_only_closed_passive_main_events_without_any_write`, `test_collects_redacted_classic_info_and_name_without_attachment_or_write`, `test_collects_redacted_app_id_without_correlating_setter_or_writing`, `test_unknown_45_selectors_count_as_unrelated`, `test_selectorless_45_cannot_be_attributed_to_classic_and_does_not_rollback`, `test_overlong_matching_45_event_aborts_without_private_projection`, `test_malformed_app_id_rolls_back_a_prior_valid_event`, `test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown`, `test_queue_overflow_aborts_and_discards_partial_projection`, `test_preconnected_transport_is_rejected_without_closing_caller_connection`, `test_transport_lease_blocks_a_different_fake_coordinator_without_interference`, `test_cancellation_cleans_up_releases_single_flight_and_stales_callback`, `test_cancellation_during_postevent_unsubscribe_finishes_bounded_close`, `test_cancellation_during_preflight_close_remains_bounded` |
 | Fake-only Wi-Fi network-name response assembly | `test_fake_wifi_runtime_has_no_host_network_or_distro_service_imports`, `test_advertised_count_is_diagnostic_unknown_not_wire_completion`, `test_zero_advertised_count_stays_unknown_and_does_not_invent_ssid_callback`, `test_selectorless_shared_54_is_unrelated_and_does_not_rollback_count`, `test_prewrite_notifications_are_not_owned_by_the_scan_attempt`, `test_invalid_utf8_completed_entry_is_malformed_and_never_projected`, `test_delayed_queue_overflow_cannot_be_masked_by_the_frame_limit`, `test_invoked_write_failure_is_uncertain_tainted_and_not_reusable`, `test_disconnect_during_invoked_write_is_uncertain_and_taints_reuse`, `test_prewrite_cleanup_failure_is_aborted_but_taints_reuse`, `test_overall_deadline_covers_an_invoked_blocked_write`, `test_cleanup_deactivates_callback_drains_queue_and_bounds_large_frames`, `test_cancellation_during_write_cleans_up_once_and_taints_reuse`, `test_cancellation_during_postwrite_unsubscribe_finishes_close_and_taints`, `test_cancellation_during_prewrite_close_is_bounded_and_taints` |
 | Fake-only ordered alarm batch simulation | `test_fake_alarm_runtime_has_no_live_bluetooth_host_or_input_imports`, `test_exact_alarm_frames_write_in_order_but_never_establish_batch_success`, `test_uncorrelated_failure_shaped_callback_stops_only_future_fake_writes`, `test_late_failure_does_not_claim_that_nonexistent_writes_were_stopped`, `test_callback_multiplicity_is_preserved_without_inventing_correlation`, `test_failure_observation_stops_counting_at_the_caller_limit`, `test_multiple_owned_failure_callbacks_preserve_multiplicity_before_stop`, `test_failure_remains_primary_when_unrelated_frame_reaches_limit`, `test_delayed_failure_burst_cannot_overshoot_observation_limit`, `test_forged_empty_exact_batch_is_revalidated_before_connect`, `test_forged_nested_alarm_values_are_revalidated_before_connect`, `test_setup_failures_report_exact_stage_without_leaking_details`, `test_callback_burst_is_classified_as_queue_overflow_not_write_failure`, `test_prewrite_alarm_callback_is_unowned_and_cannot_stop_dispatch`, `test_inbound_content_opcode_is_unrelated_not_a_matching_alarm_callback`, `test_observation_limit_after_all_writes_is_unknown_not_success`, `test_mid_plan_observation_limit_is_local_abort_without_call_uncertainty`, `test_invoked_write_timeout_is_uncertain_and_distinct_from_setup_timeout`, `test_overall_observation_deadline_after_returned_writes_stays_unknown`, `test_partial_plan_overall_timeout_taints_reuse_without_call_uncertainty`, `test_malformed_matching_callback_after_dispatch_is_uncertain_and_tainted`, `test_invoked_write_failure_is_uncertain_tainted_and_never_retried`, `test_owned_failure_callback_survives_write_error_without_false_stop_causality`, `test_owned_failure_callback_survives_blocked_write_timeout`, `test_successful_write_return_is_preserved_when_disconnect_finishes_together`, `test_disconnect_caused_write_exception_is_classified_as_disconnect`, `test_owned_observation_is_counted_when_disconnect_finishes_together`, `test_exact_types_and_preconnected_transport_fail_before_fake_io`, `test_cancellation_during_invoked_write_taints_and_finishes_cleanup`, `test_cleanup_failure_uses_pre_and_post_write_uncertainty_boundary` |
+| Fake-only marker-correlated notification batch simulation | `test_fake_notify_runtime_has_no_live_host_network_or_input_imports`, `test_exact_marker_bound_notify_frames_never_establish_batch_delivery_or_commit_state`, `test_deduplicated_plan_performs_zero_transport_io_and_commits_nothing`, `test_future_marker_is_unowned_diagnostic_and_never_acknowledges_a_later_frame`, `test_future_marker_ownership_is_fixed_at_arrival_not_when_queue_is_drained`, `test_prewrite_success_and_failure_callbacks_are_unowned`, `test_duplicate_owned_marker_is_diagnostic_not_batch_completion`, `test_quiet_without_callbacks_and_complete_marker_limit_both_stay_unknown`, `test_mid_plan_observation_limit_aborts_and_blocks_reuse_without_call_uncertainty`, `test_unmarked_failure_stops_only_not_yet_invoked_fake_writes`, `test_multiple_unmarked_failures_are_reported_without_an_exact_count`, `test_failure_remains_primary_at_limit_with_a_future_marker_also_observed`, `test_late_unmarked_failure_does_not_claim_that_writes_were_stopped`, `test_malformed_matching_callback_after_dispatch_is_uncertain`, `test_callback_burst_is_bounded_and_classified_as_overflow`, `test_write_error_preserves_owned_failure_without_false_stop_causality`, `test_blocked_write_timeout_preserves_owned_failure_and_primary_reason`, `test_successful_write_return_is_preserved_when_disconnect_finishes_together`, `test_disconnect_caused_write_exception_is_classified_as_disconnect`, `test_structurally_ambiguous_or_missing_cccd_route_never_subscribes_or_writes`, `test_targeted_subscription_is_confirmed_before_writes_and_identity_is_reused`, `test_stale_callback_from_prior_connection_generation_is_ignored`, `test_exact_types_preconnected_and_forged_inputs_fail_before_fake_io`, `test_cancellation_during_invoked_write_taints_and_finishes_cleanup`, `test_cleanup_failure_uses_pre_and_post_write_uncertainty_boundary`, `test_guidance_leads_with_primary_reason` |
 | Fake-only host-volume reverse pipeline | `test_exact_device_request_projects_one_closed_response_without_claiming_ack`, `test_write_failure_is_uncertain_and_never_retried`, `test_disconnect_after_write_invocation_is_uncertain_without_retry`, `test_inbound_body_is_discarded_and_duplicate_request_cannot_change_projection`, `test_early_request_is_discarded_if_subscription_never_confirms`, `test_cancellation_after_write_invocation_taints_and_cleans_up`, `test_stale_callback_and_busy_or_wrong_types_cannot_project` |
 | Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_all_thirteen_statically_mapped_device_actions_are_discoverable_once`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors`, `test_guided_capabilities_selects_ephemerally_and_reads_metadata_only`, `test_guided_capabilities_default_no_never_constructs_transport` |
 | Owned-scope Android Bluetooth instruction inventory | `test_owned_scope_direct_instruction_aggregates_are_closed_and_reconciled`, `test_direct_instruction_family_counts_are_overlapping_not_old_reference_counts`, `test_direct_instruction_category_rows_preserve_fine_counts_and_absence_boundary` |

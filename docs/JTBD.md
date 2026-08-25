@@ -26,6 +26,13 @@ Desired outcomes:
 - Exercise an ordered multi-frame alarm batch against a scripted fake while clearly
   seeing that frame callbacks cannot prove an alarm, content chunk, or whole-batch
   terminal and that no private schedule survives in the result.
+- Exercise a planned multi-frame notification against the exact scripted fake while
+  distinguishing a callback for an already-invoked marker from ring display, delivery,
+  whole-batch acknowledgement, terminal state, or planner-state commit. Future markers
+  must remain unowned and unbuffered; an unmarked failure may stop only future fake
+  writes without becoming proof of which frame or batch failed. Keep notification text,
+  IDs, UIDs, digests, markers, and frame shape out of the result while disclosing that
+  the scripted-test transport deliberately retains private calls for focused tests.
 - Gain useful passive and read-only support while uncertain or destructive
   operations remain visibly gated.
 - Never confuse a UUID string, advertised property, static opcode, or simulated

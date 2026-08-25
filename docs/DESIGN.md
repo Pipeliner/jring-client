@@ -292,6 +292,24 @@ synthetic writes after an observed failure, and never upgrades callback count, l
 quiet, or a caller observation limit into batch success. The safer stop policy and
 atomic request validation are explicit divergences from source retained-state and
 partial-enqueue behavior.
+Notification batching uses a separate fake-only coordinator over the existing closed
+planner. The coordinator reconstructs planner state and private request fields before
+acquiring the fake lease, resolves the generation-owned MAIN route, subscribes, and
+issues exact header/title/content frames as sequential response-requesting fake calls.
+That direct sequence is not reproduction of source queue acceptance, atomic enqueue,
+atomic delivery, or display. Success-shaped `12` traffic is correlated only when its
+sequence marker names an already-invoked frame in the current operation and generation;
+the rest of the callback body is uninterpreted. A future marker is recorded only as an
+unowned diagnostic, never buffered or retroactively matched, and it neither refreshes
+quiet nor aborts or taints the attempt. Failure-shaped `92` traffic has no proven marker
+or body fields. It therefore cannot identify a frame or establish batch failure, but the
+fake stops not-yet-invoked writes and taints reuse as a conservative divergence.
+No combination of returned fake calls, marker coverage, duplicates, quiet, or a local
+observation limit establishes a batch terminal or commits the planner's proposed
+UID/digest state. The source's caller throttle and global acknowledgement-overlap race,
+and the serialization needed to make them safe, remain unreproduced. Result objects
+retain no private request, plan, frame, marker identity, UID, or digest; the exact
+scripted transport intentionally retains private write frames behind test-only access.
 Shared sensor-session start/stop is also rejected: the generic encoder loses which of
 four interface wrappers initiated the frame, and opcode `25` is also a multi-sport
 projection rather than a proven singleton terminal.
@@ -315,6 +333,10 @@ factory resolves its public interface row through this ledger before constructin
 operation; only matched terminals can later close as `SUCCEEDED` in the fake engine.
 Every row and aggregate carries `fake_singleton_only`, `live_eligible=false`,
 `owner_authorized=false`, and hardware-ineligible state.
+The notification coordinator does not reclassify `setNotify`: it remains one of the six
+ambiguous/batched per-frame rows, outside the success-returning singleton factory. Its
+runtime is a dedicated unknown-completeness simulation and changes none of the live,
+owner-authorized, or hardware-verified counts.
 
 Raw simulation uses separate fake metadata for TX `33f5` and RX `33f6`; the main fake
 route fails raw preflight. The bounded collector subscribes before an optional closed

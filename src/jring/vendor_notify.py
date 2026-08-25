@@ -273,6 +273,44 @@ def plan_notify(state: NotifyPlannerState, request: NotifyRequest) -> NotifyPlan
     if type(request) is not NotifyRequest:
         raise TypeError("request must be a NotifyRequest")
 
+    state = NotifyPlannerState._create(
+        next_uid=state._next_uid,
+        digest_key=state._digest_key,
+        last_notification_digest=state._last_notification_digest,
+    )
+    for label, value in (
+        ("notification id", request._notification_id),
+        ("title", request._title),
+        ("content", request._content),
+    ):
+        if type(value) is not bytes:
+            raise ValueError(f"{label} must be encoded bytes")
+    notification_id = title = content = None
+    try:
+        notification_id = request._notification_id.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        pass
+    if notification_id is None:
+        raise ValueError("notification id must be valid UTF-8 text")
+    try:
+        title = request._title.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        pass
+    if title is None:
+        raise ValueError("title must be valid UTF-8 text")
+    try:
+        content = request._content.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        pass
+    if content is None:
+        raise ValueError("content must be valid UTF-8 text")
+    request = NotifyRequest.create(
+        notification_id=notification_id,
+        category=request.category,
+        title=title,
+        content=content,
+    )
+
     request_digest = _notification_digest(state._digest_key, request._notification_id)
     if state._last_notification_digest == request_digest:
         return NotifyPlan._create(
