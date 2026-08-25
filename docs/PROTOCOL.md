@@ -115,14 +115,24 @@ two-second inactivity timers and inconsistent or duplicate inferred endings, not
 reliable success marker on the wire.
 
 The interface inventory contains 112 request methods and 105 callback declarations.
-The service statically routes 80 requests through the main command path, six through
-the raw command path, one to raw-notification control, and the rest to local BLE,
-cloud/cache, phone-network, filesystem/conversion, DFU, composite, or no-op paths.
+The mutually exclusive request ledger records 79 direct main-channel methods, one
+main-then-cloud operation, six raw commands, one raw-notification control, 14 local BLE
+or dynamic-GATT methods, three cloud/cache methods, one phone-network method, two local
+filesystem/conversion methods, one DFU method, and four no-op stubs. Thus 80 wrappers
+transitively reach the main queue, but the composite OTA-info operation is not counted
+twice.
 No AIDL request is statically wired to the declared secondary channel. The Python
 client implements zero live vendor requests; seven request codecs and seven response
 families are offline-only. Local album saving, bitmap conversion, and worship-setting
 operations are now included in the parity ledger even though they do not belong in a
 Bluetooth client implementation.
+
+`jring.vendor_coverage.static_vendor_operation_coverage()` is the checked source for
+the request names and mutually exclusive routes. Tests require exactly 112 unique
+entries, exact route totals, seven offline codec families, zero live vendor methods,
+and false hardware eligibility for every entry. This corrects an earlier grouped count
+that treated only three interface methods as stubs; static call-site tracing shows that
+`getWifiState` is also a no-op in this build even though related response parsing exists.
 
 Three authorization domains remain separate: vendor developer-cloud SDK validation,
 device-cloud authorization, and a local BLE binding exchange. The independent Python

@@ -15,6 +15,9 @@ Desired outcomes:
 
 - See one complete matrix of app operations, GATT endpoints, protocol evidence,
   Python support, firmware scope, and owner-hardware verification.
+- Count every interface request exactly once by its primary route, including local,
+  cloud, filesystem, conversion, DFU, dynamic-GATT, and no-op surfaces that are not
+  ordinary vendor Bluetooth commands.
 - Inspect statically proven request and response layouts offline with synthetic data,
   without making those codecs callable from a live client.
 - Gain useful passive and read-only support while uncertain or destructive
