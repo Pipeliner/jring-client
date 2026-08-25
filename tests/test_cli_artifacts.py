@@ -241,6 +241,7 @@ def test_generated_manual_is_accepted_by_a_man_renderer():
     )
     plain = re.sub(rb".\x08", b"", completed.stdout)
     plain = re.sub(rb"\x1b\[[0-9;]*m", b"", plain)
+    plain = re.sub(rb"\s+", b" ", plain)
     assert b"JRing is offline by default" in plain
 
 
