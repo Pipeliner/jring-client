@@ -195,6 +195,14 @@ count therefore remains distinct from 86 identifiable layouts and 80 source path
 can reach the main queue. None establishes session readiness, owner authorization,
 response correlation, safe retry, or hardware support.
 
+A closed correlation ledger now accounts for all 85 deterministic request codecs.
+Forty-seven have exact single-frame callback eligibility, one has exact branching,
+six are shared streams, five are shared/stateful, six raw rows are unproven event
+candidates, and 20 remain explicitly unresolved. These are dispatcher relationships,
+not transaction proof: the source has no wire transaction identifier and its wait state
+is not operation-bound. Safe matching therefore requires endpoint, discriminator,
+operation token, and connection generation; silence and local idle remain unknown.
+
 Within those routes, 37 statically reviewed builder families have a second,
 domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum
 when given values accepted by the stricter Python type/domain rules. Thirty-one use

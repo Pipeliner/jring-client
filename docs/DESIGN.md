@@ -198,6 +198,14 @@ queue; only the shared sensor start/stop builder is front-inserted. The ledger k
 alarm batching and dial-state queue mutation divergences explicit and remains static,
 non-callable, and hardware-ineligible.
 
+Request/callback correlation is a third view over the 85 deterministic request codecs.
+Each request has exactly one closed row, including 20 explicitly unresolved rows and
+zero unspecified rows. The model preserves endpoint role, opcode/subcommand or marker
+predicates, ordered callback projections, multiplicity, direct versus silent failure,
+and terminal rules. Raw typed notifications remain event candidates rather than
+acknowledgements. Local idle never means success, unrelated events never extend a
+deadline, and an uncertain accepted write is never automatically retried.
+
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
 dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective

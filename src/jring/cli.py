@@ -51,6 +51,9 @@ from .vendor_coverage import (
 from .vendor_decompilation_evidence import recovered_decompilation_coverage
 from .vendor_dispatcher_evidence import recovered_dispatcher_evidence
 from .vendor_request_builder_evidence import recovered_request_builder_evidence
+from .vendor_request_callback_correlation import (
+    recovered_request_callback_correlations,
+)
 from .vendor_request_routing import recovered_request_routing_evidence
 from .vendor_session_evidence import recovered_session_evidence
 from .vendor_warning_evidence import (
@@ -287,6 +290,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     callback_surfaces = recovered_callback_behavior_surfaces()
     dispatcher = recovered_dispatcher_evidence()
     request_builders = recovered_request_builder_evidence()
+    request_correlations = recovered_request_callback_correlations()
     request_routing = recovered_request_routing_evidence()
     app_use = recovered_vendor_app_use_evidence()
     binder = recovered_vendor_binder_evidence()
@@ -351,6 +355,11 @@ def _protocol_coverage_payload() -> dict[str, object]:
             ),
             "request_builder_front_inserted": sum(
                 row.enqueue_position == "front" for row in request_builders.families
+            ),
+            "request_correlation_rows": len(request_correlations.rows),
+            "request_correlation_unspecified": request_correlations.unspecified_count,
+            "request_correlation_explicitly_unresolved": (
+                request_correlations.explicitly_unresolved_count
             ),
             "app_direct_request_targets": app_use.direct_request_target_count,
             "app_direct_request_invokes": app_use.direct_request_invoke_count,
@@ -578,6 +587,19 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 "python_callable": request_builders.python_callable,
                 "hardware_eligible": request_builders.hardware_eligible,
                 "hardware_verified": request_builders.hardware_verified,
+            },
+            "request_callback_correlations": {
+                **asdict(request_correlations),
+                "unspecified_count": request_correlations.unspecified_count,
+                "explicitly_unresolved_count": (
+                    request_correlations.explicitly_unresolved_count
+                ),
+                "maturity": request_correlations.maturity,
+                "runnable": request_correlations.runnable,
+                "python_callable": request_correlations.python_callable,
+                "hardware_eligible": request_correlations.hardware_eligible,
+                "hardware_verified": request_correlations.hardware_verified,
+                "owner_authorized": request_correlations.owner_authorized,
             },
             "codec_registry": {
                 "requests": [
@@ -916,6 +938,12 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"Python domains; {summary['request_builder_main_queue']} main queue; "
         f"{summary['request_builder_raw_queue']} raw queue; "
         f"{summary['request_builder_front_inserted']} front-inserted."
+    )
+    print(
+        "Request/callback correlation: "
+        f"{summary['request_correlation_rows']}/85 deterministic request rows; "
+        f"{summary['request_correlation_unspecified']} unspecified; "
+        f"{summary['request_correlation_explicitly_unresolved']} explicitly unresolved."
     )
     print(
         "Owned app interface use: "

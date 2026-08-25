@@ -133,6 +133,11 @@ fixed 20-byte, checksum-free builders; 31 use the source main queue and six the 
 queue. Only sensor-session start/stop are front-inserted. Source gates, logging, queue
 draining, alarm partial-enqueue behavior, and dial-state queue clearing are explicitly
 not reproduced.
+The report also gives every deterministic request codec one closed request/callback
+correlation row. Proven single responses, shared streams, stateful families, raw event
+candidates, callback-silent failures, and explicit unknowns remain distinct. Twenty
+rows still have no exact terminal relationship; local quiet is never promoted to
+success, and matching requires an operation token plus connection generation.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke

@@ -317,6 +317,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
         "domains; 31 main queue; 6 raw queue; 2 front-inserted."
     ) in output
     assert (
+        "Request/callback correlation: 85/85 deterministic request rows; "
+        "0 unspecified; 20 explicitly unresolved."
+    ) in output
+    assert (
         "Owned app interface use: 51/112 request targets across 152 direct "
         "invokes; 103/105 callbacks have a direct invoke (181 sites: "
         "125 main, 6 raw, 50 outside dispatchers)."
@@ -366,6 +370,9 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["request_builder_main_queue"] == 31
     assert result["summary"]["request_builder_raw_queue"] == 6
     assert result["summary"]["request_builder_front_inserted"] == 2
+    assert result["summary"]["request_correlation_rows"] == 85
+    assert result["summary"]["request_correlation_unspecified"] == 0
+    assert result["summary"]["request_correlation_explicitly_unresolved"] == 20
     assert result["summary"]["app_direct_request_targets"] == 51
     assert result["summary"]["app_direct_request_invokes"] == 152
     assert result["summary"]["directly_invoked_callbacks"] == 103
@@ -449,6 +456,7 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     codec_registry = result["supplemental"]["codec_registry"]
     request_routing = result["supplemental"]["request_routing"]
     request_builders = result["supplemental"]["request_builder_evidence"]
+    request_correlations = result["supplemental"]["request_callback_correlations"]
     app_use = result["supplemental"]["app_use_evidence"]
     binder = result["supplemental"]["binder_evidence"]
     assert len(binder["request"]["rows"]) == 112
@@ -458,6 +466,11 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert request_builders["python_callable"] is False
     assert request_builders["hardware_eligible"] is False
     assert request_builders["hardware_verified"] is False
+    assert len(request_correlations["rows"]) == 85
+    assert request_correlations["unspecified_count"] == 0
+    assert request_correlations["explicitly_unresolved_count"] == 20
+    assert request_correlations["runnable"] is False
+    assert request_correlations["hardware_eligible"] is False
     assert len(binder["callback"]["rows"]) == 105
     assert binder["request"]["one_way_transaction_count"] == 0
     assert binder["callback"]["one_way_transaction_count"] == 0
