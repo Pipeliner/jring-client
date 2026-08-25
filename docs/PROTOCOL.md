@@ -135,13 +135,15 @@ that treated only three interface methods as stubs; static call-site tracing sho
 `getWifiState` is also a no-op in this build even though related response parsing exists.
 
 `static_vendor_callback_coverage()` likewise accounts for all 105 callback declarations
-exactly once. Eighty-nine are reached by a structured main or raw Bluetooth opcode,
+exactly once. Eighty-six are reached by a structured main or raw Bluetooth opcode,
 14 originate in Android transport, scan, network, OTA, authorization, or cache flows,
-and two declarations have no invocation site in this SDK build. Eighty-five callback
-families now have offline response codecs: the seven query families plus bounded
+three end callbacks are APK-generated local timer/parser projections, and two
+declarations have no invocation site in this SDK build. All 86 wire callback families
+now have offline response codecs: the seven query families plus bounded
 non-health state, action, counter, dial, schedule, current-data, and unknown-motion
-events, five raw notification families, and operation-specific acknowledgements. Every
-other callback remains `not_reproduced`; all 105 remain hardware-ineligible.
+events, five raw notification families, operation-specific acknowledgements, and the
+generic by-day history decoder. The three local end projections are modeled separately
+rather than invented as wire frames. All 105 remain hardware-ineligible.
 
 Three authorization domains remain separate: vendor developer-cloud SDK validation,
 device-cloud authorization, and a local BLE binding exchange. The independent Python
@@ -271,6 +273,23 @@ SMS metadata, Wi-Fi addresses, and SSID fragments are decoded without exposing t
 contents in representations or coverage output. Wi-Fi fragments use a bounded,
 entry-keyed assembler; no parser starts host networking or copies private values into
 logs. Explicit local SSID access is opt-in after a complete sequence.
+
+## Static history streams
+
+`jring.vendor_history` provides a pure, transaction-scoped decoder for the `10`, `11`,
+`16`, `39`, `40`, and `55` history notification families and their proven `90`, `96`,
+and `b9` failure frames. It preserves raw device epoch integers, applies the recovered
+little-endian layouts and Java half-up averages, and projects every sample into one
+neutral shape without applying the host timezone or medical meaning.
+
+The `16` stream retains only its current F0/AA/A0 metadata and closes as confirmed only
+for the recovered metadata predicate or the explicit `ff` terminal. Other streams use
+bounded local idle closure with unknown completeness; local quiet is never relabeled as
+a wire terminal. First-frame, idle, and overall deadlines are monotonic and
+generation-guarded. Disconnect and cancel close once, raw frames are not retained, and
+representations redact timestamps and values. The APK's timer-derived oxygen and
+advanced-sensor end callbacks remain local projections, preventing duplicate or
+host-clock-derived completion claims.
 
 ## Required hardware evidence to advance
 

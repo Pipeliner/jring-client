@@ -314,6 +314,13 @@ _NON_BLE_CALLBACKS = frozenset(
     }
 )
 _UNUSED_CALLBACKS = frozenset({"onGetDeviceTime", "onSendWeather"})
+_LOCAL_PROJECTION_CALLBACKS = frozenset(
+    {
+        "onGetAdvSensorOfflineDataEnd",
+        "onGetDataByDayEnd",
+        "onGetOxygenOfflineDataEnd",
+    }
+)
 _OFFLINE_RESPONSE_CODECS = frozenset(
     {
         "onGetAdvSensorOfflineData",
@@ -323,6 +330,7 @@ _OFFLINE_RESPONSE_CODECS = frozenset(
         "onGetBandFunction",
         "onGetChatgptAction",
         "onGetCurSportData",
+        "onGetDataByDay",
         "onGetDeviceAction",
         "onGetDeviceBatery",
         "onGetDeviceCode",
@@ -411,6 +419,8 @@ def static_vendor_callback_coverage() -> tuple[StaticVendorCallback, ...]:
             return "android_network_ota_or_transport"
         if name in _UNUSED_CALLBACKS:
             return "declared_without_invocation"
+        if name in _LOCAL_PROJECTION_CALLBACKS:
+            return "local_timer_or_parser_projection"
         return "bluetooth_opcode"
 
     return tuple(
@@ -420,6 +430,8 @@ def static_vendor_callback_coverage() -> tuple[StaticVendorCallback, ...]:
             python_state=(
                 "offline_response_codec"
                 if name in _OFFLINE_RESPONSE_CODECS
+                else "offline_local_projection"
+                if name in _LOCAL_PROJECTION_CALLBACKS
                 else "not_reproduced"
             ),
         )

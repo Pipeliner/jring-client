@@ -92,9 +92,10 @@ def test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once():
     assert len(names) == 105
     assert len(set(names)) == 105
     assert Counter(entry.source for entry in coverage) == {
-        "bluetooth_opcode": 89,
+        "bluetooth_opcode": 86,
         "android_network_ota_or_transport": 14,
         "declared_without_invocation": 2,
+        "local_timer_or_parser_projection": 3,
     }
 
 
@@ -106,9 +107,10 @@ def test_callback_coverage_distinguishes_unused_and_non_ble_sources():
     assert by_name["onCharacteristicChanged"].source == "android_network_ota_or_transport"
     assert by_name["onAuthSdkResult"].source == "android_network_ota_or_transport"
     assert by_name["onGetDeviceAction"].source == "bluetooth_opcode"
+    assert by_name["onGetDataByDayEnd"].source == "local_timer_or_parser_projection"
 
 
-def test_eighty_five_callback_families_have_offline_response_codecs():
+def test_all_eighty_six_wire_callback_families_have_offline_response_codecs():
     implemented = {
         entry.name
         for entry in static_vendor_callback_coverage()
@@ -123,6 +125,7 @@ def test_eighty_five_callback_families_have_offline_response_codecs():
         "onGetBandFunction",
         "onGetChatgptAction",
         "onGetCurSportData",
+        "onGetDataByDay",
         "onGetDeviceAction",
         "onGetDeviceBatery",
         "onGetDeviceCode",
@@ -206,3 +209,17 @@ def test_eighty_five_callback_families_have_offline_response_codecs():
         entry.hardware_eligible is False
         for entry in static_vendor_callback_coverage()
     )
+
+
+def test_three_apk_generated_end_callbacks_are_local_projections_not_wire_codecs():
+    projections = {
+        entry.name
+        for entry in static_vendor_callback_coverage()
+        if entry.python_state == "offline_local_projection"
+    }
+
+    assert projections == {
+        "onGetAdvSensorOfflineDataEnd",
+        "onGetDataByDayEnd",
+        "onGetOxygenOfflineDataEnd",
+    }
