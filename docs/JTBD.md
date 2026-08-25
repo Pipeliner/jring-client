@@ -155,6 +155,8 @@ Desired outcomes:
   only the former may become direct input candidates without gesture inference.
 - Keep phone-call, location, camera-lifecycle, time-write, raw audio/image, Wi-Fi,
   file, and OTA side effects outside the default input action path.
+- Inspect raw AI/action/audio/image framing offline without subscribing, writing,
+  persisting private content, or repeating the APK's unsafe length and CCCD behavior.
 
 ## Opportunity ordering
 

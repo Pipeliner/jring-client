@@ -239,6 +239,61 @@ class VendorStepCounter:
     input_eligible: bool = False
 
 
+@dataclass(frozen=True)
+class VendorDeviceState:
+    flag_0: bool
+    flag_1: bool
+    flag_2: bool
+    unused_bits_present: bool
+
+
+@dataclass(frozen=True)
+class VendorDeviceDialCustom:
+    values: tuple[int, int, int, int]
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorReadCurrentSport:
+    discriminator: int
+    device_epoch_seconds: int
+    first_value: int
+    second_value: int
+
+
+@dataclass(frozen=True)
+class VendorPhoneVolumeRequest:
+    requests_host_volume_state: bool = True
+    input_candidate: bool = False
+
+
+@dataclass(frozen=True)
+class VendorSingleValueState:
+    value: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorWorshipInfo:
+    values: tuple[int, int]
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorWorshipTimes:
+    value: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorMotionFrame:
+    subcommand: int
+    channels: tuple[int, int, int, int, int, int, int, int]
+    channel_meaning: str = "unknown"
+    trailing_bytes_ignored_by_sdk: bool = True
+    hardware_verified: bool = False
+
+
 def _request(operation: StaticQuery, *fields: int) -> StaticVendorRequest:
     encoded = bytes((operation_opcode(operation), *fields)) + bytes(19 - len(fields))
     return StaticVendorRequest(operation=operation, _encoded=encoded)
@@ -414,4 +469,85 @@ def parse_vendor_step_counter(data: bytes) -> VendorStepCounter:
     response = _response(data, 0x51)
     return VendorStepCounter(
         cumulative_steps=int.from_bytes(response[1:5], "little")
+    )
+
+
+def parse_vendor_device_state(data: bytes) -> VendorDeviceState:
+    response = _response(data, 0x3D)
+    flags = response[1]
+    return VendorDeviceState(
+        flag_0=bool(flags & 0x01),
+        flag_1=bool(flags & 0x02),
+        flag_2=bool(flags & 0x04),
+        unused_bits_present=bool(flags & 0xF8),
+    )
+
+
+def parse_vendor_device_dial_custom(data: bytes) -> VendorDeviceDialCustom:
+    response = _response(data, 0x42)
+    return VendorDeviceDialCustom(values=tuple(response[1:5]))
+
+
+def parse_vendor_read_current_sport(data: bytes) -> VendorReadCurrentSport:
+    response = _response(data, 0x29)
+    return VendorReadCurrentSport(
+        discriminator=response[1],
+        device_epoch_seconds=int.from_bytes(response[2:6], "little"),
+        first_value=int.from_bytes(response[6:10], "little"),
+        second_value=int.from_bytes(response[10:14], "little"),
+    )
+
+
+def parse_vendor_phone_volume_request(data: bytes) -> VendorPhoneVolumeRequest:
+    _response(data, 0x49)
+    return VendorPhoneVolumeRequest()
+
+
+def _subresponse(data: bytes, subcommand: int) -> bytes:
+    response = _response(data, 0x78)
+    if response[1] != subcommand:
+        raise ProtocolError("unexpected vendor response subcommand")
+    return response
+
+
+def parse_vendor_screen_light_time(data: bytes) -> VendorSingleValueState:
+    response = _subresponse(data, 0x0B)
+    return VendorSingleValueState(value=response[2])
+
+
+def parse_vendor_touch_mode(data: bytes) -> VendorSingleValueState:
+    response = _subresponse(data, 0x09)
+    return VendorSingleValueState(value=response[2])
+
+
+def parse_vendor_worship_info(data: bytes) -> VendorWorshipInfo:
+    response = _subresponse(data, 0x07)
+    return VendorWorshipInfo(values=(response[2], response[3]))
+
+
+def parse_vendor_worship_times(data: bytes) -> VendorWorshipTimes:
+    response = _subresponse(data, 0x08)
+    return VendorWorshipTimes(value=int.from_bytes(response[2:6], "little"))
+
+
+_KNOWN_78_SUBCOMMANDS = frozenset({0x03, 0x07, 0x08, 0x09, 0x0B, 0x0C})
+
+
+def parse_vendor_motion_frame(
+    data: bytes, *, expected_subcommand: int
+) -> VendorMotionFrame:
+    if type(expected_subcommand) is not int:
+        raise TypeError("expected motion subcommand must be an integer")
+    if not 0 <= expected_subcommand <= 0xFF:
+        raise ValueError("expected motion subcommand must fit one unsigned byte")
+    if expected_subcommand in _KNOWN_78_SUBCOMMANDS:
+        raise ProtocolError("known non-motion vendor subcommand")
+    response = _subresponse(data, expected_subcommand)
+    channels = tuple(
+        int.from_bytes(response[offset : offset + 2], "little", signed=True)
+        for offset in range(2, 18, 2)
+    )
+    return VendorMotionFrame(
+        subcommand=expected_subcommand,
+        channels=channels,
     )

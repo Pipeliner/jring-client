@@ -137,9 +137,10 @@ that treated only three interface methods as stubs; static call-site tracing sho
 `static_vendor_callback_coverage()` likewise accounts for all 105 callback declarations
 exactly once. Eighty-nine are reached by a structured main or raw Bluetooth opcode,
 14 originate in Android transport, scan, network, OTA, authorization, or cache flows,
-and two declarations have no invocation site in this SDK build. Nine callback families
-now have offline response codecs: the seven query families plus device-action and
-cumulative-step events. Every other callback remains `not_reproduced`; all 105 remain
+and two declarations have no invocation site in this SDK build. Twenty-three callback
+families now have offline response codecs: the seven query families plus bounded
+non-health state, action, counter, dial, schedule, current-data, and unknown-motion
+events and five raw notification families. Every other callback remains `not_reproduced`; all 105 remain
 hardware-ineligible.
 
 Three authorization domains remain separate: vendor developer-cloud SDK validation,
@@ -181,12 +182,47 @@ only: a new connection or reset establishes a baseline, a multi-step jump is dis
 rather than replayed, and exact single increments are rate-limited. The adapter is
 unconditionally hardware-ineligible and is not connected to the transport or uinput.
 
-The motion path uses opcode family `78` and can yield nine signed 16-bit channels, but
-axis order, units, sampling interval, subcommand scope, and gesture meanings are not
-proven. It therefore has no Python parser yet. Raw `33f5`/`33f6` traffic includes
+The motion path uses opcode family `78` and can yield eight signed 16-bit channels in
+bytes 2–17; bytes 18–19 are ignored by this APK branch. Axis order, units, sampling
+interval, subcommand scope, and gesture meanings are not proven.
+`parse_vendor_motion_frame()` therefore requires the caller to name the exact expected
+subcommand and rejects every known non-motion `78` subcommand. It retains neutral
+channel names and remains hardware-unverified. Raw `33f5`/`33f6` traffic includes
 AI/audio/image material and is privacy-sensitive; Wi-Fi, call control, files/dials,
 arbitrary writes, and executable `fef5` OTA are outside the default input path. The
 declared `57ff`, `ffe5`, and `ffe9` UUIDs have no executable call site in this build.
+
+Additional strict offline event decoders cover three device-state bits, four neutral
+custom-dial values, the `29` current-data event with two neutral counters, the host
+volume-state request, screen-light time, touch mode, and two schedule-state variants.
+They require exact 20-byte frames and exact subcommands, make no writes, and do not
+claim that the fields are supported on owner hardware.
+
+## Optional raw channel
+
+`jring.vendor_raw_protocol` independently represents the six statically wired raw
+commands as offline-only 20-byte frames for `33f5`. The raw type is a little-endian
+16-bit value, followed by three constant little-endian words whose meanings remain
+unknown, one typed argument byte, and zero padding. All six request objects hide bytes
+from their representations, are marked `static_apk_only`, and are unconditionally
+hardware-ineligible. They are not connected to `JRingClient`.
+
+The `33f6` parser accepts the six statically handled inbound types: one-byte AI action,
+AI state, bounded audio/image data, voice-command confirmation, and AI command type.
+Audio/image bytes are hidden from object representations and available only through an
+explicit local-use method. Unlike the APK, the clean parser requires the declared data
+length to equal the available bytes and enforces a caller-configurable maximum; it
+never silently zero-pads a truncated frame. Unknown types and undersized records fail
+closed. Static evidence provides no transaction identifier, checksum, fragmentation,
+reassembly, or dependable request/response pairing.
+
+Raw notification control is deliberately absent. The APK requests MTU 247, waits a
+fixed two seconds rather than for negotiation, reports descriptor submission rather
+than acknowledgement, does not serialize the CCCD write, and can write the enable
+value while asked to disable. Python must not reproduce those defects. A future live
+implementation needs a successful MTU result where required, serialized descriptor
+writes, exact acknowledgement, a real disable value, payload consent, bounded memory,
+and logs that never contain audio, image, or command bytes.
 
 ## Required hardware evidence to advance
 

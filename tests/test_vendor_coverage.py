@@ -33,7 +33,6 @@ def test_only_seven_operations_have_offline_request_and_response_codecs():
         for entry in coverage
         if entry.python_state == "offline_request_and_response_codec"
     }
-
     assert implemented == {
         "getAdvSensorOfflineData",
         "getBandFunction",
@@ -42,6 +41,23 @@ def test_only_seven_operations_have_offline_request_and_response_codecs():
         "getDeviceInfo",
         "getMultipleSportData",
         "getOxygenOfflineData",
+    }
+
+
+def test_all_six_raw_commands_have_offline_request_codecs_only():
+    implemented = {
+        entry.name
+        for entry in static_vendor_operation_coverage()
+        if entry.python_state == "offline_raw_request_codec"
+    }
+
+    assert implemented == {
+        "connectAiServerNotification",
+        "openAiAudioState",
+        "openAiState",
+        "queryAiState",
+        "setAiCommandType",
+        "setAiExtraAction",
     }
 
 
@@ -92,7 +108,7 @@ def test_callback_coverage_distinguishes_unused_and_non_ble_sources():
     assert by_name["onGetDeviceAction"].source == "bluetooth_opcode"
 
 
-def test_nine_callback_families_have_offline_response_codecs():
+def test_twenty_three_callback_families_have_offline_response_codecs():
     implemented = {
         entry.name
         for entry in static_vendor_callback_coverage()
@@ -101,14 +117,28 @@ def test_nine_callback_families_have_offline_response_codecs():
 
     assert implemented == {
         "onGetAdvSensorOfflineData",
+        "onGetAiAction",
+        "onGetAiCommandType",
+        "onGetAiState",
         "onGetBandFunction",
         "onGetCurSportData",
         "onGetDeviceAction",
         "onGetDeviceBatery",
+        "onGetDeviceDialCustom",
         "onGetDeviceInfo",
+        "onGetDeviceState",
+        "onGetGSensorData",
         "onGetMultipleSportData",
         "onGetOxygenOfflineData",
+        "onGetPhoneVolume",
+        "onGetRawData",
+        "onGetScreenLightTime",
         "onGetSportSteps",
+        "onGetTouchMode",
+        "onGetWorshipInfo",
+        "onGetWorshipTimesData",
+        "onReadCurrentSportData",
+        "onRecvDeviceVoiceCommandConfirm",
     }
     assert all(
         entry.hardware_eligible is False

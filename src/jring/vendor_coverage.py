@@ -153,6 +153,7 @@ _OFFLINE_REQUEST_CODECS = frozenset(
         "getOxygenOfflineData",
     }
 )
+_OFFLINE_RAW_REQUEST_CODECS = frozenset(_RAW_COMMANDS)
 
 _ROUTES = (
     ("main_command", _MAIN_COMMANDS),
@@ -176,6 +177,8 @@ def static_vendor_operation_coverage() -> tuple[StaticVendorOperation, ...]:
             python_state=(
                 "offline_request_and_response_codec"
                 if name in _OFFLINE_REQUEST_CODECS
+                else "offline_raw_request_codec"
+                if name in _OFFLINE_RAW_REQUEST_CODECS
                 else "not_reproduced"
             ),
         )
@@ -314,14 +317,28 @@ _UNUSED_CALLBACKS = frozenset({"onGetDeviceTime", "onSendWeather"})
 _OFFLINE_RESPONSE_CODECS = frozenset(
     {
         "onGetAdvSensorOfflineData",
+        "onGetAiAction",
+        "onGetAiCommandType",
+        "onGetAiState",
         "onGetBandFunction",
         "onGetCurSportData",
         "onGetDeviceAction",
         "onGetDeviceBatery",
+        "onGetDeviceDialCustom",
         "onGetDeviceInfo",
+        "onGetDeviceState",
+        "onGetGSensorData",
         "onGetMultipleSportData",
         "onGetOxygenOfflineData",
+        "onGetPhoneVolume",
+        "onGetRawData",
+        "onGetScreenLightTime",
         "onGetSportSteps",
+        "onGetTouchMode",
+        "onGetWorshipInfo",
+        "onGetWorshipTimesData",
+        "onReadCurrentSportData",
+        "onRecvDeviceVoiceCommandConfirm",
     }
 )
 

@@ -12,9 +12,18 @@ from jring.vendor_protocol import (
     parse_vendor_current_sport,
     parse_vendor_device_info,
     parse_vendor_device_action,
+    parse_vendor_device_dial_custom,
+    parse_vendor_device_state,
+    parse_vendor_motion_frame,
     parse_vendor_multi_sport_day,
     parse_vendor_oxygen_day,
+    parse_vendor_phone_volume_request,
+    parse_vendor_read_current_sport,
+    parse_vendor_screen_light_time,
     parse_vendor_step_counter,
+    parse_vendor_touch_mode,
+    parse_vendor_worship_info,
+    parse_vendor_worship_times,
     static_protocol_coverage,
 )
 from jring.protocol import ProtocolError
@@ -370,3 +379,99 @@ def test_step_counter_is_cumulative_and_not_a_verified_button_event():
 def test_non_health_event_decoders_fail_closed(parser, data):
     with pytest.raises(ProtocolError):
         parser(data)
+
+
+def test_device_state_decodes_only_the_three_statically_used_bits():
+    result = parse_vendor_device_state(bytes((0x3D, 0b10000101)) + bytes(18))
+
+    assert result.flag_0 is True
+    assert result.flag_1 is False
+    assert result.flag_2 is True
+    assert result.unused_bits_present is True
+
+
+def test_device_dial_custom_preserves_four_neutral_values():
+    result = parse_vendor_device_dial_custom(bytes((0x42, 1, 2, 3, 4)) + bytes(15))
+
+    assert result.values == (1, 2, 3, 4)
+    assert result.hardware_verified is False
+
+
+def test_read_current_sport_keeps_unverified_values_neutral():
+    base = 1_700_000_000
+    result = parse_vendor_read_current_sport(
+        bytes((0x29, 7))
+        + base.to_bytes(4, "little")
+        + (123).to_bytes(4, "little")
+        + (456).to_bytes(4, "little")
+        + bytes(6)
+    )
+
+    assert result.discriminator == 7
+    assert result.device_epoch_seconds == base
+    assert result.first_value == 123
+    assert result.second_value == 456
+
+
+def test_phone_volume_request_is_an_event_not_volume_data():
+    result = parse_vendor_phone_volume_request(bytes((0x49,)) + bytes(19))
+
+    assert result.requests_host_volume_state is True
+    assert result.input_candidate is False
+
+
+@pytest.mark.parametrize(
+    "parser,subcommand,value",
+    [
+        (parse_vendor_screen_light_time, 0x0B, 17),
+        (parse_vendor_touch_mode, 0x09, 3),
+    ],
+)
+def test_vendor_78_single_value_subcommands_require_exact_subcommand(
+    parser, subcommand, value
+):
+    data = bytes((0x78, subcommand, value)) + bytes(17)
+
+    assert parser(data).value == value
+    with pytest.raises(ProtocolError):
+        parser(bytes((0x78, subcommand ^ 1, value)) + bytes(17))
+
+
+def test_worship_subcommands_decode_only_their_statically_used_fields():
+    info = parse_vendor_worship_info(bytes((0x78, 0x07, 3, 4)) + bytes(16))
+    times = parse_vendor_worship_times(
+        bytes((0x78, 0x08)) + (123_456).to_bytes(4, "little") + bytes(14)
+    )
+
+    assert info.values == (3, 4)
+    assert times.value == 123_456
+
+
+def test_motion_frame_requires_an_explicit_unknown_subcommand_and_decodes_eight_i16():
+    channels = (-32768, -2, -1, 0, 1, 2, 300, 32767)
+    encoded = b"".join(value.to_bytes(2, "little", signed=True) for value in channels)
+    data = bytes((0x78, 0x22)) + encoded + bytes((0xAA, 0xBB))
+
+    result = parse_vendor_motion_frame(data, expected_subcommand=0x22)
+
+    assert result.subcommand == 0x22
+    assert result.channels == channels
+    assert result.channel_meaning == "unknown"
+    assert result.trailing_bytes_ignored_by_sdk is True
+    assert result.hardware_verified is False
+
+
+@pytest.mark.parametrize("subcommand", [0x03, 0x07, 0x08, 0x09, 0x0B, 0x0C])
+def test_motion_frame_rejects_known_non_motion_subcommands(subcommand):
+    data = bytes((0x78, subcommand)) + bytes(18)
+
+    with pytest.raises(ProtocolError):
+        parse_vendor_motion_frame(data, expected_subcommand=subcommand)
+
+
+def test_motion_frame_rejects_subcommand_mismatch():
+    with pytest.raises(ProtocolError):
+        parse_vendor_motion_frame(
+            bytes((0x78, 0x22)) + bytes(18),
+            expected_subcommand=0x23,
+        )
