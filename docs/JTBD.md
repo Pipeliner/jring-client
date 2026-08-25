@@ -332,6 +332,11 @@ Desired outcomes:
   code redacted and never call fake completion current device state, Bluetooth
   readiness/connection, battery/power, firmware health, owner binding, live support,
   or hardware verification.
+- Preserve the originally validated bytes of every request admitted to the singleton
+  fake runtime. Reject changed fields, stored frames, or instance-shadowed accessors
+  before operation creation; copies must preserve the same sealed identity. Correlate
+  endpoint/opcode/selector before declaring malformed ownership, keep EQ SET traffic
+  outside EQ GET, and keep heart-session start and stop branches distinct.
 - Exercise the existing Wi-Fi network-name count/fragment response assembler with one
   exact scripted-fake request while hiding names, signal values, and fragment IDs from
   ordinary serialization. Never contact host networking or a live ring, and never

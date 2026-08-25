@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from .uuids import VENDOR_CHARACTERISTIC_33F3
+from .vendor_request_integrity import seal_vendor_request, validate_vendor_request
 
 
 _FRAME_LENGTH = 20
@@ -72,6 +73,17 @@ class _StaticOnly:
     def __repr__(self) -> str:
         return f"{type(self).__name__}(<redacted>, hardware_eligible=False)"
 
+    def validate_for_fake_execution(self) -> None:
+        frames = tuple(
+            VendorBehaviorFrame.synthetic_bytes_for_test(frame)
+            for frame in type(self).frames(self)
+        )
+        validate_vendor_request(
+            self,
+            operation=type(self),
+            frames=frames,
+        )
+
 
 @dataclass(frozen=True, repr=False, init=False)
 class VendorBehaviorFrame(_StaticOnly):
@@ -105,6 +117,14 @@ def _frames(*payloads: bytes) -> tuple[VendorBehaviorFrame, ...]:
     return tuple(VendorBehaviorFrame._create(payload) for payload in payloads)
 
 
+def _seal_behavior_request(request: _StaticOnly) -> None:
+    frames = tuple(
+        VendorBehaviorFrame.synthetic_bytes_for_test(frame)
+        for frame in type(request).frames(request)
+    )
+    seal_vendor_request(request, operation=type(request), frames=frames)
+
+
 @dataclass(frozen=True, repr=False)
 class ClockTime:
     hour: int
@@ -124,6 +144,7 @@ class VibrationRequest(_StaticOnly):
 
     def __post_init__(self) -> None:
         _bounded_integer(self.count, "vibration count", 0, 10)
+        _seal_behavior_request(self)
 
     def frames(self) -> tuple[VendorBehaviorFrame, ...]:
         return _frames(_frame(0x04, bytes((self.count,))))
@@ -135,6 +156,7 @@ class AntiLostRequest(_StaticOnly):
 
     def __post_init__(self) -> None:
         _boolean(self.enabled, "anti-lost enabled state")
+        _seal_behavior_request(self)
 
     def frames(self) -> tuple[VendorBehaviorFrame, ...]:
         return _frames(_frame(0x05, bytes((int(self.enabled),))))
@@ -146,6 +168,7 @@ class CameraModeRequest(_StaticOnly):
 
     def __post_init__(self) -> None:
         _boolean(self.enabled, "camera mode enabled state")
+        _seal_behavior_request(self)
 
     def frames(self) -> tuple[VendorBehaviorFrame, ...]:
         return _frames(_frame(0x07, bytes((int(self.enabled),))))
@@ -170,6 +193,7 @@ class IdleReminderRequest(_StaticOnly):
         object.__setattr__(instance, "_interval_seconds", interval_seconds)
         object.__setattr__(instance, "_start", start)
         object.__setattr__(instance, "_end", end)
+        _seal_behavior_request(instance)
         return instance
 
     @classmethod
@@ -205,6 +229,7 @@ class SleepScheduleRequest(_StaticOnly):
             ("night end", self.night_end),
         ):
             _typed(value, ClockTime, label)
+        _seal_behavior_request(self)
 
     def frames(self) -> tuple[VendorBehaviorFrame, ...]:
         body = bytes(
@@ -359,6 +384,7 @@ class DeviceModeRequest(_StaticOnly):
 
     def __post_init__(self) -> None:
         _typed(self.mode, DeviceMode, "device mode")
+        _seal_behavior_request(self)
 
     def frames(self) -> tuple[VendorBehaviorFrame, ...]:
         return _frames(_frame(0x0E, _DEVICE_MODE_MAGIC[self.mode]))
@@ -381,6 +407,7 @@ class AutoHeartScheduleRequest(_StaticOnly):
             1,
             254,
         )
+        _seal_behavior_request(self)
 
     @property
     def ignored_apk_argument_omitted(self) -> bool:
@@ -409,6 +436,7 @@ class GoalStepRequest(_StaticOnly):
         value = _bounded_integer(self.steps, "goal steps", 1_000, 20_000)
         if value % 1_000:
             raise ValueError("goal steps must use 1,000-step increments")
+        _seal_behavior_request(self)
 
     def frames(self) -> tuple[VendorBehaviorFrame, ...]:
         return _frames(_frame(0x1A, self.steps.to_bytes(4, "little")))

@@ -58,6 +58,8 @@ from .vendor_behavior_settings import (
     AntiLostRequest,
     AutoHeartScheduleRequest,
     CameraModeRequest,
+    ClockTime,
+    DeviceMode,
     DeviceModeRequest,
     GoalStepRequest,
     IdleReminderRequest,
@@ -243,6 +245,63 @@ _BEHAVIOR_REQUEST_NAMES = {
     AutoHeartScheduleRequest: "setAutoHeartMode",
     GoalStepRequest: "setGoalStep",
 }
+
+
+def _canonical_behavior_frame(request: object) -> bytes:
+    """Rebuild one accepted behavior request through its validating constructor."""
+
+    def clock(value: object, label: str) -> ClockTime:
+        if type(value) is not ClockTime:
+            raise TypeError(f"{label} must be a ClockTime")
+        return ClockTime(value.hour, value.minute)
+
+    if type(request) is VibrationRequest:
+        canonical = VibrationRequest(request.count)
+    elif type(request) is AntiLostRequest:
+        canonical = AntiLostRequest(request.enabled)
+    elif type(request) is CameraModeRequest:
+        canonical = CameraModeRequest(request.enabled)
+    elif type(request) is IdleReminderRequest:
+        start = clock(request._start, "idle start")
+        end = clock(request._end, "idle end")
+        if request._interval_seconds == 0:
+            canonical = IdleReminderRequest.disabled(start=start, end=end)
+        else:
+            if request._interval_seconds % 60:
+                raise ValueError("idle interval seconds must preserve whole minutes")
+            canonical = IdleReminderRequest.enabled(
+                interval_minutes=request._interval_seconds // 60,
+                start=start,
+                end=end,
+            )
+    elif type(request) is SleepScheduleRequest:
+        canonical = SleepScheduleRequest(
+            clock(request.noon_start, "noon start"),
+            clock(request.noon_end, "noon end"),
+            clock(request.night_start, "night start"),
+            clock(request.night_end, "night end"),
+        )
+    elif type(request) is DeviceModeRequest:
+        if type(request.mode) is not DeviceMode:
+            raise TypeError("device mode must be a DeviceMode")
+        canonical = DeviceModeRequest(request.mode)
+    elif type(request) is AutoHeartScheduleRequest:
+        canonical = AutoHeartScheduleRequest(
+            request.enabled,
+            clock(request.start, "automatic heart start"),
+            clock(request.end, "automatic heart end"),
+            request.interval_minutes,
+        )
+    elif type(request) is GoalStepRequest:
+        canonical = GoalStepRequest(request.steps)
+    else:
+        raise TypeError("request must be a closed single-frame behavior request")
+    frames = canonical.frames()
+    if len(frames) != 1:
+        raise ValueError("single-frame behavior request produced an invalid batch")
+    return frames[0].synthetic_bytes_for_test()
+
+
 _NO_ARGUMENT_MAIN_RESPONSES = {
     NoArgumentMainCommand.DEVICE_CODE: (
         (0x1F,), (0x9F,), None, parse_vendor_device_code,
@@ -358,6 +417,7 @@ class _OperationExecutionShape:
     success_opcodes: tuple[int, ...]
     failure_opcodes: tuple[int, ...]
     expected_subcommand: int | None
+    excluded_subcommands: tuple[int, ...]
     parser: Callable[[bytes], object] = field(compare=False, repr=False)
 
 
@@ -376,6 +436,7 @@ class OfflineVendorOperation:
     success_opcodes: tuple[int, ...]
     failure_opcodes: tuple[int, ...]
     expected_subcommand: int | None
+    excluded_subcommands: tuple[int, ...]
     _parser: Callable[[bytes], object] = field(repr=False, compare=False)
 
     def __init__(self, *args: object, **kwargs: object) -> None:
@@ -391,6 +452,7 @@ class OfflineVendorOperation:
         failure_opcodes: tuple[int, ...],
         expected_subcommand: int | None,
         parser: Callable[[bytes], object],
+        excluded_subcommands: tuple[int, ...] = (),
     ) -> "OfflineVendorOperation":
         instance = object.__new__(cls)
         object.__setattr__(instance, "name", name)
@@ -400,6 +462,9 @@ class OfflineVendorOperation:
         object.__setattr__(instance, "success_opcodes", tuple(success_opcodes))
         object.__setattr__(instance, "failure_opcodes", tuple(failure_opcodes))
         object.__setattr__(instance, "expected_subcommand", expected_subcommand)
+        object.__setattr__(
+            instance, "excluded_subcommands", tuple(excluded_subcommands)
+        )
         object.__setattr__(instance, "_parser", parser)
         token = _OperationIntegrityToken()
         object.__setattr__(instance, "_execution_token", token)
@@ -411,6 +476,7 @@ class OfflineVendorOperation:
             success_opcodes=tuple(success_opcodes),
             failure_opcodes=tuple(failure_opcodes),
             expected_subcommand=expected_subcommand,
+            excluded_subcommands=tuple(excluded_subcommands),
             parser=parser,
         )
         return instance
@@ -432,6 +498,7 @@ class OfflineVendorOperation:
             or self.success_opcodes != expected.success_opcodes
             or self.failure_opcodes != expected.failure_opcodes
             or self.expected_subcommand != expected.expected_subcommand
+            or self.excluded_subcommands != expected.excluded_subcommands
             or self._parser is not expected.parser
         ):
             raise ValueError("offline operation execution shape was mutated")
@@ -480,10 +547,11 @@ class OfflineVendorOperation:
 
         if type(request) is not StaticVendorSettingRequest:
             raise TypeError("request must be a StaticVendorSettingRequest")
+        StaticVendorSettingRequest.validate_for_fake_execution(request)
         if not isinstance(request.operation, StaticVendorSettingOperation):
             raise TypeError("request operation must be a StaticVendorSettingOperation")
         require_fake_singleton_terminal(_SETTING_REQUEST_NAMES[request.operation])
-        frame = request.synthetic_bytes_for_test()
+        frame = StaticVendorSettingRequest.synthetic_bytes_for_test(request)
         expected_opcode = _SETTING_REQUEST_OPCODES[request.operation]
         if len(frame) != 20 or frame[0] != expected_opcode:
             raise ValueError("setting request does not match its closed operation")
@@ -516,10 +584,11 @@ class OfflineVendorOperation:
 
         if type(request) is not OfflinePersonalSettingRequest:
             raise TypeError("request must be an OfflinePersonalSettingRequest")
+        OfflinePersonalSettingRequest.validate_for_fake_execution(request)
         if not isinstance(request.operation, PersonalSettingOperation):
             raise TypeError("request operation must be a PersonalSettingOperation")
         require_fake_singleton_terminal(_PERSONAL_REQUEST_NAMES[request.operation])
-        frame = request.synthetic_bytes_for_test()
+        frame = OfflinePersonalSettingRequest.synthetic_bytes_for_test(request)
         expected_opcode = _PERSONAL_REQUEST_OPCODES[request.operation]
         if len(frame) != 20 or frame[0] != expected_opcode:
             raise ValueError("personal-setting request does not match its operation")
@@ -544,10 +613,8 @@ class OfflineVendorOperation:
             raise TypeError("request must be a closed single-frame behavior request")
         require_fake_singleton_terminal(_BEHAVIOR_REQUEST_NAMES[type(request)])
         name, expected_opcode, ack_operation = binding
-        frames = request.frames()
-        if len(frames) != 1:
-            raise ValueError("single-frame behavior request produced an invalid batch")
-        frame = frames[0].synthetic_bytes_for_test()
+        frame = _canonical_behavior_frame(request)
+        type(request).validate_for_fake_execution(request)
         if len(frame) != 20 or frame[0] != expected_opcode:
             raise ValueError("behavior request does not match its closed operation")
         success_opcode = expected_opcode
@@ -607,6 +674,9 @@ class OfflineVendorOperation:
             failure_opcodes=failure,
             expected_subcommand=expected_subcommand,
             parser=parser,
+            excluded_subcommands=(0x00,)
+            if request.command is NoArgumentMainCommand.EQ_INFO
+            else (),
         )
 
     @classmethod
@@ -617,6 +687,7 @@ class OfflineVendorOperation:
 
         if type(request) is not StaticVendorCommandRequest:
             raise TypeError("request must be a StaticVendorCommandRequest")
+        StaticVendorCommandRequest.validate_for_fake_execution(request)
         request_name = _COMMAND_REQUEST_NAMES.get(request.operation)
         if request_name is not None:
             require_fake_singleton_terminal(request_name)
@@ -624,7 +695,7 @@ class OfflineVendorOperation:
         if binding is None:
             raise TypeError("command has no exact response correlation")
         request_opcode, success, failure, expected_subcommand, parser = binding
-        frame = request.synthetic_bytes_for_test()
+        frame = StaticVendorCommandRequest.synthetic_bytes_for_test(request)
         if len(frame) != 20 or frame[0] != request_opcode:
             raise ValueError("vendor command does not match its closed operation")
         return cls._create(
@@ -644,6 +715,7 @@ class OfflineVendorOperation:
 
         if type(request) is not OfflinePhoneRequest:
             raise TypeError("request must be an OfflinePhoneRequest")
+        OfflinePhoneRequest.validate_for_fake_execution(request)
         request_name = _PHONE_REQUEST_NAMES.get(request.operation)
         if request_name is not None:
             require_fake_singleton_terminal(request_name)
@@ -651,7 +723,7 @@ class OfflineVendorOperation:
         if binding is None:
             raise TypeError("phone integration has no exact singleton correlation")
         request_opcode, success, failure, expected_subcommand, parser = binding
-        frames = request.synthetic_frames_for_test()
+        frames = OfflinePhoneRequest.synthetic_frames_for_test(request)
         if len(frames) != 1:
             raise TypeError("multi-frame phone integration requires a separate state machine")
         frame = frames[0]
@@ -698,18 +770,21 @@ class OfflineVendorOperation:
         if not isinstance(data, bytes):
             raise ProtocolError("vendor response must be exactly 20 bytes")
         expected_opcodes = self.success_opcodes + self.failure_opcodes
-        if (
-            self.expected_subcommand is not None
-            and len(data) >= 2
-            and data[0] in expected_opcodes
-            and data[1] != self.expected_subcommand
-        ):
+        if not data or data[0] not in expected_opcodes:
             return _Match.UNRELATED, None
+        if self.expected_subcommand is not None:
+            if len(data) < 2:
+                return _Match.UNRELATED, None
+            if data[1] != self.expected_subcommand:
+                return _Match.UNRELATED, None
+        if self.excluded_subcommands:
+            if len(data) < 2:
+                return _Match.UNRELATED, None
+            if data[1] in self.excluded_subcommands:
+                return _Match.UNRELATED, None
         if len(data) != 20:
             raise ProtocolError("vendor response must be exactly 20 bytes")
         opcode = data[0]
-        if opcode not in expected_opcodes:
-            return _Match.UNRELATED, None
         if opcode in self.failure_opcodes:
             return _Match.FAILURE, None
         return _Match.SUCCESS, self._parser(data)

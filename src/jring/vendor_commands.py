@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from .uuids import VENDOR_CHARACTERISTIC_33F3
+from .vendor_request_integrity import seal_vendor_request, validate_vendor_request
 
 
 class StaticVendorCommandOperation(str, Enum):
@@ -96,6 +97,7 @@ class StaticVendorCommandRequest:
         object.__setattr__(request, "operation", operation)
         object.__setattr__(request, "corrected_sdk_quirks", quirks)
         object.__setattr__(request, "_encoded", encoded)
+        seal_vendor_request(request, operation=operation, frames=(encoded,))
         return request
 
     @property
@@ -142,6 +144,13 @@ class StaticVendorCommandRequest:
         """Return the hidden synthetic bytes for offline verification only."""
 
         return bytes(self._encoded)
+
+    def validate_for_fake_execution(self) -> None:
+        validate_vendor_request(
+            self,
+            operation=self.operation,
+            frames=(self._encoded,),
+        )
 
 
 def _int(value: int, label: str, minimum: int, maximum: int) -> int:

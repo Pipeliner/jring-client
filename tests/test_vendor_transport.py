@@ -1,3 +1,4 @@
+from copy import copy, deepcopy
 import math
 
 import pytest
@@ -33,7 +34,19 @@ from jring.vendor_settings import (
     encode_sensor_session_stop,
 )
 from jring.vendor_personal_settings import encode_reminder_text
-from jring.vendor_behavior_settings import AlarmBatchRequest, VibrationRequest
+from jring.vendor_behavior_settings import (
+    AlarmBatchRequest,
+    AntiLostRequest,
+    AutoHeartScheduleRequest,
+    CameraModeRequest,
+    ClockTime,
+    DeviceMode,
+    DeviceModeRequest,
+    GoalStepRequest,
+    IdleReminderRequest,
+    SleepScheduleRequest,
+    VibrationRequest,
+)
 from jring.vendor_main_commands import (
     NoArgumentMainCommand,
     NoArgumentMainCommandRequest,
@@ -49,6 +62,8 @@ from jring.vendor_commands import (
     encode_ecg_mode,
     encode_eq_info,
     encode_factory_test_mode,
+    encode_heart_rate_session_start,
+    encode_heart_rate_session_stop,
     encode_offline_speech_recognition,
     encode_phone_call_state,
     encode_temperature_mode,
@@ -890,6 +905,25 @@ def test_closed_main_command_query_composes_subcommand_aware_fake_matcher():
     assert parsed.value == 7
 
 
+def test_eq_get_matcher_excludes_set_kind_but_accepts_any_nonzero_get_kind():
+    operation = OfflineVendorOperation.from_main_command_request(
+        NoArgumentMainCommandRequest(NoArgumentMainCommand.EQ_INFO)
+    )
+
+    set_kind, _parsed = operation._match(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((0x53, 0x00, 1, 2, 0)) + bytes(15),
+    )
+    get_kind, parsed = operation._match(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((0x53, 0x02, 3, 4, 0)) + bytes(15),
+    )
+
+    assert set_kind.value == "unrelated"
+    assert get_kind.value == "success"
+    assert parsed.kind == "get"
+
+
 def test_main_command_factory_rejects_an_instance_shadowed_request_frame():
     request = NoArgumentMainCommandRequest(
         NoArgumentMainCommand.DEVICE_SYSTEM_STATE
@@ -903,6 +937,307 @@ def test_main_command_factory_rejects_an_instance_shadowed_request_frame():
 
     with pytest.raises(ValueError, match="invalid shape"):
         OfflineVendorOperation.from_main_command_request(request)
+
+
+@pytest.mark.parametrize(
+    "request_factory,operation_factory,storage_field,forged_value",
+    (
+        (
+            lambda: encode_hour_format(HourFormat.TWELVE),
+            OfflineVendorOperation.from_setting_request,
+            "_encoded",
+            bytes((0x1D, 0xFF)) + bytes(18),
+        ),
+        (
+            lambda: encode_reminder_text(index=2, text="private reminder"),
+            OfflineVendorOperation.from_personal_setting_request,
+            "_encoded",
+            bytes((0x32, 0xFF)) + bytes(18),
+        ),
+        (
+            lambda: encode_device_time(
+                local_epoch_seconds=1_700_000_000,
+                raw_utc_offset_hours=0,
+            ),
+            OfflineVendorOperation.from_command_request,
+            "_encoded",
+            bytes((0x01,)) + bytes((0xFF,)) * 19,
+        ),
+        (
+            lambda: encode_user_info(
+                gender_bit_set=False,
+                age=30,
+                height=170,
+                weight=70,
+                unit=0,
+            ),
+            OfflineVendorOperation.from_phone_request,
+            "_frames",
+            (bytes((0x02,)) + bytes((0xFF,)) * 19,),
+        ),
+    ),
+)
+def test_opaque_typed_request_mutation_is_rejected_before_operation_creation(
+    request_factory, operation_factory, storage_field, forged_value
+):
+    request = request_factory()
+    object.__setattr__(request, storage_field, forged_value)
+
+    with pytest.raises(ValueError, match="request integrity"):
+        operation_factory(request)
+
+
+@pytest.mark.parametrize(
+    "request_factory,field,value,error",
+    (
+        (lambda: VibrationRequest(3), "count", 0xFF, "vibration count"),
+        (lambda: AntiLostRequest(True), "enabled", 1, "anti-lost enabled"),
+        (lambda: CameraModeRequest(True), "enabled", 1, "camera mode enabled"),
+        (
+            lambda: IdleReminderRequest.enabled(
+                interval_minutes=30,
+                start=ClockTime(9, 0),
+                end=ClockTime(17, 0),
+            ),
+            "_interval_seconds",
+            1,
+            "whole minutes",
+        ),
+        (
+            lambda: SleepScheduleRequest(
+                ClockTime(12, 0),
+                ClockTime(13, 0),
+                ClockTime(22, 0),
+                ClockTime(7, 0),
+            ),
+            "noon_start",
+            object(),
+            "ClockTime",
+        ),
+        (lambda: DeviceModeRequest(DeviceMode.NORMAL), "mode", 1, "DeviceMode"),
+        (
+            lambda: AutoHeartScheduleRequest(
+                True,
+                ClockTime(8, 0),
+                ClockTime(20, 0),
+                30,
+            ),
+            "interval_minutes",
+            0,
+            "automatic heart interval",
+        ),
+        (lambda: GoalStepRequest(10_000), "steps", 1_001, "goal steps"),
+    ),
+)
+def test_behavior_request_mutation_is_rejected_before_operation_creation(
+    request_factory, field, value, error
+):
+    request_value = request_factory()
+    object.__setattr__(request_value, field, value)
+
+    with pytest.raises((TypeError, ValueError), match=error):
+        OfflineVendorOperation.from_behavior_request(request_value)
+
+
+@pytest.mark.parametrize(
+    "request_factory,field,value",
+    (
+        (lambda: VibrationRequest(3), "count", 4),
+        (lambda: AntiLostRequest(True), "enabled", False),
+        (lambda: CameraModeRequest(True), "enabled", False),
+        (
+            lambda: IdleReminderRequest.enabled(
+                interval_minutes=30,
+                start=ClockTime(9, 0),
+                end=ClockTime(17, 0),
+            ),
+            "_interval_seconds",
+            3_600,
+        ),
+        (
+            lambda: SleepScheduleRequest(
+                ClockTime(12, 0),
+                ClockTime(13, 0),
+                ClockTime(22, 0),
+                ClockTime(7, 0),
+            ),
+            "noon_start",
+            ClockTime(11, 0),
+        ),
+        (
+            lambda: DeviceModeRequest(DeviceMode.NORMAL),
+            "mode",
+            DeviceMode.LOW_POWER,
+        ),
+        (
+            lambda: AutoHeartScheduleRequest(
+                True,
+                ClockTime(8, 0),
+                ClockTime(20, 0),
+                30,
+            ),
+            "interval_minutes",
+            60,
+        ),
+        (lambda: GoalStepRequest(10_000), "steps", 11_000),
+    ),
+)
+def test_valid_behavior_field_change_cannot_replace_original_validated_frame(
+    request_factory, field, value
+):
+    request_value = request_factory()
+    object.__setattr__(request_value, field, value)
+
+    with pytest.raises(ValueError, match="request integrity"):
+        OfflineVendorOperation.from_behavior_request(request_value)
+
+
+@pytest.mark.parametrize(
+    "request_value,operation_factory,accessor,forged_frame",
+    (
+        (
+            encode_hour_format(HourFormat.TWELVE),
+            OfflineVendorOperation.from_setting_request,
+            "synthetic_bytes_for_test",
+            bytes((0x1D, 0xFF)) + bytes(18),
+        ),
+        (
+            encode_reminder_text(index=2, text="private reminder"),
+            OfflineVendorOperation.from_personal_setting_request,
+            "synthetic_bytes_for_test",
+            bytes((0x32, 0xFF)) + bytes(18),
+        ),
+        (
+            encode_device_time(
+                local_epoch_seconds=1_700_000_000,
+                raw_utc_offset_hours=0,
+            ),
+            OfflineVendorOperation.from_command_request,
+            "synthetic_bytes_for_test",
+            bytes((0x01,)) + bytes((0xFF,)) * 19,
+        ),
+        (
+            encode_user_info(
+                gender_bit_set=False,
+                age=30,
+                height=170,
+                weight=70,
+                unit=0,
+            ),
+            OfflineVendorOperation.from_phone_request,
+            "synthetic_frames_for_test",
+            bytes((0x02,)) + bytes((0xFF,)) * 19,
+        ),
+    ),
+)
+def test_instance_shadowed_opaque_request_accessor_cannot_supply_execution_bytes(
+    request_value, operation_factory, accessor, forged_frame
+):
+    replacement = (
+        (lambda: (forged_frame,))
+        if accessor == "synthetic_frames_for_test"
+        else (lambda: forged_frame)
+    )
+    object.__setattr__(request_value, accessor, replacement)
+
+    operation = operation_factory(request_value)
+
+    assert operation.synthetic_request_for_test() != forged_frame
+
+
+@pytest.mark.parametrize(
+    "request_value,opcode",
+    (
+        (VibrationRequest(3), 0x04),
+        (AntiLostRequest(True), 0x05),
+        (CameraModeRequest(True), 0x07),
+        (
+            IdleReminderRequest.enabled(
+                interval_minutes=30,
+                start=ClockTime(9, 0),
+                end=ClockTime(17, 0),
+            ),
+            0x08,
+        ),
+        (
+            SleepScheduleRequest(
+                ClockTime(12, 0),
+                ClockTime(13, 0),
+                ClockTime(22, 0),
+                ClockTime(7, 0),
+            ),
+            0x09,
+        ),
+        (DeviceModeRequest(DeviceMode.NORMAL), 0x0E),
+        (
+            AutoHeartScheduleRequest(
+                True,
+                ClockTime(8, 0),
+                ClockTime(20, 0),
+                30,
+            ),
+            0x19,
+        ),
+        (GoalStepRequest(10_000), 0x1A),
+    ),
+)
+def test_instance_shadowed_behavior_frames_cannot_supply_execution_bytes(
+    request_value, opcode
+):
+    expected = type(request_value).frames(request_value)[0].synthetic_bytes_for_test()
+
+    class ForgedFrame:
+        def synthetic_bytes_for_test(self):
+            return bytes((opcode, 0xFF)) + bytes(18)
+
+    object.__setattr__(request_value, "frames", lambda: (ForgedFrame(),))
+
+    operation = OfflineVendorOperation.from_behavior_request(request_value)
+
+    assert operation.synthetic_request_for_test() == expected
+
+
+@pytest.mark.parametrize(
+    "request_value,operation_factory",
+    (
+        (
+            encode_hour_format(HourFormat.TWELVE),
+            OfflineVendorOperation.from_setting_request,
+        ),
+        (
+            encode_reminder_text(index=2, text="private reminder"),
+            OfflineVendorOperation.from_personal_setting_request,
+        ),
+        (
+            VibrationRequest(3),
+            OfflineVendorOperation.from_behavior_request,
+        ),
+        (
+            encode_device_time(
+                local_epoch_seconds=1_700_000_000,
+                raw_utc_offset_hours=0,
+            ),
+            OfflineVendorOperation.from_command_request,
+        ),
+        (
+            encode_user_info(
+                gender_bit_set=False,
+                age=30,
+                height=170,
+                weight=70,
+                unit=0,
+            ),
+            OfflineVendorOperation.from_phone_request,
+        ),
+    ),
+)
+def test_sealed_typed_request_copy_and_deepcopy_preserve_execution_identity(
+    request_value, operation_factory
+):
+    expected = operation_factory(request_value).synthetic_request_for_test()
+
+    for cloned in (copy(request_value), deepcopy(request_value)):
+        assert operation_factory(cloned).synthetic_request_for_test() == expected
 
 
 def test_screen_light_typed_request_preserves_its_synthetic_value_privately():
@@ -935,6 +1270,48 @@ def test_typed_vendor_command_with_exact_ack_composes_fake_operation():
     )
     assert disposition.value == "success"
     assert parsed.operation.value == "device_time"
+
+
+@pytest.mark.parametrize(
+    "request_value,own_success,own_failure,other_success",
+    (
+        (
+            encode_heart_rate_session_start(reference_value=1, mode_code=2),
+            0x14,
+            0x94,
+            0x15,
+        ),
+        (
+            encode_heart_rate_session_stop(mode_code=2),
+            0x15,
+            0x95,
+            0x14,
+        ),
+    ),
+)
+def test_heart_rate_start_and_stop_keep_distinct_singleton_terminals(
+    request_value, own_success, own_failure, other_success
+):
+    operation = OfflineVendorOperation.from_command_request(request_value)
+
+    unrelated, _parsed = operation._match(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((other_success,)) + bytes(19),
+    )
+    succeeded, success = operation._match(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((own_success, 7)) + bytes(18),
+    )
+    failed, failure = operation._match(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((own_failure,)) + bytes(19),
+    )
+
+    assert unrelated.value == "unrelated"
+    assert succeeded.value == "success"
+    assert success.success is True
+    assert failed.value == "failure"
+    assert failure is None
 
 
 @pytest.mark.parametrize(

@@ -289,6 +289,16 @@ the fake transaction. Parsed values live outside dataclass serialization. Fake s
 does not establish current state, readiness, connection, power, firmware, binding,
 live, or hardware meaning. Notification ownership begins at actual fake write entry;
 expiry, disconnect, or cancellation before entry stays aborted and zero-write.
+Opaque settings, personal, command, and phone request objects receive a process-local
+identity seal when their typed encoder completes. The singleton factory validates that
+seal and reads the class-owned frame accessor, while all eight structured behavior
+requests are reconstructed through their validating constructors and checked against
+their original seal. Valid or invalid post-construction changes therefore fail before
+operation creation; copy and deepcopy retain the seal without serializing frame bytes.
+Response correlation checks endpoint, opcode, and branch discriminator before applying
+owned-frame length rules. Consequently an unrelated short opcode or selectorless shared
+opcode cannot poison an operation, EQ SET-kind is unrelated to GET, and heart-session
+start/stop retain separate success/failure branches.
 The three streaming static day queries are rejected by this factory and use their
 separate history collector, which cannot close on the first matching frame.
 Alarm batching is rejected rather than flattened: its base/content messages,

@@ -274,6 +274,16 @@ selector `54/12`. One canonical scripted request write and one post-entry matchi
 response may close the synthetic transaction; `54/04`, `54/13`, and `54/14` remain
 unrelated. The private neutral state code is hidden from ordinary serialization, and
 fake completion proves no current/live state, acknowledgement, or hardware behavior.
+The singleton input boundary retains the exact frame sequence produced by each accepted
+typed settings, personal, behavior, command, and phone encoder. A process-local seal is
+checked before operation construction, behavior values are reconstructed through exact
+typed constructors, and copied requests retain the same seal. This prevents a later
+field, stored-frame, or instance-accessor change from becoming executable fake bytes.
+Response discrimination precedes owned-frame length validation: an unknown short opcode
+and a selectorless shared opcode are unrelated, while a short frame with an owned
+non-shared opcode remains malformed. EQ GET excludes SET-kind `53/00`; any nonzero GET
+kind remains parser-owned. Heart-session start uses `14/94` and stop uses `15/95`, with
+the opposite branch unrelated.
 The shared sensor-session start/stop encoders remain byte-exact offline codecs, but the
 singleton factory rejects them because one per-frame projection cannot disambiguate the
 four wrappers or the shared `25` path.

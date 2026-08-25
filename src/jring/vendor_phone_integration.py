@@ -14,6 +14,7 @@ from typing import Iterable
 import unicodedata
 
 from .uuids import VENDOR_CHARACTERISTIC_33F3
+from .vendor_request_integrity import seal_vendor_request, validate_vendor_request
 
 
 class OfflinePhoneOperation(str, Enum):
@@ -80,6 +81,7 @@ class OfflinePhoneRequest:
         object.__setattr__(request, "source_enqueue_position", source_enqueue_position)
         object.__setattr__(request, "known_omissions", tuple(known_omissions))
         object.__setattr__(request, "_frames", encoded)
+        seal_vendor_request(request, operation=operation, frames=encoded)
         return request
 
     @property
@@ -132,6 +134,13 @@ class OfflinePhoneRequest:
 
     def synthetic_frames_for_test(self) -> tuple[bytes, ...]:
         return tuple(bytes(frame) for frame in self._frames)
+
+    def validate_for_fake_execution(self) -> None:
+        validate_vendor_request(
+            self,
+            operation=self.operation,
+            frames=self._frames,
+        )
 
     def __repr__(self) -> str:
         return (

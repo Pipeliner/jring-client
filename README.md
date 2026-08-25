@@ -229,6 +229,13 @@ no client method, live adapter, write authority, retry policy, or hardware claim
 Closed request bytes are reconstructed before execution, and notification ownership
 starts only when the fake write coroutine actually enters; an expired pre-entry call
 or a pre-entry disconnect/cancellation performs no write and owns no response.
+Every accepted settings, personal, behavior, command, and phone request also retains
+an identity-bound copy of its originally validated execution shape. Post-construction
+field or frame changes are rejected before an operation exists; shallow and deep copies
+retain the same sealed shape. Response ownership checks opcode and any required branch
+discriminator before length: truncated unrelated traffic stays unrelated, EQ SET-kind
+traffic cannot close an EQ GET query, and heart-session start and stop keep distinct
+`14/94` and `15/95` terminals.
 All seven personal-setting encoders can likewise compose success-only fake matchers;
 their private input stays hidden and absence of a proven failure opcode remains explicit.
 Eight single-frame behavior mutations are also composable with paired acknowledgements.

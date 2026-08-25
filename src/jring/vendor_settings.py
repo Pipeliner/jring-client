@@ -15,6 +15,7 @@ import re
 import unicodedata
 
 from .uuids import VENDOR_CHARACTERISTIC_33F3
+from .vendor_request_integrity import seal_vendor_request, validate_vendor_request
 
 
 class StaticVendorSettingOperation(str, Enum):
@@ -110,6 +111,7 @@ class StaticVendorSettingRequest:
         object.__setattr__(request, "operation", operation)
         object.__setattr__(request, "corrected_sdk_quirks", corrected_sdk_quirks)
         object.__setattr__(request, "_encoded", encoded)
+        seal_vendor_request(request, operation=operation, frames=(encoded,))
         return request
 
     @property
@@ -143,6 +145,13 @@ class StaticVendorSettingRequest:
         """Return a synthetic vector for offline verification only."""
 
         return bytes(self._encoded)
+
+    def validate_for_fake_execution(self) -> None:
+        validate_vendor_request(
+            self,
+            operation=self.operation,
+            frames=(self._encoded,),
+        )
 
 
 def _bounded_int(value: int, label: str, *, maximum: int = 0xFF) -> int:

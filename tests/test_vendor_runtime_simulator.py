@@ -15,6 +15,10 @@ from jring.uuids import (
     uuid16,
 )
 from jring.vendor_protocol import StaticQuery, encode_static_query
+from jring.vendor_commands import (
+    encode_heart_rate_session_start,
+    encode_heart_rate_session_stop,
+)
 from jring.vendor_main_commands import (
     NoArgumentMainCommand,
     NoArgumentMainCommandRequest,
@@ -185,6 +189,148 @@ def test_device_system_query_owns_only_exact_postwrite_54_12_response():
     assert "does not report current device state" in result.user_guidance
 
 
+def test_eq_query_ignores_set_kind_before_matching_get_kind():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def after_write_entry(fake, _call):
+        fake.emit(
+            VENDOR_CHARACTERISTIC_33F4,
+            bytes((0x53, 0x00, 1, 2, 0)) + bytes(15),
+        )
+        fake.emit(
+            VENDOR_CHARACTERISTIC_33F4,
+            bytes((0x53, 0x01, 3, 4, 0)) + bytes(15),
+        )
+
+    transport.before_write = after_write_entry
+    simulator = FakeVendorRuntimeSimulator(transport)
+    operation_value = OfflineVendorOperation.from_main_command_request(
+        NoArgumentMainCommandRequest(NoArgumentMainCommand.EQ_INFO)
+    )
+
+    result = run(simulator.execute(operation_value, timeout=0.2))
+
+    assert result.reason is SimulationReason.SUCCESS
+    assert result.completeness is TransactionCompleteness.SUCCEEDED
+    assert simulator.unrelated_frame_count == 1
+    assert result.parsed_value_for_test().kind == "get"
+
+
+def test_truncated_unrelated_opcode_does_not_poison_matching_query():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def after_write_entry(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, b"\x4e")
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, GOOD_BATTERY)
+
+    transport.before_write = after_write_entry
+    simulator = FakeVendorRuntimeSimulator(transport)
+
+    result = run(simulator.execute(operation(), timeout=0.2))
+
+    assert result.reason is SimulationReason.SUCCESS
+    assert result.completeness is TransactionCompleteness.SUCCEEDED
+    assert simulator.unrelated_frame_count == 1
+
+
+@pytest.mark.parametrize(
+    "command,valid_response",
+    (
+        (
+            NoArgumentMainCommand.DEVICE_SYSTEM_STATE,
+            bytes((0x54, 0x12, 7)) + bytes(17),
+        ),
+        (
+            NoArgumentMainCommand.EQ_INFO,
+            bytes((0x53, 0x01, 3, 4, 0)) + bytes(15),
+        ),
+    ),
+)
+def test_selectorless_shared_opcode_is_unrelated_before_exact_branch(
+    command, valid_response
+):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def after_write_entry(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, valid_response[:1])
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, valid_response)
+
+    transport.before_write = after_write_entry
+    simulator = FakeVendorRuntimeSimulator(transport)
+    operation_value = OfflineVendorOperation.from_main_command_request(
+        NoArgumentMainCommandRequest(command)
+    )
+
+    result = run(simulator.execute(operation_value, timeout=0.2))
+
+    assert result.reason is SimulationReason.SUCCESS
+    assert result.completeness is TransactionCompleteness.SUCCEEDED
+    assert simulator.unrelated_frame_count == 1
+
+
+@pytest.mark.parametrize(
+    "request_value,other_response,own_response",
+    (
+        (
+            encode_heart_rate_session_start(reference_value=1, mode_code=2),
+            bytes((0x15,)) + bytes(19),
+            bytes((0x14, 7)) + bytes(18),
+        ),
+        (
+            encode_heart_rate_session_stop(mode_code=2),
+            bytes((0x14,)) + bytes(19),
+            bytes((0x15,)) + bytes(19),
+        ),
+    ),
+)
+def test_heart_rate_start_stop_runtime_owns_only_its_exact_branch(
+    request_value, other_response, own_response
+):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def after_write_entry(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, other_response)
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, own_response)
+
+    transport.before_write = after_write_entry
+    simulator = FakeVendorRuntimeSimulator(transport)
+    operation_value = OfflineVendorOperation.from_command_request(request_value)
+
+    result = run(simulator.execute(operation_value, timeout=0.2))
+
+    assert result.reason is SimulationReason.SUCCESS
+    assert result.completeness is TransactionCompleteness.SUCCEEDED
+    assert simulator.unrelated_frame_count == 1
+    assert transport.write_count == 1
+
+
+@pytest.mark.parametrize(
+    "request_value,failure_opcode",
+    (
+        (encode_heart_rate_session_start(reference_value=1, mode_code=2), 0x94),
+        (encode_heart_rate_session_stop(mode_code=2), 0x95),
+    ),
+)
+def test_heart_rate_start_stop_runtime_preserves_distinct_failure_branch(
+    request_value, failure_opcode
+):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((failure_opcode,)) + bytes(19),
+    )
+    operation_value = OfflineVendorOperation.from_command_request(request_value)
+
+    result = run(
+        FakeVendorRuntimeSimulator(transport).execute(operation_value, timeout=0.2)
+    )
+
+    assert result.reason is SimulationReason.DEVICE_FAILURE
+    assert result.completeness is TransactionCompleteness.FAILED
+    assert result.write_invoked is True
+    assert transport.write_count == 1
+
+
 def test_mutated_closed_operation_is_rejected_before_fake_io():
     operation_value = device_system_operation()
     object.__setattr__(operation_value, "_request_frame", bytes.fromhex("dead") + bytes(18))
@@ -204,6 +350,7 @@ def test_mutated_closed_operation_is_rejected_before_fake_io():
         ("success_opcodes", (0x55,)),
         ("failure_opcodes", (0xD4,)),
         ("expected_subcommand", 0x04),
+        ("excluded_subcommands", (0x12,)),
         ("name", "forged_device_state"),
         ("_parser", lambda _data: object()),
     ),
@@ -544,7 +691,7 @@ def test_malformed_current_frame_is_uncertain_but_unrelated_frame_is_ignored():
 
     def before_write(fake, _call):
         fake.emit(VENDOR_CHARACTERISTIC_33F4, bytes((0x0C,)) + bytes(19))
-        fake.emit(VENDOR_CHARACTERISTIC_33F4, b"bad")
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, b"\x0b")
 
     transport.before_write = before_write
     simulator = FakeVendorRuntimeSimulator(transport)
