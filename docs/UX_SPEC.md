@@ -343,7 +343,7 @@ therefore makes the recovered enable-on-disable defect visible without making it
 
 Given `jring protocol-coverage`, a person receives a local-only summary of all request
 and callback entries, offline codec counts, route/source totals, and zero live or
-hardware-verified vendor operations. Correlation reporting distinguishes the nine rows
+hardware-verified vendor operations. Correlation reporting distinguishes the four rows
 remaining in the generic explicitly-unresolved state from all 58 rows carrying
 explicit caveats and enumerates every terminal rule: 36 single matched responses, 29
 with no proven terminal, 17 per-frame-only, two

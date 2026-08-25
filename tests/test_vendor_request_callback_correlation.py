@@ -38,20 +38,21 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
     assert all(row.relationship_state != "unspecified" for row in rows.values())
     assert all(row.callbacks or row.unresolved_reasons for row in rows.values())
     assert evidence.unspecified_count == 0
-    assert evidence.explicitly_unresolved_count == 9
+    assert evidence.explicitly_unresolved_count == 4
     assert evidence.rows_with_unresolved_reasons_count == 58
     assert Counter(row.relationship_state for row in evidence.rows) == {
         "exact_single": 47,
         "exact_branching": 1,
         "shared_stream": 6,
         "shared_stateful": 5,
-        "event_candidate_unproven": 7,
+        "event_candidate_unproven": 9,
         "same_opcode_event_candidate_unproven": 1,
-        "shared_stateful_event_candidate_unproven": 1,
+        "shared_stateful_event_candidate_unproven": 3,
         "reverse_direction_pipeline": 1,
         "reverse_direction_pipeline_candidate_unproven": 6,
         "reverse_direction_event_ack_candidate_unproven": 1,
-        "explicitly_unresolved": 9,
+        "same_opcode_semantic_collision_no_correlation": 1,
+        "explicitly_unresolved": 4,
     }
     assert evidence.terminal_rule_counts == (
         ("local_quiet_unknown", 2),
@@ -69,7 +70,8 @@ def test_endpoint_partition_and_raw_candidates_are_explicitly_non_acknowledging(
     rows = {row.request: row for row in recovered_request_callback_correlations().rows}
 
     assert Counter((row.tx_role, row.rx_role) for row in rows.values()) == {
-        ("main_tx", "main_rx"): 79,
+        ("main_tx", "main_rx"): 78,
+        ("main_tx", "local_service_projection"): 1,
         ("raw_tx", "raw_rx"): 6,
     }
     assert rows["connectAiServerNotification"].callbacks == ("onGetAiAction",)
@@ -138,14 +140,145 @@ def test_phone_volume_is_an_inbound_request_then_outbound_projection_not_an_ack(
     assert volume.quiet_means_success is False
 
     phone_mac = rows["setPhoneMac"]
-    assert phone_mac.request_discriminator == "statically_recovered_request_codec"
+    assert phone_mac.request_discriminator == (
+        "outbound_opcode_49_private_phone_identifier_is_distinct_from_"
+        "inbound_opcode_49_host_volume_request"
+    )
     assert phone_mac.accepted_response_predicates == ()
     assert phone_mac.callbacks == ()
+    assert phone_mac.multiplicity == "none_proven"
     assert phone_mac.terminal_rule == "none_proven"
-    assert phone_mac.relationship_state == "explicitly_unresolved"
+    assert phone_mac.failure_delivery == "none_proven"
+    assert phone_mac.relationship_state == (
+        "same_opcode_semantic_collision_no_correlation"
+    )
+    assert phone_mac.shared_or_unsolicited is True
     assert phone_mac.unresolved_reasons == (
         "exact_response_relationship_not_statically_closed",
+        "inbound_opcode_49_belongs_to_reverse_phone_volume_pipeline",
+        "private_identifier_payload_not_response_data",
     )
+    assert phone_mac.quiet_means_success is False
+
+    assert sum(
+        row.callbacks == ("onGetPhoneVolume",) for row in rows.values()
+    ) == 1
+
+
+def test_app_id_has_only_a_cross_opcode_notification_candidate_not_an_ack():
+    rows = {row.request: row for row in recovered_request_callback_correlations().rows}
+    app_id = rows["setAppId"]
+
+    assert app_id.request_discriminator == (
+        "outbound_opcode_48_private_app_identifier_and_inbound_opcode_45_"
+        "selector_02_app_id_event_candidate"
+    )
+    assert app_id.accepted_response_predicates == (
+        "inbound_opcode_45_selector_02_app_id_event",
+    )
+    assert app_id.callbacks == ("onNotifyAppId",)
+    assert app_id.multiplicity == "zero_or_more_notifications"
+    assert app_id.terminal_rule == "none_proven"
+    assert app_id.failure_delivery == "none_proven"
+    assert app_id.relationship_state == "event_candidate_unproven"
+    assert app_id.shared_or_unsolicited is True
+    assert app_id.unresolved_reasons == (
+        "setter_to_notification_causation_and_order_not_proven",
+        "outbound_to_inbound_identifier_propagation_not_proven",
+        "outbound_and_inbound_text_layouts_differ",
+        "opcode_45_is_shared_with_classic_info_and_name",
+        "notification_failure_and_terminal_not_proven",
+    )
+    assert app_id.quiet_means_success is False
+
+
+def test_wifi_credentials_have_only_disjoint_state_event_candidates():
+    rows = {row.request: row for row in recovered_request_callback_correlations().rows}
+    expected = {
+        "setWifiHotSpotInfo": (
+            "outbound_opcode_54_subcommands_01_02_private_credential_fragments_"
+            "and_inbound_subcommand_04_wifi_state_candidate",
+            (),
+        ),
+        "setWifiHotSpotInfoEx": (
+            "outbound_opcode_54_subcommands_01_02_private_credential_fragments_"
+            "and_inbound_subcommand_04_wifi_state_candidate_with_unreproduced_"
+            "local_timeout",
+            ("timeout_timer_and_callback_state_not_reproduced",),
+        ),
+    }
+    common_caveats = (
+        "request_to_state_event_causation_and_order_not_proven",
+        "credential_and_state_selectors_are_disjoint",
+        "basic_and_extended_requests_have_identical_wire_identity",
+        "network_join_credential_use_failure_and_terminal_not_proven",
+        "host_network_and_ftp_side_effects_not_reproduced",
+        "setter_app_invoke_not_observed",
+    )
+
+    for request, (discriminator, extra) in expected.items():
+        row = rows[request]
+        assert row.request_discriminator == discriminator
+        assert row.accepted_response_predicates == ()
+        assert row.callbacks == ("onGetWifiState",)
+        assert row.multiplicity == (
+            "credential_fragment_batch_and_wifi_state_events_not_operation_bound"
+        )
+        assert row.terminal_rule == "none_proven"
+        assert row.failure_delivery == "none_proven"
+        assert row.relationship_state == "shared_stateful_event_candidate_unproven"
+        assert row.shared_or_unsolicited is True
+        assert row.unresolved_reasons == common_caveats + extra
+        assert row.quiet_means_success is False
+
+
+def test_download_completed_is_a_local_ftp_projection_not_a_wire_response():
+    rows = {row.request: row for row in recovered_request_callback_correlations().rows}
+    ftp = rows["notifyDownloadFtpFileCompleted"]
+
+    assert ftp.request_discriminator == (
+        "source_media_ftp_terminal_path_emits_outbound_opcode_54_subcommand_07"
+    )
+    assert ftp.tx_role == "main_tx"
+    assert ftp.rx_role == "local_service_projection"
+    assert ftp.accepted_response_predicates == ()
+    assert ftp.callbacks == ("onNotifyFtpStateInfo",)
+    assert ftp.multiplicity == (
+        "source_terminal_signal_and_local_callback_projection_not_operation_bound"
+    )
+    assert ftp.terminal_rule == "none_proven"
+    assert ftp.failure_delivery == "none_proven"
+    assert ftp.relationship_state == "event_candidate_unproven"
+    assert ftp.shared_or_unsolicited is True
+    assert ftp.unresolved_reasons == (
+        "success_and_exhausted_failure_share_terminal_signal",
+        "callback_payload_to_terminal_signal_mapping_not_closed",
+        "wire_ack_and_terminal_not_proven",
+        "ftp_network_file_retry_and_local_side_effects_not_reproduced",
+    )
+    assert ftp.quiet_means_success is False
+
+
+def test_new_topology_candidates_are_anchored_to_app_use_without_causality():
+    app_use = recovered_vendor_app_use_evidence()
+    requests = {row.name: row for row in app_use.requests}
+    callbacks = {row.name: row for row in app_use.callbacks}
+
+    assert requests["setAppId"].state is RequestAppUseState.DIRECT_APP_INTERFACE_INVOKE
+    assert requests["setAppId"].direct_invoke_count == 5
+    for request in (
+        "notifyDownloadFtpFileCompleted",
+        "setPhoneMac",
+        "setWifiHotSpotInfo",
+        "setWifiHotSpotInfoEx",
+    ):
+        assert requests[request].state is RequestAppUseState.SDK_WIRE_ENTRY_WITHOUT_APP_INVOKE
+        assert requests[request].direct_invoke_count == 0
+
+    assert callbacks["onNotifyAppId"].invoke_counts == (1, 0, 0)
+    assert callbacks["onGetPhoneVolume"].invoke_counts == (1, 0, 0)
+    assert callbacks["onGetWifiState"].invoke_counts == (1, 0, 0)
+    assert callbacks["onNotifyFtpStateInfo"].invoke_counts == (0, 0, 3)
 
 
 def test_contact_crc_is_same_opcode_event_candidate_not_an_ack():

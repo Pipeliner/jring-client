@@ -208,9 +208,10 @@ response correlation, safe retry, or hardware support.
 
 A closed correlation ledger now accounts for all 85 deterministic request codecs.
 Forty-seven have exact single-frame callback eligibility, one has exact branching,
-six are shared streams, five are shared/stateful, nine are non-ack event candidates,
-four are reverse-direction pipelines or candidates, four are shared private-sync
-candidates, and nine remain explicitly unresolved. The contact relationship proves
+six are shared streams, five are shared/stateful, thirteen are non-ack event candidates,
+eight are reverse-direction pipelines or candidates, one is a known same-opcode
+semantic collision with no eligible callback, and four remain explicitly unresolved.
+The contact relationship proves
 only matching outbound and
 inbound `46` four-byte shapes plus callback eligibility; it proves no causality,
 acknowledgement, multiplicity, failure, or terminal. The phone-volume pair is instead a
@@ -223,6 +224,15 @@ relationships, not transaction proof: the source has no wire transaction identif
 and its wait state is not operation-bound. Safe matching therefore requires endpoint,
 discriminator, operation token, and connection generation; silence and local idle
 remain unknown.
+The App-ID setter and `45/02` notification form only a cross-opcode event candidate;
+identifier equality and causation are unknown. Outbound Phone-MAC opcode `49` is not
+correlated with the inbound opcode-`49` host-volume request. Wi-Fi credential selectors
+`54/01` and `54/02` are disjoint from the `54/04` state event, so neither basic nor
+extended configuration has an acknowledgement or terminal. The outbound `54/07`
+media-FTP terminal-shaped signal follows both source-local success and exhausted
+failure and is not device, file-transfer, firmware, or OTA completion proof.
+Its correlation row therefore uses a local-service projection role rather than
+mislabeling `onNotifyFtpStateInfo` as main-channel BLE RX.
 Four additional topology rows record only what the committed dispatcher and codec
 evidence can support: a shared weather-refresh/cached-weather candidate, a shared
 motion-stream state candidate, an unowned ChatGPT action event candidate, and a shared

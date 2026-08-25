@@ -498,13 +498,16 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     ) in output
     assert (
         "Request/callback correlation: 85/85 deterministic request rows; "
-        "0 unspecified; 9 remain generic explicitly unresolved; "
+        "0 unspecified; 4 remain generic explicitly unresolved; "
         "58 carry explicit caveats."
     ) in output
     for internal_name in (
         "setECardInfoCrc", "setECardInfoContent",
         "setSmsRspInfoCrc", "setSmsRspInfoContent",
         "onNotifyECardNeedUpdate", "onNotifySmsRspNeedUpdate",
+        "notifyDownloadFtpFileCompleted", "setAppId", "setPhoneMac",
+        "setWifiHotSpotInfo", "setWifiHotSpotInfoEx",
+        "onNotifyAppId", "onGetWifiState", "onNotifyFtpStateInfo",
     ):
         assert internal_name not in output
     assert (
@@ -564,7 +567,7 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["request_builder_front_inserted"] == 2
     assert result["summary"]["request_correlation_rows"] == 85
     assert result["summary"]["request_correlation_unspecified"] == 0
-    assert result["summary"]["request_correlation_explicitly_unresolved"] == 9
+    assert result["summary"]["request_correlation_explicitly_unresolved"] == 4
     assert result["summary"]["request_correlation_rows_with_caveats"] == 58
     assert result["summary"]["request_correlation_terminal_rules"] == [
         {"rule": "local_quiet_unknown", "count": 2},
@@ -684,7 +687,7 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert request_builders["hardware_verified"] is False
     assert len(request_correlations["rows"]) == 85
     assert request_correlations["unspecified_count"] == 0
-    assert request_correlations["explicitly_unresolved_count"] == 9
+    assert request_correlations["explicitly_unresolved_count"] == 4
     assert request_correlations["rows_with_unresolved_reasons_count"] == 58
     assert request_correlations["terminal_rule_counts"] == [
         {"rule": "local_quiet_unknown", "count": 2},

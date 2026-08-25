@@ -186,6 +186,9 @@ Desired outcomes:
 - Show generic explicitly-unresolved rows, all rows retaining caveats, and every
   terminal-rule category as separate denominators so a smaller gap count cannot imply
   parity.
+- Distinguish cross-opcode events, unrelated same-opcode collisions, disjoint private
+  state events, and source-local terminal-shaped projections from acknowledgements so
+  names, shared opcodes, or workflow proximity never manufacture transaction success.
 - See deterministic main/raw packet routes separately from shared preflight, dynamic
   writes, descriptor control, DFU, and operations that produce no fixed packet.
 - Expose process-local/system broadcast mismatches, unhandled registered actions,

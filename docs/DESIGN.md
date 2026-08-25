@@ -219,10 +219,13 @@ alarm batching and dial-state queue mutation divergences explicit and remains st
 non-callable, and hardware-ineligible.
 
 Request/callback correlation is a third view over the 85 deterministic request codecs.
-Each request has exactly one closed row, including nine explicitly unresolved rows and
+Each request has exactly one closed row, including four explicitly unresolved rows and
 zero unspecified rows. The model preserves endpoint role, opcode/subcommand or marker
 predicates, ordered callback projections, multiplicity, direct versus silent failure,
-and terminal rules. Raw typed notifications and the same-opcode contact-fingerprint
+and terminal rules. Seventy-eight rows use main TX/main RX, six use raw TX/raw RX, and
+the media-FTP signal uses main TX with a separately labeled local-service projection;
+the local callback is never presented as BLE RX. Raw typed notifications and the
+same-opcode contact-fingerprint
 notification remain event candidates rather than acknowledgements. The phone-volume
 callback is an inbound request that causes an
 outbound host-state projection; its shared opcode is not treated as an acknowledgement.
@@ -237,6 +240,12 @@ Four private E-card/SMS CRC/content rows likewise share update-shaped callback
 topology, but their disjoint selectors do not prove which branch an update selects,
 ordering, value propagation, batch completion, local private-store access, or an
 acknowledgement. They remain outside every transaction factory.
+App-ID has only a cross-opcode event candidate, and outbound Phone-MAC is explicitly
+separated from the inbound host-volume request that shares its opcode. The two Wi-Fi
+credential batches have only a disjoint state-event candidate, while the media-FTP
+terminal-shaped signal is a source-local projection shared by success and exhausted
+failure. These rows prove no identifier echo, credential use, network connection,
+transfer completion, acknowledgement, or terminal.
 Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 

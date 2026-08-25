@@ -99,6 +99,7 @@ _RAW_REQUESTS = frozenset({
 def _make_row(
     request: str,
     *,
+    rx_role: str | None = None,
     request_discriminator: str = "statically_recovered_request_codec",
     predicates: tuple[str, ...] = (),
     callbacks: tuple[str, ...] = (),
@@ -116,7 +117,7 @@ def _make_row(
     values = {
         "request": request,
         "tx_role": "raw_tx" if raw else "main_tx",
-        "rx_role": "raw_rx" if raw else "main_rx",
+        "rx_role": rx_role or ("raw_rx" if raw else "main_rx"),
         "request_discriminator": request_discriminator,
         "accepted_response_predicates": predicates,
         "callbacks": callbacks,
@@ -176,6 +177,37 @@ def _private_sync_candidate(
         "terminal_rule": "none_proven",
         "failure_delivery": "none_proven",
         "state": "reverse_direction_pipeline_candidate_unproven",
+        "shared": True,
+        "unresolved": unresolved,
+    }
+
+
+def _wifi_private_state_candidate(*, extended: bool) -> dict[str, object]:
+    discriminator = (
+        "outbound_opcode_54_subcommands_01_02_private_credential_fragments_"
+        "and_inbound_subcommand_04_wifi_state_candidate"
+    )
+    unresolved = (
+        "request_to_state_event_causation_and_order_not_proven",
+        "credential_and_state_selectors_are_disjoint",
+        "basic_and_extended_requests_have_identical_wire_identity",
+        "network_join_credential_use_failure_and_terminal_not_proven",
+        "host_network_and_ftp_side_effects_not_reproduced",
+        "setter_app_invoke_not_observed",
+    )
+    if extended:
+        discriminator += "_with_unreproduced_local_timeout"
+        unresolved += ("timeout_timer_and_callback_state_not_reproduced",)
+    return {
+        "request_discriminator": discriminator,
+        "predicates": (),
+        "callbacks": ("onGetWifiState",),
+        "multiplicity": (
+            "credential_fragment_batch_and_wifi_state_events_not_operation_bound"
+        ),
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "shared_stateful_event_candidate_unproven",
         "shared": True,
         "unresolved": unresolved,
     }
@@ -257,6 +289,67 @@ _OVERRIDES: dict[str, dict[str, object]] = {
         "shared": True,
         "unresolved": ("outbound_projection_ack_and_terminal_not_proven",),
     },
+    "setPhoneMac": {
+        "request_discriminator": (
+            "outbound_opcode_49_private_phone_identifier_is_distinct_from_"
+            "inbound_opcode_49_host_volume_request"
+        ),
+        "predicates": (),
+        "callbacks": (),
+        "multiplicity": "none_proven",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "same_opcode_semantic_collision_no_correlation",
+        "shared": True,
+        "unresolved": (
+            "exact_response_relationship_not_statically_closed",
+            "inbound_opcode_49_belongs_to_reverse_phone_volume_pipeline",
+            "private_identifier_payload_not_response_data",
+        ),
+    },
+    "setAppId": {
+        "request_discriminator": (
+            "outbound_opcode_48_private_app_identifier_and_inbound_opcode_45_"
+            "selector_02_app_id_event_candidate"
+        ),
+        "predicates": ("inbound_opcode_45_selector_02_app_id_event",),
+        "callbacks": ("onNotifyAppId",),
+        "multiplicity": "zero_or_more_notifications",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "event_candidate_unproven",
+        "shared": True,
+        "unresolved": (
+            "setter_to_notification_causation_and_order_not_proven",
+            "outbound_to_inbound_identifier_propagation_not_proven",
+            "outbound_and_inbound_text_layouts_differ",
+            "opcode_45_is_shared_with_classic_info_and_name",
+            "notification_failure_and_terminal_not_proven",
+        ),
+    },
+    "notifyDownloadFtpFileCompleted": {
+        "rx_role": "local_service_projection",
+        "request_discriminator": (
+            "source_media_ftp_terminal_path_emits_outbound_opcode_54_subcommand_07"
+        ),
+        "predicates": (),
+        "callbacks": ("onNotifyFtpStateInfo",),
+        "multiplicity": (
+            "source_terminal_signal_and_local_callback_projection_not_operation_bound"
+        ),
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "event_candidate_unproven",
+        "shared": True,
+        "unresolved": (
+            "success_and_exhausted_failure_share_terminal_signal",
+            "callback_payload_to_terminal_signal_mapping_not_closed",
+            "wire_ack_and_terminal_not_proven",
+            "ftp_network_file_retry_and_local_side_effects_not_reproduced",
+        ),
+    },
+    "setWifiHotSpotInfo": _wifi_private_state_candidate(extended=False),
+    "setWifiHotSpotInfoEx": _wifi_private_state_candidate(extended=True),
     "setContactCrc": {
         "request_discriminator": "outbound_opcode_46_four_byte_fingerprint",
         "predicates": ("inbound_opcode_46_four_byte_fingerprint",),
