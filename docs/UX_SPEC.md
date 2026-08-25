@@ -183,14 +183,26 @@ hardware-ineligible, absent from the client/transport, and unavailable as live w
 health, reproductive, reset, identifier, and private-text operations retain their risk
 boundaries.
 
-Given any of the 45 additional main-command codecs, the request reports a closed
+Given any of the 46 additional main-command codecs, the request reports a closed
 operation identity plus privacy/risk or wire-parity metadata. Wi-Fi scanning is an
 active network action, never a read-only query. Private phone-integration requests hide
 both content and frame counts, reject ambiguous or lossy inputs, and identify omitted
 timeout/local state. Notification content that depends on retained deduplication and a
-generated sequence stays typed unsupported. Together with the seven paired queries,
-six raw requests, and 26 settings mutations, the ledger reports 84 offline request
-codecs and one separate non-runnable control model.
+generated sequence is planned only by an ephemeral-keyed, digest-retaining, bounded
+offline state machine. Its output state is proposed only after atomic enqueue and does
+not imply delivery; acknowledgement, planner/overlap serialization, throttling, and
+atomic live delivery remain blocked. Together with the seven paired queries, six raw requests, and 26 settings
+mutations, the ledger reports 85 offline request codecs.
+
+Given the complete request ledger, the other 26 SDK methods expose non-runnable static
+behavior evidence—not behavioral parity—and the raw CCCD method exposes one
+non-runnable control model. Local
+BLE models accept no address, UUID, or payload; platform models do not perform network,
+filesystem, cache, or callback registration work; OTA evidence cannot parse a binary,
+open a path, contact metadata services, or write SUOTA characteristics. Thus all 112
+requests are represented while every live and hardware-verified vendor count stays zero.
+The OTA model also warns that the source's nominal info-only call can download and
+overwrite a cache file on a fresh metadata response even when automatic start is off.
 
 The machine-readable operation ledger accounts for all 112 SDK requests exactly once
 and keeps routing separate from Python maturity. Its presence does not imply 112 useful
@@ -441,7 +453,8 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Complete request accounting | `test_static_vendor_operation_coverage_accounts_for_all_112_requests_once`, `test_only_seven_operations_have_offline_request_and_response_codecs`, `test_static_coverage_never_promotes_an_operation_to_hardware` |
 | Strict offline mutation encoders | `test_twenty_six_mutations_have_offline_codecs_without_live_eligibility`, `test_device_settings_preserve_the_exact_profile_layout_and_inverted_calling_bit`, `test_alarm_batch_builds_base_and_exact_content_chunks_without_state`, `test_request_bytes_and_sensitive_inputs_are_structurally_hidden`, `test_requests_are_closed_offline_private_and_never_hardware_eligible`, `test_safety_metadata_refuses_unsafe_apk_runtime_behaviors` |
-| Additional main-command codecs | `test_forty_five_additional_main_requests_have_offline_codecs`, `test_wifi_scan_is_an_active_network_action_not_a_read_only_query`, `test_every_main_operation_has_closed_privacy_and_risk_metadata`, `test_ai_language_is_opaque_explicit_utf8_and_never_uses_host_locale`, `test_private_text_rejects_controls_formatting_and_malformed_unicode`, `test_notification_is_typed_unsupported_without_retaining_private_content` |
+| Additional main-command codecs | `test_forty_six_additional_main_requests_have_offline_codecs`, `test_wifi_scan_is_an_active_network_action_not_a_read_only_query`, `test_every_main_operation_has_closed_privacy_and_risk_metadata`, `test_ai_language_is_opaque_explicit_utf8_and_never_uses_host_locale`, `test_private_text_rejects_controls_formatting_and_malformed_unicode`, `test_plans_exact_header_title_and_content_frames_without_live_side_effects` |
+| Complete non-runnable behavior surface | `test_twenty_six_non_codec_requests_have_closed_behavior_evidence`, `test_all_fourteen_local_ble_or_dynamic_gatt_requests_are_accounted_once`, `test_ten_non_bluetooth_requests_are_closed_and_accounted_once`, `test_get_ota_info_models_exact_main_request_without_exposing_a_frame`, `test_start_file_ota_is_descriptive_only_and_lists_dangerous_side_effects` |
 | Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_all_eighty_six_wire_callback_families_have_offline_response_codecs`, `test_three_apk_generated_end_callbacks_are_local_projections_not_wire_codecs` |
 | Offline device/config decoding | `test_device_code_discards_all_identifier_bytes`, `test_device_dial_decodes_every_field_in_the_twenty_byte_layout`, `test_eq_info_decodes_signed_values_and_requires_expected_kind`, `test_factory_test_bytes_are_hidden_and_byte_19_is_not_claimed` |
 | Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |

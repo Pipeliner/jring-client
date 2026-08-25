@@ -68,8 +68,14 @@ of representations.
 projections, network actions, sensor controls, and private fragmented transfers.
 Operations expose explicit privacy/risk metadata, `scanWifi` is an active network
 action rather than a read-only query, and phone-integration parity is wire-frames-only.
-No object provides transport authority; unsafe stateful notification construction is
-typed unsupported.
+`jring.vendor_notify` adds an ephemeral-keyed, digest-only planner state with exact
+bounded notification fragmentation. Planning returns a proposed state transition only;
+it cannot commit delivery. Live acknowledgement, planner/overlap serialization,
+throttling, and atomic delivery remain blockers.
+`jring.vendor_local_operations`, `jring.vendor_platform_surface`, and
+`jring.vendor_ota_evidence` are immutable behavior inventories. They accept no runtime
+address, UUID, payload, path, or network input and expose no execute method. Dynamic
+arbitrary writes and destructive SUOTA are documented without recreating their authority.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`

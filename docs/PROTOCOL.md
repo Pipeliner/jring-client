@@ -122,16 +122,18 @@ filesystem/conversion methods, one DFU method, and four no-op stubs. Thus 80 wra
 transitively reach the main queue, but the composite OTA-info operation is not counted
 twice.
 No AIDL request is statically wired to the declared secondary channel. The Python
-client implements zero live vendor requests; 84 request codecs (seven paired queries,
-six raw commands, 26 settings mutations, and 45 additional main-command families), one
-non-runnable raw control model, and all 86 wire callback codecs are offline-only. Local album
+client implements zero live vendor requests; 85 request codecs (seven paired queries,
+six raw commands, 26 settings mutations, and 46 additional main-command families), 26
+non-runnable static behavior-evidence rows, one non-runnable raw control model, and all 86 wire
+callback codecs are offline-only. Local album
 saving, bitmap conversion, and worship-setting
 operations are now included in the parity ledger even though they do not belong in a
 Bluetooth client implementation.
 
 `jring.vendor_coverage.static_vendor_operation_coverage()` is the checked source for
 the request names and mutually exclusive routes. Tests require exactly 112 unique
-entries, exact route totals, 84 offline request codecs, zero live vendor methods,
+entries, exact route totals, 85 offline request codecs, 26 static behavior-evidence
+rows, one offline control model, zero unclassified request entries, zero live vendor methods,
 and false hardware eligibility and verification for every entry. Request maturity uses
 a closed state enum rather than labels inferred by substring. This corrects an earlier grouped count
 that treated only three interface methods as stubs; static call-site tracing shows that
@@ -304,10 +306,10 @@ remain high-risk offline evidence—not general-use or live-write features. A va
 synthetic vector does not grant consent, prove firmware behavior, or make timeout
 replay safe.
 
-Three further modules encode 45 main-channel families. They cover exact no-argument
+Four further modules encode 46 main-channel families. They cover exact no-argument
 and parameterized queries; phone volume and other host-state projections; device,
 sensor, time, EQ, and factory controls; and private phone/contact/message/card/Wi-Fi
-fragment streams. The coverage CLI therefore reports 84 offline request codecs in
+fragment streams plus a stateful notification planner. The coverage CLI therefore reports 85 offline request codecs in
 total. Query/action roles and privacy/risk classes remain closed metadata: notably,
 `scanWifi` is a network-scan action and ECG/by-day operations are health-history
 queries. Timezone, locale, clock, weather, and phone state must be explicit inputs.
@@ -317,7 +319,27 @@ integer wrapping, ambiguous fingerprint widths, malformed/control text, empty Wi
 passwords, and the recovered exact-17-byte Wi-Fi loss case. The extended Wi-Fi form
 lists its omitted local timeout timer/callback state. Sync fingerprints are explicitly
 not security checks, sensitive representations reveal neither data nor frame counts,
-and stateful notification content remains typed unsupported rather than guessed.
+Notification planning preserves exact UID cycling, ephemeral-keyed digest-only
+deduplication, and bounded frame sequencing without retaining raw IDs in planner state.
+Its state output is only a proposal after atomic enqueue, never a delivery result; live
+acknowledgement, planner/overlap serialization, caller throttling, and atomic delivery
+remain explicit blockers.
+
+The remaining 26 requests have non-runnable static behavior evidence rather than
+behavioral parity or codecs: 14 Android-local/dynamic-GATT methods; cached/cloud metadata, callback
+registration, phone FTP, filesystem/conversion, and four true no-op stubs; plus the
+composite OTA-info and SUOTA workflows. The local inventory documents persisted raw
+identifiers, active scanning, unsafe SDK logging, dynamic UUID state, and arbitrary
+characteristic-write authority while granting none of it to Python.
+
+OTA evidence separates the ordinary `33f3` mode/query frames from cache, plaintext
+metadata fetch, local firmware files, and the hardware-specific `fef5` SUOTA state
+machine. A fresh metadata response can download and overwrite the firmware cache even
+when the caller requested information only; that flag gates callbacks/automatic
+hardware start, not the download branch. The model records missing authenticity/model gates, unsafe ordering and file handling,
+no-response firmware writes, callback gaps, and reboot/disconnect side effects. The
+model exposes reconstructible field evidence but no runnable byte object, encoder,
+parser, file/network access, or transport plan.
 
 ## Static history streams
 

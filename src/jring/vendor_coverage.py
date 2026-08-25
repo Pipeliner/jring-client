@@ -13,6 +13,7 @@ class VendorPythonState(str, Enum):
     OFFLINE_MAIN_REQUEST_CODEC = "offline_main_request_codec"
     OFFLINE_MUTATION_CODEC = "offline_mutation_codec"
     OFFLINE_CONTROL_MODEL = "offline_control_model"
+    OFFLINE_BEHAVIOR_EVIDENCE = "offline_behavior_evidence"
     OFFLINE_RESPONSE_CODEC = "offline_response_codec"
     OFFLINE_LOCAL_PROJECTION = "offline_local_projection"
     LIVE_VENDOR = "live_vendor"
@@ -36,6 +37,9 @@ class StaticVendorOperation:
     maturity: str = "static_apk_only"
     hardware_eligible: bool = False
     hardware_verified: bool = False
+    evidence_locator: str | None = None
+    evidence_scope: str | None = None
+    known_limitations: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -216,6 +220,7 @@ _OFFLINE_MAIN_REQUEST_CODECS = frozenset(
         "setGSensorIndState",
         "setHeartRateMode",
         "setOfflineSpeechRecognitionState",
+        "setNotify",
         "setPhoneMac",
         "setSmsRspInfoContent",
         "setSmsRspInfoCrc",
@@ -229,6 +234,45 @@ _OFFLINE_MAIN_REQUEST_CODECS = frozenset(
         "startFactoryTestMode",
     }
 )
+_OFFLINE_BEHAVIOR_EVIDENCE = frozenset(
+    (
+        *_LOCAL_BLE,
+        *_CLOUD_CACHE,
+        *_LOCAL_PHONE_NETWORK,
+        *_LOCAL_FILESYSTEM,
+        *_NO_OP_STUBS,
+        "getOtaInfo",
+        "startFileOta",
+    )
+)
+
+BEHAVIOR_EVIDENCE_LOCATORS = {
+    **{
+        name: f"jring.vendor_local_operations:LocalBleOperation:{name}"
+        for name in _LOCAL_BLE
+    },
+    **{
+        name: f"jring.vendor_platform_surface:PlatformSurfaceOperation:{name}"
+        for name in (
+            *_CLOUD_CACHE,
+            *_LOCAL_PHONE_NETWORK,
+            *_LOCAL_FILESYSTEM,
+            *_NO_OP_STUBS,
+        )
+    },
+    "getOtaInfo": (
+        "jring.vendor_ota_evidence:FirmwareAndTransferEvidenceOperation:get_ota_info"
+    ),
+    "startFileOta": (
+        "jring.vendor_ota_evidence:FirmwareAndTransferEvidenceOperation:start_file_ota"
+    ),
+}
+SUPPLEMENTAL_EVIDENCE_LOCATORS = {
+    "notifyDownloadFtpFileCompleted": (
+        "jring.vendor_ota_evidence:FirmwareAndTransferEvidenceOperation:"
+        "notify_ftp_download_completed"
+    )
+}
 _OFFLINE_MUTATION_CODECS = frozenset(
     {
         "editDeviceDialCustom",
@@ -288,9 +332,22 @@ def static_vendor_operation_coverage() -> tuple[StaticVendorOperation, ...]:
                 if name in _OFFLINE_CONTROL_MODELS
                 else VendorPythonState.OFFLINE_MAIN_REQUEST_CODEC
                 if name in _OFFLINE_MAIN_REQUEST_CODECS
+                else VendorPythonState.OFFLINE_BEHAVIOR_EVIDENCE
+                if name in _OFFLINE_BEHAVIOR_EVIDENCE
                 else VendorPythonState.OFFLINE_MUTATION_CODEC
                 if name in _OFFLINE_MUTATION_CODECS
                 else VendorPythonState.NOT_REPRODUCED
+            ),
+            evidence_locator=BEHAVIOR_EVIDENCE_LOCATORS.get(name),
+            evidence_scope=(
+                "statically_classified_non_runnable_surface"
+                if name in BEHAVIOR_EVIDENCE_LOCATORS
+                else None
+            ),
+            known_limitations=(
+                ("not_behavioral_parity", "no_runtime_or_hardware_verification")
+                if name in BEHAVIOR_EVIDENCE_LOCATORS
+                else ()
             ),
         )
         for route, names in _ROUTES

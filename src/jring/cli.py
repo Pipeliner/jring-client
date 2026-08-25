@@ -265,6 +265,14 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 entry.python_state is VendorPythonState.OFFLINE_CONTROL_MODEL
                 for entry in requests
             ),
+            "offline_behavior_evidence": sum(
+                entry.python_state is VendorPythonState.OFFLINE_BEHAVIOR_EVIDENCE
+                for entry in requests
+            ),
+            "unclassified_requests": sum(
+                entry.python_state is VendorPythonState.NOT_REPRODUCED
+                for entry in requests
+            ),
             "offline_response_codecs": sum(
                 entry.python_state is VendorPythonState.OFFLINE_RESPONSE_CODEC
                 for entry in callbacks
@@ -301,6 +309,8 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     print(f"Callbacks: {summary['callback_total']}")
     print(f"Offline request codecs: {summary['offline_request_codecs']}")
     print(f"Offline control models: {summary['offline_control_models']}")
+    print(f"Offline behavior evidence: {summary['offline_behavior_evidence']}")
+    print(f"Unclassified requests: {summary['unclassified_requests']}")
     print(f"Offline response codecs: {summary['offline_response_codecs']}")
     print(f"Offline local projections: {summary['offline_local_projections']}")
     print(f"Live vendor operations: {summary['live_vendor_operations']}")

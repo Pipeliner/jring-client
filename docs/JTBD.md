@@ -18,6 +18,9 @@ Desired outcomes:
 - Count every interface request exactly once by its primary route, including local,
   cloud, filesystem, conversion, DFU, dynamic-GATT, and no-op surfaces that are not
   ordinary vendor Bluetooth commands.
+- Give every request either a closed offline codec or a non-runnable behavior/control
+  model, so “accounted for” never means “callable” and no residual method is silently
+  left as unknown implementation state.
 - Inspect statically proven request and response layouts offline with synthetic data,
   without making those codecs callable from a live client.
 - Gain useful passive and read-only support while uncertain or destructive
@@ -29,6 +32,8 @@ Desired outcomes:
 - Use only legitimate owner pairing/session flows; extracted secrets, token replay,
   authorization bypasses, and device impersonation are out of scope.
 - Keep the APK, decompiled code, captures, identifiers, and real measurements private.
+- Treat firmware update as a destructive multi-boundary workflow—main GATT, cloud,
+  files, and SUOTA—not as a normal vendor request that static bytes can authorize.
 
 ### Establish trust before touching hardware
 

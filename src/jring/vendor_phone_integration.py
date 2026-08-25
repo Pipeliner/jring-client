@@ -25,7 +25,6 @@ class OfflinePhoneOperation(str, Enum):
     CONTACT_INFO = "contact_info"
     E_CARD_CONTENT = "e_card_content"
     E_CARD_CRC = "e_card_crc"
-    NOTIFICATION = "notification"
     PHONE_MAC = "phone_mac"
     SMS_REPLY_CONTENT = "sms_reply_content"
     SMS_REPLY_CRC = "sms_reply_crc"
@@ -140,39 +139,6 @@ class OfflinePhoneRequest:
             f"operation={self.operation.value!r}, privacy_class={self.privacy_class!r}, "
             "frame=<redacted>, "
             "hardware_eligible=False, hardware_verified=False)"
-        )
-
-
-@dataclass(frozen=True, init=False, repr=False)
-class UnsupportedPhoneOperation:
-    operation: OfflinePhoneOperation
-    reason_code: str
-
-    def __init__(self) -> None:
-        raise TypeError("unsupported operation descriptions use closed constructors")
-
-    @classmethod
-    def _create(
-        cls, operation: OfflinePhoneOperation, reason_code: str
-    ) -> "UnsupportedPhoneOperation":
-        result = object.__new__(cls)
-        object.__setattr__(result, "operation", operation)
-        object.__setattr__(result, "reason_code", reason_code)
-        return result
-
-    @property
-    def hardware_eligible(self) -> bool:
-        return False
-
-    @property
-    def hardware_verified(self) -> bool:
-        return False
-
-    def __repr__(self) -> str:
-        return (
-            "UnsupportedPhoneOperation("
-            f"operation={self.operation.value!r}, reason_code={self.reason_code!r}, "
-            "hardware_eligible=False)"
         )
 
 
@@ -589,11 +555,4 @@ def encode_worship_info(*, first: int, second: int) -> OfflinePhoneRequest:
         _u8(first, "first neutral worship field"),
         _u8(second, "second neutral worship field"),
         source_enqueue_position="front",
-    )
-
-
-def describe_unsupported_notification() -> UnsupportedPhoneOperation:
-    return UnsupportedPhoneOperation._create(
-        OfflinePhoneOperation.NOTIFICATION,
-        "stateful_sequence_and_deduplication",
     )

@@ -7,7 +7,6 @@ from jring.vendor_phone_integration import (
     OfflinePhoneRequest,
     OfflinePhoneOperation,
     SmsReplyRecord,
-    describe_unsupported_notification,
     encode_app_id,
     encode_chat_content,
     encode_contact_crc,
@@ -211,15 +210,6 @@ def test_wifi_ex_has_identical_writes_but_validates_unreproduced_timeout_state()
 def test_wifi_rejects_empty_ssid_and_source_exact_boundary_data_loss(ssid, password):
     with pytest.raises(ValueError):
         encode_wifi_hotspot_info(ssid=ssid, password=password)
-
-
-def test_notification_is_typed_unsupported_without_retaining_private_content():
-    result = describe_unsupported_notification()
-
-    assert result.operation is OfflinePhoneOperation.NOTIFICATION
-    assert result.reason_code == "stateful_sequence_and_deduplication"
-    assert result.hardware_eligible is False
-    assert not hasattr(result, "content")
 
 
 def test_requests_are_closed_offline_private_and_repr_redacted():

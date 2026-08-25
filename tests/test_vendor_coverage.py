@@ -1,7 +1,9 @@
 from collections import Counter
 
 from jring.vendor_coverage import (
+    BEHAVIOR_EVIDENCE_LOCATORS,
     OFFLINE_REQUEST_CODEC_STATES,
+    SUPPLEMENTAL_EVIDENCE_LOCATORS,
     VendorPythonState,
     static_vendor_callback_coverage,
     static_vendor_operation_coverage,
@@ -70,7 +72,7 @@ def test_raw_notification_control_is_accounted_for_as_a_non_runnable_model():
     assert by_name["openRawDataNotification"].hardware_eligible is False
 
 
-def test_forty_five_additional_main_requests_have_offline_codecs():
+def test_forty_six_additional_main_requests_have_offline_codecs():
     implemented = {
         entry.name
         for entry in static_vendor_operation_coverage()
@@ -88,9 +90,40 @@ def test_forty_five_additional_main_requests_have_offline_codecs():
         "setContactCrc", "setContactInfo", "setDeviceTime", "setECardInfoContent",
         "setECardInfoCrc", "setEcgMode", "setEqInfo2", "setGSensorIndState",
         "setHeartRateMode", "setOfflineSpeechRecognitionState", "setPhoneMac",
-        "setSmsRspInfoContent", "setSmsRspInfoCrc", "setSmsRspSendAck",
+        "setNotify", "setSmsRspInfoContent", "setSmsRspInfoCrc", "setSmsRspSendAck",
         "setTemperatureMode", "setTouchMode", "setUserInfo", "setWifiHotSpotInfo",
         "setWifiHotSpotInfoEx", "setWorshipInfo", "startFactoryTestMode",
+    }
+
+
+def test_twenty_six_non_codec_requests_have_closed_behavior_evidence():
+    modeled = {
+        entry.name
+        for entry in static_vendor_operation_coverage()
+        if entry.python_state is VendorPythonState.OFFLINE_BEHAVIOR_EVIDENCE
+    }
+    assert set(BEHAVIOR_EVIDENCE_LOCATORS) == modeled
+    assert len(set(BEHAVIOR_EVIDENCE_LOCATORS.values())) == 26
+    assert SUPPLEMENTAL_EVIDENCE_LOCATORS == {
+        "notifyDownloadFtpFileCompleted": (
+            "jring.vendor_ota_evidence:FirmwareAndTransferEvidenceOperation:"
+            "notify_ftp_download_completed"
+        )
+    }
+    for entry in static_vendor_operation_coverage():
+        if entry.name in modeled:
+            assert entry.evidence_locator == BEHAVIOR_EVIDENCE_LOCATORS[entry.name]
+            assert entry.evidence_scope == "statically_classified_non_runnable_surface"
+            assert entry.known_limitations
+
+    assert modeled == {
+        "closeConnection", "connectBt", "disconnectBt", "getConnectedDevice",
+        "getDeviceRssi", "isAuthrize", "isConnectBt", "openSDKLog", "scanDevice",
+        "setOption", "setScanMode", "setUuid", "unregisterCallback",
+        "writeCharacteristic", "getOtaInfo", "startFileOta", "getDialServerInfo",
+        "registerCallback", "registerCallback2", "startFtpDownloadTask",
+        "saveFileToSystemAlbum", "translateBmpToBin", "connectFtp",
+        "getDeviceFileState", "getWifiState", "setDeviceFileState",
     }
 
 
@@ -159,12 +192,17 @@ def test_python_states_are_closed_and_codec_states_are_explicit():
     }
 
 
-def test_sensitive_and_destructive_surfaces_remain_visibly_unimplemented():
+def test_sensitive_and_destructive_surfaces_remain_non_live_and_ineligible():
     by_name = {entry.name: entry for entry in static_vendor_operation_coverage()}
 
-    for name in ("setNotify", "startFileOta", "writeCharacteristic"):
-        assert by_name[name].python_state == "not_reproduced"
-        assert by_name[name].hardware_eligible is False
+    assert all(
+        entry.python_state is not VendorPythonState.NOT_REPRODUCED
+        for entry in by_name.values()
+    )
+    assert by_name["setNotify"].python_state == "offline_main_request_codec"
+    assert by_name["startFileOta"].python_state == "offline_behavior_evidence"
+    assert by_name["writeCharacteristic"].python_state == "offline_behavior_evidence"
+    assert all(entry.hardware_eligible is False for entry in by_name.values())
 
     assert by_name["setDeviceMode"].python_state == "offline_mutation_codec"
     assert by_name["setDeviceMode"].hardware_eligible is False
