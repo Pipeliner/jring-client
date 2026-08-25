@@ -46,8 +46,9 @@ which UUID family applies to a particular ring firmware.
 
 `jring.protocol` contains strict typed parsers and the simulator-only envelope.
 `jring.vendor_protocol` contains pure offline encoders for statically proven query
-layouts. Its request objects cannot claim hardware eligibility and are not accepted by
-any client transmission API.
+layouts plus strict offline response decoders. Its request objects cannot claim
+hardware eligibility and are not accepted by any client transmission API. Decoder
+objects omit device identifiers and raw bytes; ambiguous fields retain neutral names.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`
@@ -127,6 +128,8 @@ no publishing step or repository-contents write permission.
   unknown, and cannot read, subscribe, pair, or write.
 - Static vendor request vectors are exact, bounded, synthetic, and transport-disconnected;
   they always report `static_apk_only` and `hardware_eligible: false`.
+- Static response decoders require exact lengths/opcodes, expose integrity state, and
+  structurally discard the device-info identifier instead of redacting it after parsing.
 - Status collects battery, Device Information, and service inventory concurrently under
   one bounded deadline. Additive per-field states distinguish absence, malformed data,
   timeouts, and a service that was not advertised without exposing raw values.

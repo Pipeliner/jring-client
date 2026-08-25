@@ -77,6 +77,22 @@ These are protocol facts and synthetic golden vectors, not captured owner frames
 Health-related names describe the SDK operation; the repository contains no owner
 measurement or raw capture. An opcode match alone cannot activate a live operation.
 
+The first strict response decoders cover:
+
+- `0b`: battery percentage plus an opaque one-byte state code. The state is not
+  relabeled as charging until hardware evidence confirms its meaning.
+- `03`: a little-endian activity summary containing device epoch, steps, distance,
+  calories, and one still-unknown 24-bit value.
+- `13`: a second current-sport layout with device epoch and three neutral 32-bit
+  fields whose meanings remain unverified.
+- `0c`: device type and two revision values plus seeded CRC-32 over bytes 1–15.
+  The six-byte device identifier at bytes 3–8 is intentionally discarded and cannot
+  appear in the returned object or its representation.
+
+Failure opcodes (`8b`, `83`, and `8c` for these families), wrong opcodes, wrong frame
+lengths, and impossible battery percentages fail closed. Device-info CRC failure is
+represented explicitly; it never silently promotes the revision fields to trusted.
+
 ## Required hardware evidence to advance
 
 Hardware evidence is owner-authorized and processed locally; autonomous work never

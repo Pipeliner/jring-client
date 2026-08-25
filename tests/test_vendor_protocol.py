@@ -6,7 +6,11 @@ from jring.vendor_protocol import (
     StaticVendorRequest,
     encode_day_query,
     encode_static_query,
+    parse_vendor_battery,
+    parse_vendor_current_sport,
+    parse_vendor_device_info,
 )
+from jring.protocol import ProtocolError
 
 
 @pytest.mark.parametrize(
@@ -76,3 +80,99 @@ def test_client_has_no_vendor_transmission_api():
 
     assert not hasattr(JRingClient, "send_vendor_request")
     assert not hasattr(JRingClient, "write_vendor_frame")
+
+
+def test_vendor_battery_response_is_typed_without_guessing_state_meaning():
+    response = parse_vendor_battery(bytes((0x0B, 84, 1)) + bytes(17))
+
+    assert response.percent == 84
+    assert response.state_code == 1
+    assert response.state_meaning == "unknown"
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        bytes((0x8B,)) + bytes(19),
+        bytes((0x0B, 101)) + bytes(18),
+        bytes((0x0B, 50)),
+        bytes((0x0C,)) + bytes(19),
+    ],
+)
+def test_vendor_battery_response_fails_closed(data):
+    with pytest.raises(ProtocolError):
+        parse_vendor_battery(data)
+
+
+def test_current_sport_activity_summary_uses_little_endian_fields():
+    data = (
+        bytes((0x03,))
+        + (1_700_000_000).to_bytes(4, "little")
+        + (12_345).to_bytes(4, "little")
+        + (6_789).to_bytes(4, "little")
+        + (321).to_bytes(4, "little")
+        + (0x030201).to_bytes(3, "little")
+    )
+
+    result = parse_vendor_current_sport(data)
+
+    assert result.variant == "activity_summary"
+    assert result.device_epoch_seconds == 1_700_000_000
+    assert result.steps == 12_345
+    assert result.distance == 6_789
+    assert result.calories == 321
+    assert result.unknown_value == 0x030201
+
+
+def test_current_sport_secondary_variant_preserves_neutral_field_names():
+    data = (
+        bytes((0x13,))
+        + (100).to_bytes(4, "little")
+        + (200).to_bytes(4, "little")
+        + (300).to_bytes(4, "little")
+        + (400).to_bytes(4, "little")
+        + bytes(3)
+    )
+
+    result = parse_vendor_current_sport(data)
+
+    assert result.variant == "secondary_summary"
+    assert (result.primary, result.secondary, result.tertiary) == (200, 300, 400)
+    assert result.steps is None
+
+
+@pytest.mark.parametrize("opcode", [0x83, 0x04, 0x14])
+def test_current_sport_rejects_failure_and_unrelated_opcodes(opcode):
+    with pytest.raises(ProtocolError):
+        parse_vendor_current_sport(bytes((opcode,)) + bytes(19))
+
+
+def test_device_info_redacts_unique_identifier_and_verifies_seeded_crc32():
+    body = bytes(range(1, 16))
+    data = bytes((0x0C,)) + body + bytes.fromhex("47b17004")
+
+    result = parse_vendor_device_info(data)
+
+    assert result.device_type == 0x0201
+    assert result.hardware_revision == 0x0A09
+    assert result.software_revision == 0x0C0B
+    assert result.integrity_valid is True
+    assert result.identifier_redacted is True
+    assert not hasattr(result, "identifier")
+    assert not hasattr(result, "mac_address")
+    assert "030405060708" not in repr(result)
+
+
+def test_device_info_reports_bad_integrity_without_exposing_private_bytes():
+    data = bytes((0x0C,)) + bytes(range(1, 16)) + bytes(4)
+
+    result = parse_vendor_device_info(data)
+
+    assert result.integrity_valid is False
+    assert "030405060708" not in repr(result)
+
+
+@pytest.mark.parametrize("data", [bytes(19), bytes((0x8C,)) + bytes(19)])
+def test_device_info_rejects_wrong_length_and_failure_opcode(data):
+    with pytest.raises(ProtocolError):
+        parse_vendor_device_info(data)
