@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ._vendor_binder_rows import CALLBACK_BINDER_ROWS, REQUEST_BINDER_ROWS
+from .vendor_app_use_evidence import recovered_vendor_app_use_evidence
+from .vendor_codec_registry import CALLBACK_CODEC_LOCATORS, REQUEST_CODEC_LOCATORS
 
 
 class BinderDirection(str, Enum):
@@ -23,6 +25,10 @@ class BinderTransactionRow:
     semantic_result_kind: str
     parcel_result_kind: str
     arity: int
+    runtime_dispatch_evidence: str
+    wire_relationship_kind: str
+    opaque_semantic_group: str | None
+    codec_locator_status: str
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
         raise TypeError("Binder transaction evidence is closed")
@@ -117,6 +123,20 @@ def _surface(
     arity_counts: tuple[tuple[int, int], ...],
 ) -> BinderInterfaceSurface:
     rows = []
+    app_use = recovered_vendor_app_use_evidence()
+    runtime_by_name = {
+        row.name: row.state.value
+        for row in (
+            app_use.requests
+            if direction is BinderDirection.REQUEST
+            else app_use.callbacks
+        )
+    }
+    locators = (
+        REQUEST_CODEC_LOCATORS
+        if direction is BinderDirection.REQUEST
+        else CALLBACK_CODEC_LOCATORS
+    )
     for raw in raw_rows:
         row = object.__new__(BinderTransactionRow)
         names = (
@@ -127,6 +147,19 @@ def _surface(
         for name, value in zip(names, raw, strict=True):
             object.__setattr__(row, name, value)
         object.__setattr__(row, "direction", direction)
+        object.__setattr__(
+            row, "runtime_dispatch_evidence", runtime_by_name[row.ledger_name]
+        )
+        object.__setattr__(
+            row, "wire_relationship_kind", "not_exhaustively_classified"
+        )
+        object.__setattr__(row, "opaque_semantic_group", None)
+        locator = locators.get(row.ledger_name)
+        object.__setattr__(
+            row,
+            "codec_locator_status",
+            "no_offline_codec_locator" if locator is None else locator.kind.value,
+        )
         rows.append(row)
     row_tuple = tuple(rows)
     count = len(row_tuple)

@@ -131,7 +131,9 @@ do not prove runtime reachability.
 The sanitized Binder crosswalk adds exact transaction IDs and semantic-versus-Parcel
 kinds for all 217 rows. Every ID is contiguous and agrees across interface, Proxy,
 Stub, and implementation; all calls are synchronous and all ordered marshalling checks
-match. Binder parity still does not establish BLE semantics or live support.
+match. Each row links its existing app-use and codec status while leaving wire
+relationships explicitly unclassified. Binder parity still does not establish BLE
+semantics or live support.
 The report distinguishes those from absent,
 APK-generated, and non-Bluetooth behavior, and always reports zero live or
 hardware-verified vendor operations. It contains no payload bytes and grants no write

@@ -110,6 +110,36 @@ def test_semantic_boolean_kinds_remain_distinct_from_parcel_int32():
     )
 
 
+def test_binder_rows_link_app_use_and_codec_status_without_inference():
+    evidence = recovered_vendor_binder_evidence()
+    requests = {row.ledger_name: row for row in evidence.request.rows}
+    callbacks = {row.ledger_name: row for row in evidence.callback.rows}
+
+    assert requests["getDeviceInfo"].runtime_dispatch_evidence == (
+        "direct_app_interface_invoke"
+    )
+    assert requests["getDeviceInfo"].codec_locator_status == "enum_bound_callable"
+    assert requests["connectFtp"].runtime_dispatch_evidence == (
+        "no_op_stub_without_app_invoke"
+    )
+    assert requests["connectFtp"].codec_locator_status == "no_offline_codec_locator"
+    assert callbacks["onGetDeviceInfo"].runtime_dispatch_evidence == (
+        "direct_sdk_dispatch"
+    )
+    assert callbacks["onGetDeviceInfo"].codec_locator_status == "direct_callable"
+    assert callbacks["onSendWeather"].runtime_dispatch_evidence == (
+        "declared_without_direct_dispatch"
+    )
+    assert callbacks["onSendWeather"].codec_locator_status == (
+        "no_offline_codec_locator"
+    )
+    assert all(
+        row.wire_relationship_kind == "not_exhaustively_classified"
+        and row.opaque_semantic_group is None
+        for row in (*evidence.request.rows, *evidence.callback.rows)
+    )
+
+
 def test_binder_evidence_is_closed_sanitized_and_non_runnable():
     evidence = recovered_vendor_binder_evidence()
 

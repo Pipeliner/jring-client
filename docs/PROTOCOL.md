@@ -213,7 +213,9 @@ typed records marshal as typed objects. Requests have 36 distinct semantic shape
 28 Parcel shapes; callbacks have 33 and 31. No explicit trailing-data rejection was
 observed, so adding it would be a documented hardening divergence. The crosswalk does
 not infer semantic aliases, BLE wire families, runtime reachability, or hardware
-support from Binder parity.
+support from Binder parity. Each row links the separately proven app-use/dispatch state
+and codec-locator kind; wire relationship and semantic group remain explicitly
+unclassified unless bounded evidence establishes them elsewhere.
 
 ## Control-flow domains and recovered ordering
 
