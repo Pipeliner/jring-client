@@ -15,6 +15,11 @@ from jring.vendor_raw_protocol import (
     encode_raw_ai_server_notification,
     encode_raw_ai_state,
     encode_raw_ai_state_query,
+    parse_raw_ai_action,
+    parse_raw_ai_command_type,
+    parse_raw_ai_state,
+    parse_raw_data,
+    parse_raw_voice_command_confirmation,
     parse_raw_vendor_notification,
 )
 
@@ -263,3 +268,36 @@ def test_raw_scalar_and_state_notifications_share_the_frame_bound():
         parse_raw_vendor_notification(oversized_scalar)
     with pytest.raises(ProtocolError, match="frame bound"):
         parse_raw_vendor_notification(oversized_state)
+
+
+def test_raw_callback_wrappers_close_every_exact_callback_family_binding():
+    scalar = lambda raw_type, value: raw_type.to_bytes(2, "little") + bytes(6) + bytes((value,))
+    state = (0x0006).to_bytes(2, "little") + bytes(6) + bytes((3, 4))
+    payload = (0x0002).to_bytes(2, "little") + bytes(4) + bytes((1, 0, 0xAA))
+
+    assert parse_raw_ai_action(scalar(0x0001, 7)).kind == "ai_action"
+    assert parse_raw_data(payload).kind == "audio"
+    assert parse_raw_ai_state(state).first_value == 3
+    assert (
+        parse_raw_voice_command_confirmation(scalar(0x0009, 8)).kind
+        == "voice_command_confirmation"
+    )
+    assert parse_raw_ai_command_type(scalar(0x000A, 9)).kind == "ai_command_type"
+
+
+@pytest.mark.parametrize(
+    "parser,data",
+    [
+        (parse_raw_ai_action, (0x000A).to_bytes(2, "little") + bytes(7)),
+        (parse_raw_data, (0x0001).to_bytes(2, "little") + bytes(7)),
+        (parse_raw_ai_state, (0x0009).to_bytes(2, "little") + bytes(7)),
+        (
+            parse_raw_voice_command_confirmation,
+            (0x0001).to_bytes(2, "little") + bytes(7),
+        ),
+        (parse_raw_ai_command_type, (0x0001).to_bytes(2, "little") + bytes(7)),
+    ],
+)
+def test_raw_callback_wrappers_reject_other_known_raw_families(parser, data):
+    with pytest.raises(ProtocolError, match="unexpected raw callback type"):
+        parser(data)

@@ -371,18 +371,14 @@ for _name, _binding in {
 }.items():
     _CALLBACKS[_name] = _bound(_VP, "parse_vendor_45_notification", _binding)
 
-for _name, _binding in {
-    "onGetAiAction": "type=0001",
-    "onGetRawData": "type=0002_or_0003",
-    "onGetAiState": "type=0006",
-    "onRecvDeviceVoiceCommandConfirm": "type=0009",
-    "onGetAiCommandType": "type=000a",
+for _name, _qualname in {
+    "onGetAiAction": "parse_raw_ai_action",
+    "onGetRawData": "parse_raw_data",
+    "onGetAiState": "parse_raw_ai_state",
+    "onRecvDeviceVoiceCommandConfirm": "parse_raw_voice_command_confirmation",
+    "onGetAiCommandType": "parse_raw_ai_command_type",
 }.items():
-    _CALLBACKS[_name] = _locator(
-        CodecBindingKind.FAMILY_BINDING_UNRESOLVED,
-        _symbol(_VR, "parse_raw_vendor_notification", _binding),
-        limitations=("broad_parser_has_no_closed_expected_type_parameter",),
-    )
+    _CALLBACKS[_name] = _direct(_VR, _qualname)
 
 for _name, _binding in {
     "onSetDeviceTime": "StaticAckOperation.DEVICE_TIME",

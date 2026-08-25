@@ -181,8 +181,9 @@ exactly 85 request-codec rows and 86 response-decoder rows. Every locator resolv
 importable callable or closed typed/stateful factory. Four neutral sensor-setting
 request rows have exact wrapper-to-mode bindings: blood pressure/SpO/sugar/pressure
 start selectors are 1/2/3/4 and every false branch uses selector 0. Five raw callback
-rows still share a broad parser without a closed expected-type parameter; those five
-relationships are reported as unresolved family bindings, not direct codecs. Locator resolution does not
+rows share a broad wire decoder but now expose callback-specific typed wrappers for raw
+types `0001`, `0002`/`0003`, `0006`, `0009`, and `000a`. Every wrong known family is
+rejected before projection, leaving zero unresolved codec-family bindings. Locator resolution does not
 run a codec or make a row live.
 
 The request-routing evidence independently partitions all 112 rows: 79 deterministic

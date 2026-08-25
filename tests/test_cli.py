@@ -306,7 +306,7 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Unclassified callbacks: 0" in output
     assert (
         "Codec traceability: 85/85 request rows; 86/86 callback rows; "
-        "5 family bindings unresolved."
+        "0 family bindings unresolved."
     ) in output
     assert (
         "Request packet routes: 79 main; 6 raw; 1 stateful shared; 1 dynamic; "
@@ -354,7 +354,7 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["unclassified_callbacks"] == 0
     assert result["summary"]["request_codec_locators"] == 85
     assert result["summary"]["callback_codec_locators"] == 86
-    assert result["summary"]["unresolved_codec_family_bindings"] == 5
+    assert result["summary"]["unresolved_codec_family_bindings"] == 0
     assert result["summary"]["request_main_layouts"] == 79
     assert result["summary"]["request_raw_layouts"] == 6
     assert result["summary"]["request_no_fixed_packets"] == 23

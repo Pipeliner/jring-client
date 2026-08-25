@@ -249,8 +249,9 @@ end projections, and two declarations with no invocation site. This prevents an
 interface declaration or local timer from being presented as a distinct wire family.
 Immutable registries link all 85 request-codec and 86 response-decoder rows to importable
 Python symbols. Direct, bound, branching, pipeline, stateful, and unresolved-family
-relationships remain separate. Four shared sensor wrappers have exact selectors, while
-five raw callback family bindings remain explicitly unresolved.
+relationships remain separate. Four shared sensor wrappers have exact selectors, and
+five callback-specific raw wrappers reject every other known raw type. No codec-family
+binding remains unresolved.
 An independent request-routing view partitions all 112 rows into 79 deterministic main,
 six deterministic raw, one shared-preflight, one caller-directed dynamic, one descriptor
 control, one DFU, and 23 no-fixed-packet operations. It exposes source queue risks and

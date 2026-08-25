@@ -72,13 +72,18 @@ def test_shared_and_stateful_codecs_are_not_misrepresented_as_direct():
     assert CALLBACK_CODEC_LOCATORS["onGetWifiSsid"].kind is (
         CodecBindingKind.STATEFUL_FACTORY
     )
-    for name in (
-        "onGetAiAction", "onGetRawData", "onGetAiState",
-        "onRecvDeviceVoiceCommandConfirm", "onGetAiCommandType",
-    ):
-        assert CALLBACK_CODEC_LOCATORS[name].kind is (
-            CodecBindingKind.FAMILY_BINDING_UNRESOLVED
-        )
+    expected_raw_parsers = {
+        "onGetAiAction": "parse_raw_ai_action",
+        "onGetRawData": "parse_raw_data",
+        "onGetAiState": "parse_raw_ai_state",
+        "onRecvDeviceVoiceCommandConfirm": "parse_raw_voice_command_confirmation",
+        "onGetAiCommandType": "parse_raw_ai_command_type",
+    }
+    for name, qualname in expected_raw_parsers.items():
+        locator = CALLBACK_CODEC_LOCATORS[name]
+        assert locator.kind is CodecBindingKind.DIRECT_CALLABLE
+        assert locator.targets[0].qualname == qualname
+        assert locator.limitations == ()
 
 
 def test_dial_alarm_and_language_expose_source_behavior_divergences():

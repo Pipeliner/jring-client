@@ -341,3 +341,40 @@ def parse_raw_vendor_notification(
             trailing_bytes_ignored=len(data) - 9,
         )
     raise ProtocolError("unsupported raw vendor notification type")
+
+
+def _parse_raw_single_value(
+    data: bytes, *, expected_kind: str
+) -> RawSingleValueNotification:
+    result = parse_raw_vendor_notification(data)
+    if type(result) is not RawSingleValueNotification or result.kind != expected_kind:
+        raise ProtocolError("unexpected raw callback type")
+    return result
+
+
+def parse_raw_ai_action(data: bytes) -> RawSingleValueNotification:
+    return _parse_raw_single_value(data, expected_kind="ai_action")
+
+
+def parse_raw_data(
+    data: bytes, *, max_payload_bytes: int = 236
+) -> RawPayloadNotification:
+    result = parse_raw_vendor_notification(data, max_payload_bytes=max_payload_bytes)
+    if type(result) is not RawPayloadNotification:
+        raise ProtocolError("unexpected raw callback type")
+    return result
+
+
+def parse_raw_ai_state(data: bytes) -> RawAiStateNotification:
+    result = parse_raw_vendor_notification(data)
+    if type(result) is not RawAiStateNotification:
+        raise ProtocolError("unexpected raw callback type")
+    return result
+
+
+def parse_raw_voice_command_confirmation(data: bytes) -> RawSingleValueNotification:
+    return _parse_raw_single_value(data, expected_kind="voice_command_confirmation")
+
+
+def parse_raw_ai_command_type(data: bytes) -> RawSingleValueNotification:
+    return _parse_raw_single_value(data, expected_kind="ai_command_type")

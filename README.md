@@ -122,8 +122,9 @@ features. All 86 callback declarations classified as opcode-originated have offl
 decoder coverage; this is not a count of distinct wire families.
 Every one of those 85 request and 86 callback codec rows links to an importable Python
 encoder, parser, typed factory, or stateful pipeline. The four shared `23` sensor
-wrappers now have exact start selectors and a common stop selector; five raw callback
-rows remain explicitly unresolved rather than being invented as one-to-one parsers.
+wrappers have exact start selectors and a common stop selector. The five raw callback
+rows use callback-specific fail-closed parsers over the shared raw frame decoder, so no
+codec-family binding remains unresolved.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke
