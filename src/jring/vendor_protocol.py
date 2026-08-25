@@ -884,6 +884,10 @@ def parse_vendor_worship_times(data: bytes) -> VendorWorshipTimes:
 
 _KNOWN_78_SUBCOMMANDS = frozenset({0x03, 0x07, 0x08, 0x09, 0x0B, 0x0C})
 
+_ACK_ADDITIONAL_SUCCESS_OPCODES = {
+    StaticAckOperation.GENERIC_SENSOR_MODE: (0x25,),
+}
+
 
 def parse_vendor_motion_frame(
     data: bytes, *, expected_subcommand: int
@@ -911,15 +915,18 @@ def parse_vendor_ack(
     if not isinstance(operation, StaticAckOperation):
         raise TypeError("acknowledgement operation must be a StaticAckOperation")
     success_opcode, failure_opcode = _ACK_OPCODES[operation]
-    allowed = (
+    status_opcodes = (
         (success_opcode,)
         if failure_opcode is None
         else (success_opcode, failure_opcode)
     )
-    response = _response(data, *allowed)
+    success_opcodes = (success_opcode,) + _ACK_ADDITIONAL_SUCCESS_OPCODES.get(
+        operation, ()
+    )
+    response = _response(data, *status_opcodes, *success_opcodes[1:])
     return VendorAcknowledgement(
         operation=operation,
-        success=response[0] == success_opcode,
+        success=response[0] in success_opcodes,
     )
 
 

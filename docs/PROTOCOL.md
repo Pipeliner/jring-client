@@ -314,7 +314,10 @@ bounded memory, and logs that never contain audio, image, or command bytes.
 Seventeen have statically paired success and failure opcodes; eight have only a proven
 success branch, so the parser rejects a guessed high-bit failure opcode. The shared
 sensor-mode acknowledgement remains deliberately generic because four different mode
-requests use the same wire opcode and callback.
+requests use the same wire opcode and callback. The dispatcher also reports opcode
+`25` as a successful generic sensor-mode acknowledgement before decoding the same frame
+as multiple-sport data. Both relationships are preserved; the opcode is not counted as
+two distinct wire families.
 
 Notification-content acknowledgement is separate and requires the expected outbound
 marker in addition to the response opcode. ECG-mode acknowledgement is also separate:

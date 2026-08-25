@@ -545,6 +545,16 @@ def test_vendor_ack_decodes_operation_specific_success_and_failure(
     assert success.hardware_verified is False
 
 
+def test_multi_sport_frame_also_reports_generic_sensor_mode_success():
+    result = parse_vendor_ack(
+        bytes((0x25,)) + bytes(19),
+        StaticAckOperation.GENERIC_SENSOR_MODE,
+    )
+
+    assert result.success is True
+    assert result.operation is StaticAckOperation.GENERIC_SENSOR_MODE
+
+
 @pytest.mark.parametrize(
     "operation,success_opcode",
     [
