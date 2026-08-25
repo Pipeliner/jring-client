@@ -183,9 +183,12 @@ Desired outcomes:
   direct, bound, branching, pipeline, stateful, and unresolved-family relationships.
 - Exercise generic history through an exact fake request, with source callback counts
   preserved and local quiet visibly distinct from a device-confirmed terminal.
-- Show generic explicitly-unresolved rows, all rows retaining caveats, and every
+- Show generic topology rows, all rows retaining caveats, and every
   terminal-rule category as separate denominators so a smaller gap count cannot imply
   parity.
+- When the generic topology bucket reaches zero, immediately explain that only static
+  classification improved; caveats, response semantics, live availability, and hardware
+  verification remain separate gates.
 - Answer whether complete Bluetooth capability parity is established before presenting
   closure-looking counts, and keep successful report generation separate from scoped
   interface accounting, source semantics, live vendor availability, and hardware

@@ -1294,10 +1294,17 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         "Request/callback correlation: "
         f"{summary['request_correlation_rows']}/85 deterministic request rows; "
         f"{summary['request_correlation_unspecified']} unspecified; "
-        f"{summary['request_correlation_explicitly_unresolved']} remain generic "
-        "explicitly unresolved; "
+        f"{summary['request_correlation_explicitly_unresolved']} remain in the "
+        "generic topology bucket; "
         f"{summary['request_correlation_rows_with_caveats']} carry explicit caveats."
     )
+    if summary["request_correlation_explicitly_unresolved"] == 0:
+        print(
+            "Zero generic rows means every request has a more specific static "
+            "classification only; "
+            f"{summary['request_correlation_rows_with_caveats']} rows still have "
+            "explicit caveats, and no live or hardware support follows."
+        )
     terminal_rules = {
         item["rule"]: item["count"]
         for item in summary["request_correlation_terminal_rules"]

@@ -167,9 +167,11 @@ reference classification—not semantic, dependency/transitive, runtime, or hard
 completion.
 The report also gives every deterministic request codec one request/callback
 correlation row. Proven single responses, shared streams, stateful families, raw event
-candidates, callback-silent failures, and explicit unknowns remain distinct. Three
-rows remain in the generic explicitly-unresolved state, while 58 of 85 retain at least
-one explicit caveat. The contact-fingerprint request and notification share an exact `46`
+candidates, callback-silent failures, and explicit unknowns remain distinct. No row
+remains in the generic topology bucket, but 58 of 85 retain at least one explicit
+caveat. That zero means only that every row has a more specific static classification;
+it does not establish response semantics, live availability, or hardware support. The
+contact-fingerprint request and notification share an exact `46`
 four-byte shape but remain an unproven event relationship, not an acknowledgement. The
 phone-volume path
 is modeled as an inbound device request followed by an outbound host-state projection,
@@ -189,6 +191,10 @@ notification may cause a local mismatch branch to reload private contacts and se
 fingerprint plus content batches, while local contact changes can send the same outbound
 sequence without a notification. No acknowledgement, response, terminal, private-store
 reproduction, or runtime is established.
+The three formerly generic rows now record a narrower bounded fact: the reviewed
+dispatcher exposes no eligible callback for the exact phone-call-state, AI-language,
+or app-state discriminator. Responses on another discriminator, delivery, device side
+effects, failure, and terminal behavior remain unproven; quiet is never success.
 App-ID now has only a cross-opcode notification candidate, while the shared Phone-MAC
 opcode is recorded as an unrelated host-volume collision with no eligible callback.
 Two private network-configuration rows retain only a disjoint Wi-Fi state-event

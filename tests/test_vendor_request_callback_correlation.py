@@ -5,6 +5,11 @@ import json
 import pytest
 
 from jring.vendor_codec_registry import REQUEST_CODEC_LOCATORS
+from jring.vendor_commands import (
+    encode_ai_language,
+    encode_app_state,
+    encode_phone_call_state,
+)
 from jring.vendor_app_use_evidence import (
     CallbackDispatchState,
     RequestAppUseState,
@@ -41,7 +46,7 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
     assert all(row.relationship_state != "unspecified" for row in rows.values())
     assert all(row.callbacks or row.unresolved_reasons for row in rows.values())
     assert evidence.unspecified_count == 0
-    assert evidence.explicitly_unresolved_count == 3
+    assert evidence.explicitly_unresolved_count == 0
     assert evidence.rows_with_unresolved_reasons_count == 58
     assert Counter(row.relationship_state for row in evidence.rows) == {
         "exact_single": 47,
@@ -55,7 +60,7 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
         "reverse_direction_pipeline_candidate_unproven": 7,
         "reverse_direction_event_ack_candidate_unproven": 1,
         "same_opcode_semantic_collision_no_correlation": 1,
-        "explicitly_unresolved": 3,
+        "reviewed_dispatcher_no_eligible_callback": 3,
     }
     assert evidence.terminal_rule_counts == (
         ("local_quiet_unknown", 2),
@@ -91,6 +96,102 @@ def test_endpoint_partition_and_raw_candidates_are_explicitly_non_acknowledging(
             "queryAiState", "setAiCommandType", "setAiExtraAction",
         )
     )
+
+
+def test_final_generic_rows_have_specific_callback_absence_without_response_claims():
+    rows = {row.request: row for row in recovered_request_callback_correlations().rows}
+    expected = {
+        "sendPhoneCallState": (
+            "outbound_opcode_43_app_telephony_projection_has_no_eligible_callback_"
+            "in_reviewed_dispatcher",
+            False,
+            (
+                "same_opcode_receive_branch_not_observed_in_reviewed_dispatcher",
+                "response_on_another_discriminator_not_excluded",
+                "telephony_state_mapping_and_local_side_effects_not_reproduced",
+                "outbound_event_failure_and_terminal_not_proven",
+            ),
+        ),
+        "setAILang": (
+            "outbound_opcode_54_subcommand_10_reaches_callback_silent_fallthrough_"
+            "in_reviewed_dispatcher",
+            True,
+            (
+                "setter_app_invoke_not_observed",
+                "same_discriminator_receive_path_is_callback_silent",
+                "response_on_another_discriminator_not_excluded",
+                "language_meaning_host_locale_and_device_side_effects_not_reproduced",
+                "outbound_request_failure_and_terminal_not_proven",
+            ),
+        ),
+        "setAppState": (
+            "outbound_opcode_52_app_lifecycle_projection_has_no_eligible_callback_"
+            "in_reviewed_dispatcher",
+            False,
+            (
+                "same_opcode_receive_branch_not_observed_in_reviewed_dispatcher",
+                "response_on_another_discriminator_not_excluded",
+                "lifecycle_value_meanings_and_device_side_effects_not_reproduced",
+                "outbound_projection_failure_and_terminal_not_proven",
+            ),
+        ),
+    }
+
+    for request, (discriminator, shared, caveats) in expected.items():
+        row = rows[request]
+        assert row.request_discriminator == discriminator
+        assert row.accepted_response_predicates == ()
+        assert row.callbacks == ()
+        assert row.multiplicity == "none_proven"
+        assert row.terminal_rule == "none_proven"
+        assert row.failure_delivery == "none_proven"
+        assert row.relationship_state == "reviewed_dispatcher_no_eligible_callback"
+        assert row.shared_or_unsolicited is shared
+        assert row.unresolved_reasons == caveats
+        assert row.quiet_means_success is False
+
+
+def test_final_generic_classifications_are_app_anchored_and_privacy_safe():
+    evidence = recovered_vendor_app_use_evidence()
+    requests = {row.name: row for row in evidence.requests}
+
+    assert (
+        requests["sendPhoneCallState"].state
+        is RequestAppUseState.DIRECT_APP_INTERFACE_INVOKE
+    )
+    assert requests["sendPhoneCallState"].direct_invoke_count == 1
+    assert (
+        requests["setAILang"].state
+        is RequestAppUseState.SDK_WIRE_ENTRY_WITHOUT_APP_INVOKE
+    )
+    assert requests["setAILang"].direct_invoke_count == 0
+    assert requests["setAppState"].state is RequestAppUseState.DIRECT_APP_INTERFACE_INVOKE
+    assert requests["setAppState"].direct_invoke_count == 4
+
+    phone = encode_phone_call_state(
+        first_value=11,
+        second_value=12,
+        third_value=13,
+        fourth_value=14,
+    )
+    language = encode_ai_language("private-locale-x")
+    app = encode_app_state(first_state=1234567, second_state=-7654321)
+    assert phone.privacy_class == "phone_state"
+    assert language.privacy_class == "locale"
+    assert app.privacy_class == "device_state"
+
+    rendered = json.dumps(
+        {
+            "phone": repr(phone),
+            "language": repr(language),
+            "app": repr(app),
+            "rows": [asdict(row) for row in recovered_request_callback_correlations().rows],
+        },
+        sort_keys=True,
+    )
+    assert "private-locale-x" not in rendered
+    assert "1234567" not in rendered
+    assert "7654321" not in rendered
 
 
 def test_single_ack_silent_failure_and_success_only_families_stay_distinct():

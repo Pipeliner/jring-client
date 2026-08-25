@@ -349,13 +349,14 @@ top-level verdict while `ok: true` means only that report generation succeeded. 
 independent dimensions keep recovered-AIDL row accounting separate from source
 semantics, live vendor availability, and hardware verification; no percentage or
 exhaustive Bluetooth-capability denominator is invented. Correlation reporting
-distinguishes the three rows
-remaining in the generic explicitly-unresolved state from all 58 rows carrying
+distinguishes zero rows remaining in the generic topology bucket from all 58 rows carrying
 explicit caveats and enumerates every terminal rule: 36 single matched responses, 29
 with no proven terminal, 17 per-frame-only, two
 local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown. It never
-presents that smaller relationship-gap count as the complete terminal-gap denominator. A
-separately labeled supplemental section reports
+presentation of that smaller relationship-gap count cannot imply terminal completeness. A
+directly adjacent sentence explains that zero generic rows means more-specific static
+classification only and establishes no response semantics, live availability, or
+hardware support. A separately labeled supplemental section reports
 recovered session transitions, adversarial races, and source-labeled binding reactions;
 it explicitly says these are not interface entries and therefore never inflates the
 112-request or 105-callback ledgers. The same supplement begins with `Static source

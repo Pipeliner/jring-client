@@ -219,8 +219,10 @@ alarm batching and dial-state queue mutation divergences explicit and remains st
 non-callable, and hardware-ineligible.
 
 Request/callback correlation is a third view over the 85 deterministic request codecs.
-Each request has exactly one closed row, including three explicitly unresolved rows and
-zero unspecified rows. The model preserves endpoint role, opcode/subcommand or marker
+Each request has exactly one closed row, with zero generic and zero unspecified rows.
+Three rows use `reviewed_dispatcher_no_eligible_callback`, which states only that the
+reviewed dispatcher has no eligible callback for the exact discriminator. The model
+preserves endpoint role, opcode/subcommand or marker
 predicates, ordered callback projections, multiplicity, direct versus silent failure,
 and terminal rules. Seventy-eight rows use main TX/main RX, six use raw TX/raw RX, and
 the media-FTP signal uses main TX with a separately labeled local-service projection;
@@ -245,6 +247,11 @@ Four private E-card/SMS CRC/content rows likewise share update-shaped callback
 topology, but their disjoint selectors do not prove which branch an update selects,
 ordering, value propagation, batch completion, local private-store access, or an
 acknowledgement. They remain outside every transaction factory.
+The phone-call-state and app-state discriminators have no matching receive branch in
+the reviewed dispatcher; the AI-language selector reaches a callback-silent
+fallthrough. Empty callback and response predicates preserve that bounded negative
+fact without excluding a response elsewhere or inventing delivery, failure, terminal,
+field meaning, side effects, or quiet success.
 App-ID has only a cross-opcode event candidate, and outbound Phone-MAC is explicitly
 separated from the inbound host-volume request that shares its opcode. The two Wi-Fi
 credential batches have only a disjoint state-event candidate, while the media-FTP

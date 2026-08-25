@@ -213,7 +213,60 @@ def _wifi_private_state_candidate(*, extended: bool) -> dict[str, object]:
     }
 
 
+def _reviewed_dispatcher_without_eligible_callback(
+    discriminator: str,
+    unresolved: tuple[str, ...],
+    *,
+    shared: bool = False,
+) -> dict[str, object]:
+    """Describe a bounded dispatcher-negative fact without claiming device silence."""
+
+    return {
+        "request_discriminator": discriminator,
+        "predicates": (),
+        "callbacks": (),
+        "multiplicity": "none_proven",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "reviewed_dispatcher_no_eligible_callback",
+        "shared": shared,
+        "unresolved": unresolved,
+    }
+
+
 _OVERRIDES: dict[str, dict[str, object]] = {
+    "sendPhoneCallState": _reviewed_dispatcher_without_eligible_callback(
+        "outbound_opcode_43_app_telephony_projection_has_no_eligible_callback_"
+        "in_reviewed_dispatcher",
+        (
+            "same_opcode_receive_branch_not_observed_in_reviewed_dispatcher",
+            "response_on_another_discriminator_not_excluded",
+            "telephony_state_mapping_and_local_side_effects_not_reproduced",
+            "outbound_event_failure_and_terminal_not_proven",
+        ),
+    ),
+    "setAILang": _reviewed_dispatcher_without_eligible_callback(
+        "outbound_opcode_54_subcommand_10_reaches_callback_silent_fallthrough_"
+        "in_reviewed_dispatcher",
+        (
+            "setter_app_invoke_not_observed",
+            "same_discriminator_receive_path_is_callback_silent",
+            "response_on_another_discriminator_not_excluded",
+            "language_meaning_host_locale_and_device_side_effects_not_reproduced",
+            "outbound_request_failure_and_terminal_not_proven",
+        ),
+        shared=True,
+    ),
+    "setAppState": _reviewed_dispatcher_without_eligible_callback(
+        "outbound_opcode_52_app_lifecycle_projection_has_no_eligible_callback_"
+        "in_reviewed_dispatcher",
+        (
+            "same_opcode_receive_branch_not_observed_in_reviewed_dispatcher",
+            "response_on_another_discriminator_not_excluded",
+            "lifecycle_value_meanings_and_device_side_effects_not_reproduced",
+            "outbound_projection_failure_and_terminal_not_proven",
+        ),
+    ),
     "getCurSportData": _single("onGetCurSportData", "success_opcode_03_or_13", "failure_opcode_83", failure="callback_silent"),
     "getDeviceBatery": _single("onGetDeviceBatery", "success_opcode_0b", "failure_opcode_8b", failure="callback_silent"),
     "getDeviceInfo": _single("onGetDeviceInfo", "success_opcode_0c", "failure_opcode_8c", failure="callback_silent"),

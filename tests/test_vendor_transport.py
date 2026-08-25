@@ -38,7 +38,12 @@ from jring.vendor_main_commands import (
     NoArgumentMainCommandRequest,
     ScreenLightTimeRequest,
 )
-from jring.vendor_commands import encode_ai_language, encode_device_time
+from jring.vendor_commands import (
+    encode_ai_language,
+    encode_app_state,
+    encode_device_time,
+    encode_phone_call_state,
+)
 from jring.vendor_phone_integration import (
     ContactRecord,
     ECardRecord,
@@ -911,11 +916,19 @@ def test_typed_vendor_command_with_exact_ack_composes_fake_operation():
     assert parsed.operation.value == "device_time"
 
 
-def test_command_without_exact_response_correlation_is_rejected():
-    request = encode_ai_language("en")
-
+@pytest.mark.parametrize(
+    "command_request",
+    (
+        encode_ai_language("en"),
+        encode_app_state(first_state=0, second_state=1),
+        encode_phone_call_state(
+            first_value=0, second_value=0, third_value=0, fourth_value=0
+        ),
+    ),
+)
+def test_command_without_exact_response_correlation_is_rejected(command_request):
     with pytest.raises(TypeError, match="correlation"):
-        OfflineVendorOperation.from_command_request(request)
+        OfflineVendorOperation.from_command_request(command_request)
 
 
 def test_phone_integration_request_with_ack_composes_without_exposing_profile():

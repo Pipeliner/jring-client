@@ -210,7 +210,10 @@ A closed correlation ledger now accounts for all 85 deterministic request codecs
 Forty-seven have exact single-frame callback eligibility, one has exact branching,
 six are shared streams, five are shared/stateful, thirteen are non-ack event candidates,
 nine are reverse-direction pipelines or candidates, one is a known same-opcode
-semantic collision with no eligible callback, and three remain explicitly unresolved.
+semantic collision with no eligible callback, and three have no eligible callback in
+the reviewed dispatcher. No row remains in the generic topology bucket. That zero is
+classification progress only: 58 rows retain caveats, and response semantics, live
+availability, and hardware support are not established.
 The contact relationship proves
 only matching outbound and
 inbound `46` four-byte shapes plus callback eligibility; it proves no causality,
@@ -220,8 +223,8 @@ without proving any acknowledgement or terminal.
 Contact-content is separately classified as a conditional reverse-direction sync
 candidate. A contact-fingerprint notification may enter an app-local mismatch branch
 that reloads private contacts and sends fingerprint plus content batches, but the
-fingerprint-equality branch sends no batch and a local contact change can send the outbound
-sequence without a notification. No acknowledgement, response, batch terminal,
+fingerprint-equality branch sends no batch and a local contact change can send the
+outbound sequence without a notification. No acknowledgement, response, batch terminal,
 private-store reproduction, or runtime is established.
 The SMS-send pair is a second reverse-direction candidate: inbound `4d/06` projects a
 redacted event and outbound `4d/07` is ACK-named, but value propagation, ordering,
@@ -239,6 +242,12 @@ media-FTP terminal-shaped signal follows both source-local success and exhausted
 failure and is not device, file-transfer, firmware, or OTA completion proof.
 Its correlation row therefore uses a local-service projection role rather than
 mislabeling `onNotifyFtpStateInfo` as main-channel BLE RX.
+The phone-call-state and app-state outbound discriminators have no corresponding
+receive branch in the reviewed dispatcher. AI-language shares the broad `54` opcode,
+but its exact selector reaches callback-silent fallthrough. These are bounded static
+dispatcher-negative facts, not proof that a device emits no response: another
+discriminator, delivery, field meaning, side effects, failure, and terminal behavior
+remain unproven, and quiet is not success.
 Four additional topology rows record only what the committed dispatcher and codec
 evidence can support: a shared weather-refresh/cached-weather candidate, a shared
 motion-stream state candidate, an unowned ChatGPT action event candidate, and a shared
