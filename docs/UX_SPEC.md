@@ -353,7 +353,7 @@ distinguishes zero rows remaining in the generic topology bucket from all 58 row
 explicit caveats and enumerates every terminal rule: 36 single matched responses, 29
 with no proven terminal, 17 per-frame-only, two
 local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown. It never
-presentation of that smaller relationship-gap count cannot imply terminal completeness. A
+presents that smaller relationship-gap count as terminal completeness. A
 directly adjacent sentence explains that zero generic rows means more-specific static
 classification only and establishes no response semantics, live availability, or
 hardware support. A separately labeled supplemental section reports
@@ -490,6 +490,14 @@ retries and poisons unsafe reuse. Results use plain language: “no vendor comma
 sent” for an aborted attempt, and “may have received / was not repeated / create a new
 simulator” for an uncertain attempt. Every result remains synthetic and
 hardware-unverified, and neither Bleak nor `JRingClient` accepts this coordinator.
+
+Fake-singleton eligibility is a separate closed denominator over all 85 deterministic
+requests. Human coverage reports 36 statically matched-terminal rows, 11 typed projections,
+six ambiguous or batched per-frame rows, 29 rows with no proven terminal, and three
+locally/marker-bounded streams. Only the 36 can enter the success-returning fake engine;
+all rows remain explicitly live-ineligible, owner-unauthorized, and hardware-ineligible.
+The attractive presence of a typed callback, opcode match, or parsed value never turns
+the other groups into acknowledgement or transaction success.
 
 Identifier-bearing device responses are redacted or hidden by construction. Binding
 fields remain unnamed, factory bytes require an explicit local-use accessor, all 15 EQ

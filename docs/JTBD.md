@@ -226,6 +226,9 @@ Desired outcomes:
 - Resolve vendor routes by exact connection-scoped service/characteristic instance and
   reject duplicate UUIDs, stale identities, or missing response/notification metadata
   before any future operation can subscribe or write.
+- Let a protocol maintainer distinguish a typed callback projection from a proven
+  transaction terminal, so value/event callbacks and ambiguous batched routes can never
+  be reported as singleton success.
 
 ### Understand what environments are actually supported
 

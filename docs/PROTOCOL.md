@@ -259,8 +259,12 @@ and content rows in a family therefore reference the same redacted callback, whi
 branch selection, ordering, blob/value propagation, local data access, failure, and
 terminal behavior remain unknown. Opaque sync fingerprints are not security checks.
 
-Offline singleton runtime reproduction now includes the eight typed settings families,
+Offline singleton runtime reproduction now includes six typed settings families with
+statically matched terminals,
 four static query families, seven personal-setting families, and screen-light route.
+The shared sensor-session start/stop encoders remain byte-exact offline codecs, but the
+singleton factory rejects them because one per-frame projection cannot disambiguate the
+four wrappers or the shared `25` path.
 The three streaming static day queries are rejected and use the separate shared-day
 collector. The operation factory accepts only a closed encoder result, validates its 20-byte operation
 shape, and binds the exact typed acknowledgement parser. Personal settings deliberately
@@ -274,13 +278,22 @@ The fake operation layer additionally accepts seven exact no-argument main queri
 the typed screen-light request. Response matching retains `54`/`78` subcommands and EQ
 get/set discrimination. Wi-Fi scan remains outside the singleton engine because its
 fragment stream has no proven whole-operation terminal.
-Twelve of the 18 typed command families have exact callback eligibility and can be
-simulated. The other six are rejected because silence or name similarity is not a
-response contract. This includes no exception for factory, binding, or health-shaped
-commands: all remain synthetic and hardware-ineligible.
-Three phone-integration encoders also have closed singleton responses: user info,
-Wi-Fi AP state, and worship info. Multi-frame credentials/content and ambiguous sync
-notifications are rejected by the factory instead of treated as acknowledgements.
+Callback eligibility alone no longer admits a command to singleton simulation. Only
+device time and the two heart-rate start/stop encoder variants have matched-terminal
+rows. Nine command value/event projections are rejected as non-terminal, while six
+other command families lack an exact response relationship. There is no exception for
+factory, binding, or health-shaped commands: all remain synthetic and hardware-ineligible.
+Only user info has a phone-integration singleton terminal. Wi-Fi AP and worship values
+are typed projections, not acknowledgements; multi-frame credentials/content and
+ambiguous sync notifications are likewise rejected.
+
+A closed 85-row fake-singleton eligibility crosswalk derives from the correlation
+ledger's terminal rules and caveats: 36 singleton matched terminals, 11 typed non-terminal projections, six ambiguous
+or batched per-frame routes, 29 with no proven terminal, and three locally or
+marker-bounded streams. A callback value cannot yield `SUCCEEDED` unless its request is
+in the first set, and every row explicitly remains live-ineligible, owner-unauthorized,
+and hardware-ineligible. The other capabilities retain their codecs and parsers for dedicated
+collectors whose completion remains unknown or aborted.
 
 Raw fake reproduction now uses the distinct `33f5` write and `33f6` notification
 roles. A bounded collector accepts an optional typed raw command and decodes event

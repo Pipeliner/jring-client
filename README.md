@@ -205,7 +205,9 @@ or hardware support.
 Local quiet is never promoted to success, and matching requires an operation token
 plus connection generation.
 The fake-only singleton transaction simulator composes four static query families, the
-screen-light subcommand, and all eight typed settings families. The other three static
+screen-light subcommand, and six typed settings families with statically matched terminals.
+The two shared sensor-session setting shapes are rejected because their per-frame
+projection is ambiguous across four interface wrappers and a shared opcode. The other three static
 queries use the separate shared-day history collector because their first matching
 frame is not a proven terminal. A synthetic mutation
 acknowledgement is parsed through the same closed correlation rules; this still creates
@@ -228,13 +230,18 @@ zero.
 Seven additional no-argument main queries and the typed screen-light request use
 subcommand-aware fake matchers. Streaming Wi-Fi scan is rejected rather than being
 misrepresented as a singleton response.
-Twelve typed command families with exact static correlations also compose in the fake
-runtime, including value-event and health/factory-shaped test vectors. Six command
-families with no exact response relationship are rejected; fake composition grants no
-live or hardware authority regardless of risk class.
-Three single-frame phone-integration families with closed responses—user info, Wi-Fi AP
-mode, and the neutral worship setting—are also composable. Other private sync/content
-families remain rejected until their streaming or causal terminal rules are proven.
+Three typed command encoder variants—device time plus heart-rate start and stop—compose
+because their interface rows have statically matched terminals. Nine typed command
+value/event projections and two phone projections no longer become transaction
+success; six other command families with no exact response relationship remain
+rejected. Only the user-info phone integration has a singleton matched terminal.
+Other private sync/content families remain rejected until their streaming or causal
+terminal rules are proven.
+Across all 85 deterministic requests, a closed fake-singleton eligibility ledger now separates
+36 singleton matched terminals, 11 typed non-terminal projections, six ambiguous or
+batched per-frame routes, 29 with no proven terminal, and three locally/marker-bounded
+streams. Only the first group can enter the success-returning fake engine; this grants
+no live, owner-authorized, or hardware eligibility.
 The scripted fake now has a distinct raw `33f5`/`33f6` route and bounded event
 collector. It can write a closed raw command and parse typed raw notifications, but
 always reports unknown completeness: an event is not an acknowledgement, reaching an

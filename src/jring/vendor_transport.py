@@ -24,7 +24,6 @@ from .uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 from .vendor_protocol import (
     StaticAckOperation,
     Static54ValueEvent,
-    StaticValueEvent,
     StaticQuery,
     StaticVendorRequest,
     encode_static_query,
@@ -32,7 +31,6 @@ from .vendor_protocol import (
     parse_vendor_ack,
     parse_vendor_band_functions,
     parse_vendor_battery,
-    parse_vendor_binding_info,
     parse_vendor_current_sport,
     parse_vendor_device_info,
     parse_vendor_device_code,
@@ -40,14 +38,9 @@ from .vendor_protocol import (
     parse_vendor_device_dial_custom,
     parse_vendor_device_file_state,
     parse_vendor_eq_info,
-    parse_vendor_ecg_mode_ack,
-    parse_vendor_factory_test_data,
     parse_vendor_offline_speech_mode,
     parse_vendor_screen_light_time,
     parse_vendor_sensor_measurement,
-    parse_vendor_touch_mode,
-    parse_vendor_value_event,
-    parse_vendor_worship_info,
     parse_vendor_54_value_event,
     static_protocol_coverage,
 )
@@ -80,6 +73,10 @@ from .vendor_commands import (
     StaticVendorCommandRequest,
 )
 from .vendor_phone_integration import OfflinePhoneOperation, OfflinePhoneRequest
+from .vendor_runtime_eligibility import (
+    fake_singleton_terminal_request_names,
+    require_fake_singleton_terminal,
+)
 
 _ENGINE_IDS = itertools.count()
 
@@ -161,14 +158,18 @@ _ZERO_ARGUMENT_QUERIES = frozenset(
         StaticQuery.BAND_FUNCTIONS,
     }
 )
+_STATIC_QUERY_REQUEST_NAMES = {
+    StaticQuery.CURRENT_SPORT: "getCurSportData",
+    StaticQuery.BATTERY: "getDeviceBatery",
+    StaticQuery.DEVICE_INFO: "getDeviceInfo",
+    StaticQuery.BAND_FUNCTIONS: "getBandFunction",
+}
 
 _SETTING_ACKS = {
     StaticVendorSettingOperation.DEVICE_SETTINGS: StaticAckOperation.DEVICE_INFO_SET,
     StaticVendorSettingOperation.HOUR_FORMAT: StaticAckOperation.HOUR_FORMAT,
     StaticVendorSettingOperation.DEVICE_CODE: StaticAckOperation.DEVICE_CODE_SET,
     StaticVendorSettingOperation.LANGUAGE: StaticAckOperation.LANGUAGE,
-    StaticVendorSettingOperation.SENSOR_SESSION_START: StaticAckOperation.GENERIC_SENSOR_MODE,
-    StaticVendorSettingOperation.SENSOR_SESSION_STOP: StaticAckOperation.GENERIC_SENSOR_MODE,
     StaticVendorSettingOperation.HEART_RATE_AREA: StaticAckOperation.HEART_RATE_AREA,
     StaticVendorSettingOperation.DEVICE_NAME: StaticAckOperation.DEVICE_NAME,
 }
@@ -181,6 +182,16 @@ _SETTING_REQUEST_OPCODES = {
     StaticVendorSettingOperation.SENSOR_SESSION_STOP: 0x23,
     StaticVendorSettingOperation.HEART_RATE_AREA: 0x26,
     StaticVendorSettingOperation.DEVICE_NAME: 0x30,
+}
+_SETTING_REQUEST_NAMES = {
+    StaticVendorSettingOperation.DEVICE_SETTINGS: "setDeviceInfo",
+    StaticVendorSettingOperation.HOUR_FORMAT: "setHourFormat",
+    StaticVendorSettingOperation.DEVICE_CODE: "setDeviceCode",
+    StaticVendorSettingOperation.LANGUAGE: "setLanguage",
+    StaticVendorSettingOperation.SENSOR_SESSION_START: "setBloodPressureMode",
+    StaticVendorSettingOperation.SENSOR_SESSION_STOP: "setBloodPressureMode",
+    StaticVendorSettingOperation.HEART_RATE_AREA: "setDeviceHeartRateArea",
+    StaticVendorSettingOperation.DEVICE_NAME: "setDeviceName",
 }
 _PERSONAL_ACKS = {
     PersonalSettingOperation.REMINDER: StaticAckOperation.REMINDER,
@@ -200,6 +211,15 @@ _PERSONAL_REQUEST_OPCODES = {
     PersonalSettingOperation.EDIT_DEVICE_DIAL_CUSTOM: 0x41,
     PersonalSettingOperation.FEMALE_REMINDER: 0x44,
 }
+_PERSONAL_REQUEST_NAMES = {
+    PersonalSettingOperation.REMINDER: "setReminder",
+    PersonalSettingOperation.REMINDER_TEXT: "setReminderText",
+    PersonalSettingOperation.BP_ADJUST: "setBPAdjust",
+    PersonalSettingOperation.DEVICE_DIAL_STATE: "setDeviceDialState",
+    PersonalSettingOperation.DEVICE_WALLPAPER_STATE: "setDeviceWallpaperState",
+    PersonalSettingOperation.EDIT_DEVICE_DIAL_CUSTOM: "editDeviceDialCustom",
+    PersonalSettingOperation.FEMALE_REMINDER: "setFemaleReminder",
+}
 _BEHAVIOR_ACKS = {
     VibrationRequest: ("vibration", 0x04, StaticAckOperation.VIBRATION),
     AntiLostRequest: ("anti_lost", 0x05, StaticAckOperation.ANTI_LOST),
@@ -211,6 +231,16 @@ _BEHAVIOR_ACKS = {
         "auto_heart_schedule", 0x19, StaticAckOperation.AUTO_HEART,
     ),
     GoalStepRequest: ("goal_step", 0x1A, StaticAckOperation.GOAL),
+}
+_BEHAVIOR_REQUEST_NAMES = {
+    VibrationRequest: "sendVibrationSignal",
+    AntiLostRequest: "setAntiLost",
+    CameraModeRequest: "setPhontMode",
+    IdleReminderRequest: "setIdleTime",
+    SleepScheduleRequest: "setSleepTime",
+    DeviceModeRequest: "setDeviceMode",
+    AutoHeartScheduleRequest: "setAutoHeartMode",
+    GoalStepRequest: "setGoalStep",
 }
 _NO_ARGUMENT_MAIN_RESPONSES = {
     NoArgumentMainCommand.DEVICE_CODE: (
@@ -236,17 +266,21 @@ _NO_ARGUMENT_MAIN_RESPONSES = {
         (0x78,), (), 0x0C, parse_vendor_offline_speech_mode,
     ),
 }
+_NO_ARGUMENT_REQUEST_NAMES = {
+    NoArgumentMainCommand.DEVICE_CODE: "getDeviceCode",
+    NoArgumentMainCommand.DEVICE_DIAL: "getDeviceDial",
+    NoArgumentMainCommand.DEVICE_DIAL_CUSTOM: "getDeviceDialCustom",
+    NoArgumentMainCommand.DEVICE_SYSTEM_STATE: "getDeviceSystemStateInfo",
+    NoArgumentMainCommand.EQ_INFO: "getEqInfo",
+    NoArgumentMainCommand.MEDIA_FILE_STATE: "getMediaFileState",
+    NoArgumentMainCommand.OFFLINE_SPEECH_STATE: (
+        "queryOfflineSpeechRecognitionState"
+    ),
+}
 _COMMAND_RESPONSES = {
     StaticVendorCommandOperation.DEVICE_TIME: (
         0x01, (0x01,), (0x81,), None,
         partial(parse_vendor_ack, operation=StaticAckOperation.DEVICE_TIME),
-    ),
-    StaticVendorCommandOperation.ECG_MODE: (
-        0x2A, (0x2A,), (), None, parse_vendor_ecg_mode_ack,
-    ),
-    StaticVendorCommandOperation.EQ_INFO: (
-        0x53, (0x53,), (), 0x00,
-        partial(parse_vendor_eq_info, expected_kind="set"),
     ),
     StaticVendorCommandOperation.HEART_RATE_SESSION_START: (
         0x14, (0x14,), (0x94,), None, parse_vendor_sensor_measurement,
@@ -254,44 +288,60 @@ _COMMAND_RESPONSES = {
     StaticVendorCommandOperation.HEART_RATE_SESSION_STOP: (
         0x15, (0x15,), (0x95,), None, parse_vendor_sensor_measurement,
     ),
+}
+_COMMAND_REQUEST_NAMES = {
+    StaticVendorCommandOperation.DEVICE_TIME: "setDeviceTime",
+    StaticVendorCommandOperation.ECG_MODE: "setEcgMode",
+    StaticVendorCommandOperation.EQ_INFO: "setEqInfo2",
+    StaticVendorCommandOperation.HEART_RATE_SESSION_START: "setHeartRateMode",
+    StaticVendorCommandOperation.HEART_RATE_SESSION_STOP: "setHeartRateMode",
     StaticVendorCommandOperation.OFFLINE_SPEECH_RECOGNITION: (
-        0x78, (0x78,), (), 0x03, parse_vendor_offline_speech_mode,
+        "setOfflineSpeechRecognitionState"
     ),
-    StaticVendorCommandOperation.TEMPERATURE_MODE: (
-        0x37, (0x37,), (), None,
-        partial(parse_vendor_value_event, event=StaticValueEvent.TEMPERATURE_MODE),
-    ),
-    StaticVendorCommandOperation.TOUCH_MODE: (
-        0x78, (0x78,), (), 0x09, parse_vendor_touch_mode,
-    ),
-    StaticVendorCommandOperation.FACTORY_TEST_MODE: (
-        0x50, (0x50,), (), None, parse_vendor_factory_test_data,
-    ),
-    StaticVendorCommandOperation.AI_CONNECTION_METHOD: (
-        0x54, (0x54,), (), 0x14,
-        partial(parse_vendor_54_value_event, event=Static54ValueEvent.AI_CONNECTION_METHOD),
-    ),
-    StaticVendorCommandOperation.BINDING_INFO: (
-        0x4B, (0x4B,), (), None, parse_vendor_binding_info,
-    ),
-    StaticVendorCommandOperation.BLOOD_OXYGEN_MODE: (
-        0x3E, (0x3E,), (), None,
-        partial(parse_vendor_value_event, event=StaticValueEvent.BLOOD_OXYGEN_MODE),
-    ),
+    StaticVendorCommandOperation.TEMPERATURE_MODE: "setTemperatureMode",
+    StaticVendorCommandOperation.TOUCH_MODE: "setTouchMode",
+    StaticVendorCommandOperation.FACTORY_TEST_MODE: "startFactoryTestMode",
+    StaticVendorCommandOperation.AI_CONNECTION_METHOD: "setAiConnectionMethod",
+    StaticVendorCommandOperation.BINDING_INFO: "setBindedInfo",
+    StaticVendorCommandOperation.BLOOD_OXYGEN_MODE: "setBloodOxygenMode",
 }
 _PHONE_RESPONSES = {
     OfflinePhoneOperation.USER_INFO: (
         0x02, (0x02,), (0x82,), None,
         partial(parse_vendor_ack, operation=StaticAckOperation.USER_INFO),
     ),
-    OfflinePhoneOperation.OPEN_WIFI_AP_MODE: (
-        0x54, (0x54,), (), 0x13,
-        partial(parse_vendor_54_value_event, event=Static54ValueEvent.WIFI_AP_STATE),
-    ),
-    OfflinePhoneOperation.WORSHIP_INFO: (
-        0x78, (0x78,), (), 0x07, parse_vendor_worship_info,
-    ),
 }
+_PHONE_REQUEST_NAMES = {
+    OfflinePhoneOperation.USER_INFO: "setUserInfo",
+    OfflinePhoneOperation.OPEN_WIFI_AP_MODE: "openWifiApMode",
+    OfflinePhoneOperation.WORSHIP_INFO: "setWorshipInfo",
+}
+
+
+def fake_singleton_factory_request_names() -> frozenset[str]:
+    """Return the public request rows bound by singleton operation factories."""
+
+    return frozenset(
+        {
+            *(_STATIC_QUERY_REQUEST_NAMES[item] for item in _ZERO_ARGUMENT_QUERIES),
+            *(_SETTING_REQUEST_NAMES[item] for item in _SETTING_ACKS),
+            *(_PERSONAL_REQUEST_NAMES[item] for item in _PERSONAL_ACKS),
+            *(_BEHAVIOR_REQUEST_NAMES[item] for item in _BEHAVIOR_ACKS),
+            *(
+                _NO_ARGUMENT_REQUEST_NAMES[item]
+                for item in _NO_ARGUMENT_MAIN_RESPONSES
+            ),
+            *(_COMMAND_REQUEST_NAMES[item] for item in _COMMAND_RESPONSES),
+            *(_PHONE_REQUEST_NAMES[item] for item in _PHONE_RESPONSES),
+            "SetScreenLightTime",
+        }
+    )
+
+
+if fake_singleton_factory_request_names() != fake_singleton_terminal_request_names():
+    raise RuntimeError(
+        "fake singleton factories do not match the closed terminal eligibility ledger"
+    )
 
 
 @dataclass(frozen=True, init=False, repr=False)
@@ -344,6 +394,7 @@ class OfflineVendorOperation:
             raise TypeError(
                 "streaming day query requires a separate collection state machine"
             )
+        require_fake_singleton_terminal(_STATIC_QUERY_REQUEST_NAMES[request.operation])
         frame = request.synthetic_bytes_for_test()
         if len(frame) != 20 or frame[0] != operation_opcode(request.operation):
             raise ValueError("static request does not match its operation opcode")
@@ -375,6 +426,7 @@ class OfflineVendorOperation:
             raise TypeError("request must be a StaticVendorSettingRequest")
         if not isinstance(request.operation, StaticVendorSettingOperation):
             raise TypeError("request operation must be a StaticVendorSettingOperation")
+        require_fake_singleton_terminal(_SETTING_REQUEST_NAMES[request.operation])
         frame = request.synthetic_bytes_for_test()
         expected_opcode = _SETTING_REQUEST_OPCODES[request.operation]
         if len(frame) != 20 or frame[0] != expected_opcode:
@@ -410,6 +462,7 @@ class OfflineVendorOperation:
             raise TypeError("request must be an OfflinePersonalSettingRequest")
         if not isinstance(request.operation, PersonalSettingOperation):
             raise TypeError("request operation must be a PersonalSettingOperation")
+        require_fake_singleton_terminal(_PERSONAL_REQUEST_NAMES[request.operation])
         frame = request.synthetic_bytes_for_test()
         expected_opcode = _PERSONAL_REQUEST_OPCODES[request.operation]
         if len(frame) != 20 or frame[0] != expected_opcode:
@@ -433,6 +486,7 @@ class OfflineVendorOperation:
         binding = _BEHAVIOR_ACKS.get(type(request))
         if binding is None:
             raise TypeError("request must be a closed single-frame behavior request")
+        require_fake_singleton_terminal(_BEHAVIOR_REQUEST_NAMES[type(request)])
         name, expected_opcode, ack_operation = binding
         frames = request.frames()
         if len(frames) != 1:
@@ -456,6 +510,7 @@ class OfflineVendorOperation:
         """Compose a proven single-response main-command route for the fake runtime."""
 
         if type(request) is ScreenLightTimeRequest:
+            require_fake_singleton_terminal("SetScreenLightTime")
             frames = request.frames()
             frame = frames[0].synthetic_bytes_for_test()
             return cls._create(
@@ -473,6 +528,7 @@ class OfflineVendorOperation:
         binding = _NO_ARGUMENT_MAIN_RESPONSES.get(request.command)
         if binding is None:
             raise TypeError("main command has no proven single-response binding")
+        require_fake_singleton_terminal(_NO_ARGUMENT_REQUEST_NAMES[request.command])
         success, failure, expected_subcommand, parser = binding
         frames = request.frames()
         if len(frames) != 1:
@@ -497,6 +553,9 @@ class OfflineVendorOperation:
 
         if type(request) is not StaticVendorCommandRequest:
             raise TypeError("request must be a StaticVendorCommandRequest")
+        request_name = _COMMAND_REQUEST_NAMES.get(request.operation)
+        if request_name is not None:
+            require_fake_singleton_terminal(request_name)
         binding = _COMMAND_RESPONSES.get(request.operation)
         if binding is None:
             raise TypeError("command has no exact response correlation")
@@ -521,6 +580,9 @@ class OfflineVendorOperation:
 
         if type(request) is not OfflinePhoneRequest:
             raise TypeError("request must be an OfflinePhoneRequest")
+        request_name = _PHONE_REQUEST_NAMES.get(request.operation)
+        if request_name is not None:
+            require_fake_singleton_terminal(request_name)
         binding = _PHONE_RESPONSES.get(request.operation)
         if binding is None:
             raise TypeError("phone integration has no exact singleton correlation")
@@ -544,6 +606,7 @@ class OfflineVendorOperation:
     def screen_light_time(cls) -> "OfflineVendorOperation":
         """Closed static subcommand route used by offline matcher simulations."""
 
+        require_fake_singleton_terminal("SetScreenLightTime")
         return cls._create(
             name="screen_light_time",
             request_frame=bytes((0x78, 0x0A)) + bytes(18),

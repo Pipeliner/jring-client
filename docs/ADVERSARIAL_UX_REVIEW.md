@@ -69,6 +69,7 @@ Date: 2026-08-24
 | Private Wi-Fi and FTP names implied connection or completion | Credential selectors remain disjoint from an unowned state event, while the FTP terminal-shaped signal is shared by source-local success and exhausted failure |
 | Complete-looking interface counts appeared before the live and hardware gaps | Protocol coverage now begins with an explicit negative parity verdict and separates scoped AIDL accounting from semantic, live-vendor, and hardware dimensions |
 | Zero generic topology rows looked like complete response semantics | The immediately adjacent warning says every row merely has a more-specific static classification; 58 caveated rows, live zero, and hardware zero remain separate |
+| A typed value/event callback was promoted to singleton transaction success | An 85-row fake-singleton ledger admits only 36 statically matched terminals; every row remains explicitly live-, owner-, and hardware-ineligible |
 | Declaration parity hid transaction and marshalling drift | A 217-row Binder crosswalk verifies contiguous IDs, all four surfaces, ordered Parcel kinds, reply handshakes, and synchronous mode |
 | Parcel `int32` erased boolean meaning | Each row exposes semantic kinds separately from its Parcel representation |
 | Local notification state was mislabeled as a CCCD action | Raw control evidence separates local toggles, always-enable descriptor bytes, queue-result callback, and asynchronous completion |

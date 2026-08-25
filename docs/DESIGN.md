@@ -269,7 +269,7 @@ Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 
 The exact-type fake singleton runtime accepts closed operation factories for four
-static query encoders, all eight typed setting encoders, and all seven personal-setting
+static query encoders, six matched-terminal typed setting encoders, and all seven personal-setting
 encoders, plus eight single-frame behavior requests and the independently closed
 screen-light route. Composition validates the
 fixed request opcode, binds the operation-specific acknowledgement parser, and
@@ -281,16 +281,29 @@ separate history collector, which cannot close on the first matching frame.
 Alarm batching is rejected rather than flattened: its base/content messages,
 per-alarm acknowledgements, and source non-atomic enqueue behavior need a dedicated
 batch state machine.
+Shared sensor-session start/stop is also rejected: the generic encoder loses which of
+four interface wrappers initiated the frame, and opcode `25` is also a multi-sport
+projection rather than a proven singleton terminal.
 Seven no-argument main queries and the typed screen-light request also compose through
 closed response bindings. Multiplexed `54`/`78` families require exact subcommands;
 the EQ route preserves its get-kind discriminator. Wi-Fi scan is rejected because its
 count and fragment assembly have no proven whole-scan terminal.
-Twelve strict command encoders have exact response bindings and therefore compose into
-the fake engine; six without a closed correlation fail at the factory boundary. Health,
-binding, and factory-mode risk labels do not change this rule or make an operation live.
-The phone-integration boundary similarly permits only three exact single-frame routes:
-user-info acknowledgement, Wi-Fi AP state, and worship-info projection. Private sync,
-content, credential, and external-pipeline requests stay outside the singleton engine.
+Only device time plus heart-rate start/stop have command bindings in the singleton
+engine. Nine other command rows are typed value/event projections with no proven
+terminal, and six lack a closed response correlation. The phone-integration boundary
+permits only user-info acknowledgement; Wi-Fi AP state and worship info are projections.
+Health, binding, and factory-mode risk labels cannot override terminal eligibility.
+Private sync, content, credential, and external-pipeline requests stay outside the
+singleton engine.
+
+`vendor_runtime_eligibility` is the fail-closed, fake-singleton-only join between all
+85 correlation rows and fake factories. Its mutually exclusive states contain 36 singleton matched
+terminals, 11 typed non-terminal projections, six ambiguous/batched per-frame routes,
+29 no-proven-terminal routes, and three locally/marker-bounded streams. Every singleton
+factory resolves its public interface row through this ledger before constructing an
+operation; only matched terminals can later close as `SUCCEEDED` in the fake engine.
+Every row and aggregate carries `fake_singleton_only`, `live_eligible=false`,
+`owner_authorized=false`, and hardware-ineligible state.
 
 Raw simulation uses separate fake metadata for TX `33f5` and RX `33f6`; the main fake
 route fails raw preflight. The bounded collector subscribes before an optional closed

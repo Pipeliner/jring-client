@@ -30,6 +30,7 @@ from jring.vendor_settings import (
     encode_device_name,
     encode_hour_format,
     encode_sensor_session_start,
+    encode_sensor_session_stop,
 )
 from jring.vendor_personal_settings import encode_reminder_text
 from jring.vendor_behavior_settings import AlarmBatchRequest, VibrationRequest
@@ -39,10 +40,19 @@ from jring.vendor_main_commands import (
     ScreenLightTimeRequest,
 )
 from jring.vendor_commands import (
+    encode_ai_connection_method,
     encode_ai_language,
     encode_app_state,
+    encode_binding_info,
+    encode_blood_oxygen_mode,
     encode_device_time,
+    encode_ecg_mode,
+    encode_eq_info,
+    encode_factory_test_mode,
+    encode_offline_speech_recognition,
     encode_phone_call_state,
+    encode_temperature_mode,
+    encode_touch_mode,
 )
 from jring.vendor_phone_integration import (
     ContactRecord,
@@ -53,12 +63,14 @@ from jring.vendor_phone_integration import (
     encode_download_completed,
     encode_e_card_content,
     encode_e_card_crc,
+    encode_open_wifi_ap_mode,
     encode_phone_mac,
     encode_sms_reply_content,
     encode_sms_reply_crc,
     encode_user_info,
     encode_wifi_hotspot_info,
     encode_wifi_hotspot_info_ex,
+    encode_worship_info,
 )
 
 
@@ -791,12 +803,6 @@ def test_streaming_day_queries_are_rejected_by_single_response_factory(query):
     [
         (encode_hour_format(HourFormat.TWELVE), "hour_format", (0x1D,), (0x9D,)),
         (encode_device_name("Ring"), "device_name", (0x30,), ()),
-        (
-            encode_sensor_session_start(SensorSessionMode.MODE_2),
-            "sensor_session_start",
-            (0x23, 0x25),
-            (0xA3,),
-        ),
     ],
 )
 def test_typed_setting_requests_compose_fake_only_ack_operations(
@@ -929,6 +935,49 @@ def test_typed_vendor_command_with_exact_ack_composes_fake_operation():
 def test_command_without_exact_response_correlation_is_rejected(command_request):
     with pytest.raises(TypeError, match="correlation"):
         OfflineVendorOperation.from_command_request(command_request)
+
+
+@pytest.mark.parametrize(
+    "command_request",
+    (
+        encode_ai_connection_method(1),
+        encode_binding_info(first_value=0, second_value=0, third_value=0),
+        encode_blood_oxygen_mode(True),
+        encode_ecg_mode(True, mode_code=1),
+        encode_eq_info(first_metadata=0, second_metadata=0, values=tuple(range(10))),
+        encode_offline_speech_recognition(True),
+        encode_temperature_mode(True),
+        encode_touch_mode(1),
+        encode_factory_test_mode(True),
+    ),
+)
+def test_typed_nonterminal_projection_cannot_become_singleton_success(command_request):
+    with pytest.raises(TypeError, match="typed_nonterminal_projection"):
+        OfflineVendorOperation.from_command_request(command_request)
+
+
+@pytest.mark.parametrize(
+    "phone_request",
+    (
+        encode_open_wifi_ap_mode(enabled=True),
+        encode_worship_info(first=1, second=2),
+    ),
+)
+def test_phone_nonterminal_projection_cannot_become_singleton_success(phone_request):
+    with pytest.raises(TypeError, match="typed_nonterminal_projection"):
+        OfflineVendorOperation.from_phone_request(phone_request)
+
+
+@pytest.mark.parametrize(
+    "setting_request",
+    (
+        encode_sensor_session_start(SensorSessionMode.MODE_1),
+        encode_sensor_session_stop(),
+    ),
+)
+def test_ambiguous_sensor_projection_cannot_become_singleton_success(setting_request):
+    with pytest.raises(TypeError, match="ambiguous_or_batched_per_frame"):
+        OfflineVendorOperation.from_setting_request(setting_request)
 
 
 def test_phone_integration_request_with_ack_composes_without_exposing_profile():

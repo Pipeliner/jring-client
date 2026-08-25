@@ -56,6 +56,10 @@ from .vendor_request_callback_correlation import (
     recovered_request_callback_correlations,
 )
 from .vendor_request_routing import recovered_request_routing_evidence
+from .vendor_runtime_eligibility import (
+    FakeSingletonEligibilityState,
+    recovered_vendor_fake_singleton_eligibility,
+)
 from .vendor_session_evidence import recovered_session_evidence
 from .vendor_warning_evidence import (
     ComparisonState,
@@ -495,6 +499,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     dispatcher = recovered_dispatcher_evidence()
     request_builders = recovered_request_builder_evidence()
     request_correlations = recovered_request_callback_correlations()
+    fake_singleton_eligibility = recovered_vendor_fake_singleton_eligibility()
     request_routing = recovered_request_routing_evidence()
     app_use = recovered_vendor_app_use_evidence()
     binder = recovered_vendor_binder_evidence()
@@ -633,6 +638,36 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 {"rule": rule, "count": count}
                 for rule, count in request_correlations.terminal_rule_counts
             ],
+            "request_fake_singleton_matched_terminal": dict(
+                fake_singleton_eligibility.state_counts
+            )[FakeSingletonEligibilityState.SINGLETON_MATCHED_TERMINAL],
+            "request_fake_singleton_typed_nonterminal_projection": dict(
+                fake_singleton_eligibility.state_counts
+            )[FakeSingletonEligibilityState.TYPED_NONTERMINAL_PROJECTION],
+            "request_fake_singleton_ambiguous_or_batched_projection": dict(
+                fake_singleton_eligibility.state_counts
+            )[FakeSingletonEligibilityState.AMBIGUOUS_OR_BATCHED_PER_FRAME],
+            "request_fake_singleton_no_proven_terminal": dict(
+                fake_singleton_eligibility.state_counts
+            )[FakeSingletonEligibilityState.NO_PROVEN_TERMINAL],
+            "request_fake_singleton_local_or_marker_bounded_stream": dict(
+                fake_singleton_eligibility.state_counts
+            )[FakeSingletonEligibilityState.LOCAL_OR_MARKER_BOUNDED_STREAM],
+            "request_fake_singleton_eligibility_scope": (
+                fake_singleton_eligibility.eligibility_scope
+            ),
+            "request_fake_singleton_live_eligible": (
+                fake_singleton_eligibility.live_eligible
+            ),
+            "request_fake_singleton_owner_authorized": (
+                fake_singleton_eligibility.owner_authorized
+            ),
+            "request_fake_singleton_hardware_eligible": (
+                fake_singleton_eligibility.hardware_eligible
+            ),
+            "request_fake_singleton_hardware_verified": (
+                fake_singleton_eligibility.hardware_verified
+            ),
             "app_direct_request_targets": app_use.direct_request_target_count,
             "app_direct_request_invokes": app_use.direct_request_invoke_count,
             "directly_invoked_callbacks": (
@@ -1317,6 +1352,20 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{terminal_rules['local_quiet_unknown']} local quiet unknown; "
         f"{terminal_rules['metadata_or_explicit_marker_else_local_quiet_unknown']} "
         "metadata/marker or local quiet unknown."
+    )
+    print(
+        "Fake singleton classification (static only): "
+        f"{summary['request_fake_singleton_matched_terminal']} statically "
+        "matched-terminal rows may enter the fake engine; "
+        f"{summary['request_fake_singleton_typed_nonterminal_projection']} typed "
+        "projections, "
+        f"{summary['request_fake_singleton_ambiguous_or_batched_projection']} "
+        "ambiguous or batched per-frame rows, "
+        f"{summary['request_fake_singleton_no_proven_terminal']} no-proven-terminal "
+        "rows, and "
+        f"{summary['request_fake_singleton_local_or_marker_bounded_stream']} local or "
+        "marker-bounded streams are rejected from fake singleton success. This grants "
+        "no live eligibility, owner authorization, or hardware eligibility."
     )
     print(
         "Owned app interface use: "

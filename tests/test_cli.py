@@ -689,6 +689,13 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
         "quiet unknown."
     ) in output
     assert (
+        "Fake singleton classification (static only): 36 statically matched-terminal "
+        "rows may enter the fake engine; 11 typed projections, 6 ambiguous or batched "
+        "per-frame rows, 29 no-proven-terminal rows, and 3 local or marker-bounded "
+        "streams are rejected from fake singleton success. This grants no live "
+        "eligibility, owner authorization, or hardware eligibility."
+    ) in output
+    assert (
         "Owned app interface use: 51/112 request targets across 152 direct "
         "invokes; 103/105 callbacks have a direct invoke (181 sites: "
         "125 main, 6 raw, 50 outside dispatchers)."
@@ -792,6 +799,18 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["request_correlation_unspecified"] == 0
     assert result["summary"]["request_correlation_explicitly_unresolved"] == 0
     assert result["summary"]["request_correlation_rows_with_caveats"] == 58
+    assert result["summary"]["request_fake_singleton_matched_terminal"] == 36
+    assert result["summary"]["request_fake_singleton_typed_nonterminal_projection"] == 11
+    assert result["summary"]["request_fake_singleton_ambiguous_or_batched_projection"] == 6
+    assert result["summary"]["request_fake_singleton_no_proven_terminal"] == 29
+    assert result["summary"]["request_fake_singleton_local_or_marker_bounded_stream"] == 3
+    assert result["summary"]["request_fake_singleton_eligibility_scope"] == (
+        "fake_singleton_only"
+    )
+    assert result["summary"]["request_fake_singleton_live_eligible"] is False
+    assert result["summary"]["request_fake_singleton_owner_authorized"] is False
+    assert result["summary"]["request_fake_singleton_hardware_eligible"] is False
+    assert result["summary"]["request_fake_singleton_hardware_verified"] is False
     assert result["summary"]["request_correlation_terminal_rules"] == [
         {"rule": "local_quiet_unknown", "count": 2},
         {
