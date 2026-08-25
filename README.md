@@ -153,7 +153,8 @@ instead.
 
 Live ring input is not available yet. Inspect the local evidence and candidate boundary
 without Bluetooth first; this includes standard HID metadata, media/volume/shutter
-actions, the cumulative step counter, unknown motion channels, and raw non-health
+actions, the cumulative step counter, unknown motion channels, classic profile/RFCOMM
+evidence, classic metadata callbacks, the host volume-state request, and raw non-health
 framing:
 
 ```sh
@@ -202,6 +203,9 @@ generating desktop input.
 `jring capabilities --simulate` demonstrates the versioned non-health inventory. The
 offline `jring non-health-capabilities` view lists all 13 statically mapped device
 actions: six input candidates and seven blocked side-effecting actions. With
+the same local-only command, five supplemental general-use rows keep classic profile
+attachment, RFCOMM OTA transport, two classic metadata callbacks, and the host
+volume-state request visible without claiming that any is live or HID-compatible. With
 an explicitly selected device, `jring capabilities --address-file ...` enumerates only
 standard service/characteristic/descriptor metadata. It never reads a HID Report Map
 or report value and never subscribes. A read property is only advertised metadata; no

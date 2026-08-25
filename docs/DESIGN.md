@@ -226,6 +226,10 @@ created `uinput` device advertises only the code selected by its validated mappi
 Standard HID service `1812` is detected as a capability only; raw HID
 reports are neither parsed nor logged. Simulated `step` is the only motion source until
 hardware event frames are verified.
+The local non-health inventory separately exposes classic profile attachment, RFCOMM
+OTA transport, two classic metadata callbacks, and the host volume-state request.
+These rows share no activation path with HID and remain non-live, non-input-eligible
+evidence.
 
 `JRingClient.capability_inventory` concurrently requests service UUIDs and static GATT
 metadata under one deadline. The transport returns only characteristic properties and

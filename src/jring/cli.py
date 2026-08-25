@@ -926,6 +926,8 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
     )
     headings = (
         ("standard_metadata", "Standards metadata"),
+        ("classic_bluetooth", "Classic Bluetooth evidence"),
+        ("host_integration", "Host integration"),
         ("device_actions", "Static device actions"),
         ("sensor_candidates", "Sensor-derived candidates"),
         ("raw_channel", "Raw non-health framing"),

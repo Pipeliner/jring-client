@@ -318,6 +318,15 @@ volume-state request, screen-light time, touch mode, and two schedule-state vari
 They require exact 20-byte frames and exact subcommands, make no writes, and do not
 claim that the fields are supported on owner hardware.
 
+The task-first non-health inventory also carries five supplemental rows that were easy
+to miss in an input-only view: Android classic attachment/profile plumbing, the
+embedded OTA helper's two RFCOMM socket methods, classic info and name callbacks, and
+the device's request for current host volume state. All are static/offline evidence.
+Classic transport is not HID, callback decoding is not attachment, and the volume
+request does not authorize the offline reply codec as a live write. The reviewed app
+bodies discard the unknown-motion and two raw callback arguments, so SDK delivery is
+not presented as app consumption.
+
 ## Optional raw channel
 
 `jring.vendor_raw_protocol` independently represents the six statically wired raw

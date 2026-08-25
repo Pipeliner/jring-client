@@ -135,7 +135,9 @@ HID reports.
 
 Given no ring, `jring non-health-capabilities` starts with the boundary that live ring
 input is unavailable, then lists standard HID metadata, statically classified device
-actions, cumulative-step and unknown-motion candidates, and raw non-health framing.
+actions, cumulative-step and unknown-motion candidates, classic profile/RFCOMM
+evidence, two classic metadata callbacks, the host volume-state request, and raw
+non-health framing.
 Every item carries evidence, maturity, neutral meaning, hardware-verification, live,
 candidate, and input-eligibility states. All live and input-eligible states are false.
 The command is local-only: it rejects simulation and device selectors and constructs
@@ -162,6 +164,11 @@ Opaque IDs are metadata-only and explicitly not targetable by current reads or
 subscriptions; no backend handle or object is serialized.
 No hardware motion event appears as verified until an accepted issue-#1 fixture proves
 its non-health meaning.
+The classic rows remain a separate section from standard HID: Android attachment
+plumbing and an OTA socket helper do not prove a HID profile, while decoded classic
+metadata does not prove attachment. The raw action/payload and unknown-motion rows also
+state when the reviewed app callback discards its arguments, keeping SDK dispatch
+distinct from app consumption.
 
 Known vendor UUIDs are inventoried in both service and characteristic positions.
 Each observation states only its location and `meaning: unknown`; a writable property

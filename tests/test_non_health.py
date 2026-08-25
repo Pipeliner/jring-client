@@ -6,7 +6,7 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     items = static_non_health_capabilities()
     by_name = {item.name: item for item in items}
 
-    assert len(items) == len(by_name) == 18
+    assert len(items) == len(by_name) == 23
     assert set(by_name) == {
         "standard_hid_metadata",
         "find_phone_alarm",
@@ -26,6 +26,11 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
         "unknown_motion_channels",
         "raw_ai_actions",
         "raw_audio_or_image_payloads",
+        "classic_profile_attachment",
+        "classic_rfcomm_ota_transport",
+        "classic_bt_info_callback",
+        "classic_bt_name_callback",
+        "host_volume_state_request",
     }
     assert by_name["standard_hid_metadata"].evidence == "bluetooth_standard"
     assert by_name["standard_hid_metadata"].maturity == "selected_device_metadata"
@@ -41,6 +46,13 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert by_name["cumulative_step_counter"].input_candidate is False
     assert by_name["unknown_motion_channels"].meaning == "unknown"
     assert by_name["unknown_motion_channels"].label == "Nine unknown motion channels"
+    assert by_name["classic_profile_attachment"].group == "classic_bluetooth"
+    assert by_name["classic_rfcomm_ota_transport"].meaning == "file_transfer_transport"
+    assert by_name["classic_bt_info_callback"].maturity == "offline_decoder"
+    assert by_name["classic_bt_name_callback"].meaning == "private_classic_metadata"
+    assert by_name["host_volume_state_request"].group == "host_integration"
+    assert "discards" in by_name["raw_ai_actions"].description
+    assert "discards" in by_name["unknown_motion_channels"].description
     assert all(item.hardware_verified is False for item in items)
     assert all(item.live_available is False for item in items)
     assert all(item.input_eligible is False for item in items)

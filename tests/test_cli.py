@@ -530,9 +530,14 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "location access blocked" in output
     assert "device write request blocked" in output
     assert "Cumulative step counter" in output
+    assert "Classic profile attachment" in output
+    assert "Classic RFCOMM OTA transport" in output
+    assert "Host volume-state request" in output
     assert "hardware verified: no; live available: no; input eligible: no" in output
     assert output.index("Standard HID metadata") < output.index("Static device actions")
     assert output.index("Static device actions") < output.index("Sensor-derived candidates")
+    assert output.index("Standards metadata") < output.index("Classic Bluetooth evidence")
+    assert output.index("Classic Bluetooth evidence") < output.index("Host integration")
 
 
 def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
@@ -543,7 +548,7 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     assert result["source"] == "local"
     assert result["ok"] is True
     assert result["live_ring_input"] == "unavailable"
-    assert len(result["capabilities"]) == 18
+    assert len(result["capabilities"]) == 23
     assert sum(
         item["group"] == "device_actions" for item in result["capabilities"]
     ) == 13
