@@ -441,13 +441,23 @@ registration domain. These are app-side activation and lifecycle risks, not Pyth
 capabilities or proof that the corresponding Android behavior works.
 
 The reviewed XAPK contains one arm64 native library. Three JNI exports match app-side
-native declarations; seven DEX native declarations remain unmatched. Boundary-aware
-symbol/string review corrects earlier generic substring hits and finds no recognized
-Bluetooth, GATT, HID, or dial identifier, but native instruction behavior was not
-exhaustively reviewed. Five owned Bluetooth-related files still use reflective method
-invocation, Binder surfaces exist, and dial-related resource tokens are not semantically
-resolved. Dynamic dial-transfer activation and complete artifact coverage therefore
-remain inconclusive.
+native declarations; seven DEX native declarations remain unmatched. A bounded review
+of all three packaged JNI roots and their transitive native call graph classifies them
+as image/wallpaper processing and layout work. It finds no rooted Bluetooth transport,
+dial-transfer, Java-reflection, JNI-registration, or module-loading edge. The six SDK
+native declarations cannot bind to this packaged library through ordinary JNI names;
+external or runtime binding remains inconclusive. This is not a whole-ELF instruction
+review and does not establish native Bluetooth absence.
+
+The 11 reflection calls in five owned Bluetooth-related files are
+now instruction-resolved to nine constant Android bond, telephony, classic-profile, and
+GATT-cache targets; none has a dial-transfer receiver, argument, class-loading, or
+constructor flow. A bounded trace of manifest components, relevant resources, six
+app-owned launch sites, nine relevant Binder requests, seven callbacks, and the bound
+service finds no static activation edge for the standalone dial implementation. The
+generic OTA implementation is constructed instead. Runtime-generated reflection,
+encrypted activation, or externally supplied native binding are not disproved, so
+runtime activation and complete artifact coverage remain inconclusive.
 
 ## Static history streams
 

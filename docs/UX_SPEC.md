@@ -250,7 +250,12 @@ classification, dynamic-receiver mismatches, unresolved native declarations, and
 inconclusive dial-activation result. It never turns method, resource-keyword, Binder, or
 native-declaration counts into capabilities. All private digests, DEX ordinals,
 descriptors, prototypes, component/action names, code spans, native filenames, and
-resource identities stay outside human and JSON output.
+resource identities stay outside human and JSON output. The aggregate may say that all
+11 owned reflective calls resolve to constant Android helper categories, the reviewed
+Binder/resource/navigation routes have no standalone-dial activation edge, and all
+three packaged JNI roots perform image/wallpaper work without a rooted Bluetooth edge.
+It still keeps runtime-generated, external-native, and exhaustive activation
+inconclusive.
 `--json` returns every ledger entry and both closed, non-runnable evidence graphs in a
 schema-1 success envelope without frame bytes, locators, logs, or source. The command
 constructs no transport and rejects simulation, address, and timeout options because

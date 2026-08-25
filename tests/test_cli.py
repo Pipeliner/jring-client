@@ -285,6 +285,9 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Exclusive owned method classification: 903 methods across 125 classes." in output
     assert "Dynamic receiver gaps: 3 registered actions without cases" in output
     assert "Native declarations unresolved: 7; native Bluetooth absence not established." in output
+    assert "Native JNI roots: 3 image/wallpaper entries reviewed" in output
+    assert "Owned reflection: 11 calls resolved to constant Android helper targets" in output
+    assert "Standalone dial static activation: no edge in reviewed Binder/resource paths" in output
     assert "Dial-transfer dynamic activation: inconclusive." in output
     assert output.index("Dynamic receiver gaps:") < output.index("AIDL interface parity:")
     assert "missing failure" not in output.lower()
@@ -395,6 +398,10 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert artifact["dynamic_activation_surface"]["review_state"] == "inconclusive"
     assert result["summary"]["artifact_missing_interface_rows"] == 0
     assert result["summary"]["artifact_unresolved_native_declarations"] == 7
+    assert result["summary"]["artifact_rooted_jni_entries_reviewed"] == 3
+    assert result["summary"]["artifact_owned_reflective_invokes"] == 11
+    assert result["summary"]["artifact_standalone_dial_external_references"] == 0
+    assert result["summary"]["artifact_relevant_binder_outbound_invokes"] == 0
     def keys(value):
         if isinstance(value, dict):
             for key, nested in value.items():

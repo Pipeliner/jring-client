@@ -361,6 +361,20 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "artifact_unresolved_native_declarations": (
                 artifact.native_surface.unresolved_native_declaration_count
             ),
+            "artifact_rooted_jni_entries_reviewed": (
+                artifact.native_surface.rooted_jni_entry_count
+            ),
+            "artifact_owned_reflective_invokes": (
+                artifact.dynamic_activation_surface.owned_reflective_invoke_count
+            ),
+            "artifact_standalone_dial_external_references": (
+                artifact.dynamic_activation_surface
+                .standalone_dial_external_descriptor_reference_count
+            ),
+            "artifact_relevant_binder_outbound_invokes": (
+                artifact.dynamic_activation_surface
+                .app_relevant_binder_outbound_invoke_count
+            ),
             "request_routes": dict(sorted(Counter(
                 entry.route for entry in requests
             ).items())),
@@ -592,6 +606,20 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         "Native declarations unresolved: "
         f"{artifact['native_surface']['unresolved_native_declaration_count']}; "
         "native Bluetooth absence not established."
+    )
+    print(
+        "Native JNI roots: "
+        f"{artifact['native_surface']['rooted_jni_entry_count']} "
+        "image/wallpaper entries reviewed; no rooted Bluetooth transport edge."
+    )
+    print(
+        "Owned reflection: "
+        f"{artifact['dynamic_activation_surface']['owned_reflective_invoke_count']} "
+        "calls resolved to constant Android helper targets; no dial-transfer flow."
+    )
+    print(
+        "Standalone dial static activation: no edge in reviewed Binder/resource "
+        "paths; runtime activation remains inconclusive."
     )
     print(
         "Dial-transfer dynamic activation: "

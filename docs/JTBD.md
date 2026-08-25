@@ -171,9 +171,9 @@ Desired outcomes:
 - Expose process-local/system broadcast mismatches, unhandled registered actions,
   sender-permission gaps, and teardown-domain mismatches as app defects, not features.
 - Treat resource keyword counts as UI/localization surface, never capability counts.
-- Correct substring false positives in native symbols and keep unmatched native
-  declarations, opaque instructions, reflection, Binder, and resource activation
-  explicitly unresolved.
+- Correct substring false positives in native symbols; distinguish reviewed JNI roots
+  and statically traced Binder/resource routes from unmatched declarations, unreviewed
+  instructions, and runtime-generated activation that remain unresolved.
 - Publish only sanitized counts and conclusions; keep artifact identities, component and
   action names, code locators, fingerprints, resources, and binaries private.
 

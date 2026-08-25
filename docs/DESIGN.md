@@ -157,9 +157,16 @@ non-interface view. Neither count is added to the 112/105 ledgers.
 
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
-dormancy. Existing reflective invocation, Binder surfaces, unresolved resource entries,
-unmatched native declarations, and unreviewed native instructions keep dynamic
-activation and complete artifact coverage false. Android receiver registration defects
+dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective
+files to constant Android bond, telephony, classic-profile, or GATT-cache targets and
+excludes the separate dial-transfer object from those receiver/argument flows. A bounded
+Binder/resource/navigation trace also finds no static activation edge: the app-owned
+launches use app-owned flows, relevant Binder requests have no app-side invocation, and
+the bound service constructs the generic OTA object. All three packaged JNI roots and
+their bounded transitive call graph perform image/wallpaper work without a rooted
+Bluetooth or dial-transfer edge. Unmatched declarations, whole-ELF instructions, and
+runtime-generated or external binding still keep overall activation inconclusive and
+complete artifact coverage false. Android receiver registration defects
 remain source-app observations; JRing does not recreate their exported or mismatched
 broadcast behavior.
 

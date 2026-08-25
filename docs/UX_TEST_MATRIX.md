@@ -38,8 +38,10 @@ vendor implementation or hardware verification.
 | Android maintainer | System Bluetooth actions are registered through process-local broadcasting | Show the registration-domain mismatch and unhandled cases | Never claim those events are delivered without an observed bridge |
 | Security reviewer | A dynamic system receiver accepts app actions without sender permission | Name the permission and teardown gaps without reproducing action strings | Treat as source-app attack surface; JRing recreates none of it |
 | Security reviewer | The source app has an exported Bluetooth controller and bundled SDK configuration | Expose only component/asset counts and risk boundaries | Never expose component names, actions, credentials, or configuration values |
-| Native reviewer | Boundary-aware scan finds no Bluetooth symbols in the packaged library | Keep seven unmatched declarations and unreviewed instructions visible | Native Bluetooth absence remains unestablished |
+| Native reviewer | All three packaged JNI roots resolve to image/wallpaper processing | Report the bounded rooted graph and keep seven unmatched declarations and whole-ELF instructions visible | Native Bluetooth absence remains unestablished |
 | Runtime reviewer | Direct dial construction is absent but reflection, Binder, and resource tokens exist | Report activation as inconclusive | Never call the implementation dormant or unreachable |
+| Runtime reviewer | All owned reflection calls resolve to constant Android helper targets | Close only that bounded reflection route | Runtime-generated and exhaustive activation remain unresolved |
+| Runtime reviewer | Reviewed Binder, service, resource, and navigation paths never activate the standalone dial class | Report the bounded static no-edge result | Runtime reachability remains inconclusive |
 
 Across every row, logs and errors omit Bluetooth addresses, cloud identifiers, frame
 bytes, raw measurements, and decompiled-source details. Simulation provenance remains

@@ -28,6 +28,9 @@ Date: 2026-08-24
 | Process-local filters implied Android broadcast delivery | Receiver mismatches are blockers and no unseen bridge is invented |
 | Native substring matches implied Bluetooth behavior | Boundary-aware rescanning records zero recognized identifiers while native absence remains unproven |
 | No direct dial constructor was called runtime dormancy | Reflection, Binder, resources, and opaque native behavior keep activation inconclusive |
+| Five reflection files were treated as five unknown calls | The model distinguishes 11 calls in 10 methods and resolves only their constant Android helper targets |
+| Packaged Binder methods or resource labels implied a live dial-transfer route | The model traces relevant static routes and reports zero app activation edges while keeping runtime reachability inconclusive |
+| A native library implied hidden Bluetooth transport | All packaged JNI roots are bounded to image/wallpaper work; whole-ELF and external binding limits remain explicit |
 | Backend errors could leak addresses or BlueZ paths | The final error boundary redacts identifiers, paths, and long payload hex |
 | Address selection required a sensitive argv value | Mode-0600 `--address-file` is the documented path; argv is marked legacy |
 | History silently replaced an existing file | Existing exports require `--force` |

@@ -38,6 +38,22 @@ class ActivationReviewState(str, Enum):
     INCONCLUSIVE = "inconclusive"
 
 
+class OwnedReflectionCategory(str, Enum):
+    ANDROID_BOND = "android_bond_hidden_api"
+    ANDROID_TELEPHONY = "android_telephony_hidden_api"
+    ANDROID_CLASSIC_PROFILE = "android_classic_profile_hidden_api"
+    ANDROID_GATT_CACHE = "android_gatt_cache_refresh"
+
+
+class NativeBindingReviewState(str, Enum):
+    CONTRADICTED = "contradicted"
+    INCONCLUSIVE = "inconclusive"
+
+
+class NativeRootedBehaviorCategory(str, Enum):
+    IMAGE_WALLPAPER_PROCESSING = "image_wallpaper_processing"
+
+
 def _closed_instance(model: type, **values: object) -> object:
     instance = object.__new__(model)
     for name, value in values.items():
@@ -176,8 +192,32 @@ class NativeSurfaceEvidence(_ClosedEvidence):
     bluetooth_gatt_hid_or_dial_symbol_count: int
     dynamic_jni_registration_symbol_observed: bool
     dynamic_library_loader_symbol_observed: bool
+    all_packaged_jni_roots_reviewed: bool
+    rooted_transitive_call_graph_reviewed: bool
+    rooted_jni_entry_count: int
+    rooted_indirect_jni_call_count: int
+    named_undefined_import_count: int
+    needed_library_count: int
+    runtime_initializer_count: int
+    rooted_behavior_category: NativeRootedBehaviorCategory
+    rooted_bluetooth_transport_edge_observed: bool
+    rooted_dial_transfer_edge_observed: bool
+    rooted_java_reflection_edge_observed: bool
+    rooted_jni_registration_edge_observed: bool
+    rooted_module_loading_edge_observed: bool
+    sdk_ordinary_name_binding_state: NativeBindingReviewState
+    sdk_any_possible_runtime_binding_state: NativeBindingReviewState
     native_instruction_review_completed: bool
     native_bluetooth_absence_established: bool
+
+
+@dataclass(frozen=True, init=False, repr=False)
+class OwnedReflectionSurface(_ClosedEvidence):
+    category: OwnedReflectionCategory
+    method_count: int
+    invoke_count: int
+    constant_target: bool
+    dial_transfer_activation_observed: bool
 
 
 @dataclass(frozen=True, init=False, repr=False)
@@ -186,12 +226,32 @@ class DynamicActivationSurfaceEvidence(_ClosedEvidence):
     direct_external_dial_construction_observed: bool
     application_reflective_method_file_count: int
     embedded_sdk_reflective_method_file_count: int
+    owned_reflective_method_count: int
+    owned_reflective_invoke_count: int
+    owned_constant_reflective_target_count: int
+    owned_reflection_targets_resolved: bool
+    owned_reflection_dial_activation_observed: bool
+    reflection_surfaces: tuple[OwnedReflectionSurface, ...]
     owned_common_dynamic_class_construction_file_count: int
+    standalone_dial_descriptor_reference_file_count: int
+    standalone_dial_external_descriptor_reference_count: int
+    standalone_dial_dotted_name_reference_count: int
+    standalone_dial_manifest_component_count: int
+    reviewed_relevant_resource_xml_count: int
+    resource_on_click_or_navigation_edge_count: int
+    app_owned_explicit_launch_site_count: int
+    standalone_dial_explicit_launch_count: int
     binder_stub_class_count: int
     binder_proxy_class_count: int
     binder_transact_file_count: int
     binder_on_transact_method_count: int
     direct_owned_service_binding_call_observed: bool
+    relevant_binder_request_transaction_count: int
+    app_relevant_binder_outbound_invoke_count: int
+    relevant_callback_transaction_count: int
+    generic_ota_service_construction_observed: bool
+    standalone_dial_binder_construction_observed: bool
+    standalone_dial_static_activation_observed: bool
     resource_dial_tokens_present: bool
     resource_activation_resolved: bool
     native_dial_identifier_evidence: bool
@@ -449,8 +509,46 @@ _NATIVE = _closed_instance(
     bluetooth_gatt_hid_or_dial_symbol_count=0,
     dynamic_jni_registration_symbol_observed=False,
     dynamic_library_loader_symbol_observed=False,
+    all_packaged_jni_roots_reviewed=True,
+    rooted_transitive_call_graph_reviewed=True,
+    rooted_jni_entry_count=3,
+    rooted_indirect_jni_call_count=30,
+    named_undefined_import_count=43,
+    needed_library_count=4,
+    runtime_initializer_count=2,
+    rooted_behavior_category=NativeRootedBehaviorCategory.IMAGE_WALLPAPER_PROCESSING,
+    rooted_bluetooth_transport_edge_observed=False,
+    rooted_dial_transfer_edge_observed=False,
+    rooted_java_reflection_edge_observed=False,
+    rooted_jni_registration_edge_observed=False,
+    rooted_module_loading_edge_observed=False,
+    sdk_ordinary_name_binding_state=NativeBindingReviewState.CONTRADICTED,
+    sdk_any_possible_runtime_binding_state=NativeBindingReviewState.INCONCLUSIVE,
     native_instruction_review_completed=False,
     native_bluetooth_absence_established=False,
+)
+
+
+def _reflection(
+    category: OwnedReflectionCategory,
+    methods: int,
+    invokes: int,
+) -> OwnedReflectionSurface:
+    return _closed_instance(
+        OwnedReflectionSurface,
+        category=category,
+        method_count=methods,
+        invoke_count=invokes,
+        constant_target=True,
+        dial_transfer_activation_observed=False,
+    )
+
+
+_REFLECTION_SURFACES = (
+    _reflection(OwnedReflectionCategory.ANDROID_BOND, 3, 3),
+    _reflection(OwnedReflectionCategory.ANDROID_TELEPHONY, 1, 2),
+    _reflection(OwnedReflectionCategory.ANDROID_CLASSIC_PROFILE, 3, 3),
+    _reflection(OwnedReflectionCategory.ANDROID_GATT_CACHE, 3, 3),
 )
 
 _DYNAMIC_ACTIVATION = _closed_instance(
@@ -459,21 +557,42 @@ _DYNAMIC_ACTIVATION = _closed_instance(
     direct_external_dial_construction_observed=False,
     application_reflective_method_file_count=2,
     embedded_sdk_reflective_method_file_count=3,
+    owned_reflective_method_count=10,
+    owned_reflective_invoke_count=11,
+    owned_constant_reflective_target_count=9,
+    owned_reflection_targets_resolved=True,
+    owned_reflection_dial_activation_observed=False,
+    reflection_surfaces=_REFLECTION_SURFACES,
     owned_common_dynamic_class_construction_file_count=0,
+    standalone_dial_descriptor_reference_file_count=3,
+    standalone_dial_external_descriptor_reference_count=0,
+    standalone_dial_dotted_name_reference_count=0,
+    standalone_dial_manifest_component_count=0,
+    reviewed_relevant_resource_xml_count=11,
+    resource_on_click_or_navigation_edge_count=0,
+    app_owned_explicit_launch_site_count=6,
+    standalone_dial_explicit_launch_count=0,
     binder_stub_class_count=19,
     binder_proxy_class_count=13,
     binder_transact_file_count=25,
     binder_on_transact_method_count=23,
     direct_owned_service_binding_call_observed=False,
+    relevant_binder_request_transaction_count=9,
+    app_relevant_binder_outbound_invoke_count=0,
+    relevant_callback_transaction_count=7,
+    generic_ota_service_construction_observed=True,
+    standalone_dial_binder_construction_observed=False,
+    standalone_dial_static_activation_observed=False,
     resource_dial_tokens_present=True,
-    resource_activation_resolved=False,
+    resource_activation_resolved=True,
     native_dial_identifier_evidence=False,
     exhaustive_dynamic_activation_review=False,
     limitations=(
-        "reflective_method_dispatch_not_excluded",
-        "binder_framework_wrapper_or_dependency_activation_not_excluded",
-        "resource_entries_not_semantically_resolved",
-        "opaque_native_behavior_not_exhaustively_disproved",
+        "owned_reflection_review_is_bounded_to_the_five_observed_files",
+        "binder_and_resource_review_is_bounded_to_dial_transfer_activation",
+        "runtime_generated_or_encrypted_activation_not_excluded",
+        "packaged_jni_roots_reviewed_but_whole_elf_behavior_not_exhaustively_disproved",
+        "external_or_runtime_sdk_native_binding_not_excluded",
         "direct_reference_absence_does_not_establish_runtime_dormancy",
     ),
 )
@@ -515,8 +634,12 @@ __all__ = [
     "InterfaceLinkEvidence",
     "InterfaceParityEvidence",
     "ManifestSurfaceEvidence",
+    "NativeBindingReviewState",
+    "NativeRootedBehaviorCategory",
     "NativeSurfaceEvidence",
     "OwnedCodeScope",
+    "OwnedReflectionCategory",
+    "OwnedReflectionSurface",
     "RecoveredArtifactSurfaceEvidence",
     "ResourceSurfaceEvidence",
     "recovered_artifact_surface_evidence",

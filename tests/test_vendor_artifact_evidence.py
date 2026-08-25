@@ -9,7 +9,10 @@ from jring.vendor_artifact_evidence import (
     ActivationReviewState,
     AndroidBluetoothApiFamily,
     ClassifiedMethodSurfaceKind,
+    NativeBindingReviewState,
+    NativeRootedBehaviorCategory,
     OwnedCodeScope,
+    OwnedReflectionCategory,
     recovered_artifact_surface_evidence,
 )
 from jring.vendor_coverage import (
@@ -168,6 +171,30 @@ def test_native_false_positive_is_corrected_without_claiming_native_absence():
     assert native.unresolved_native_declaration_count == 7
     assert native.unresolved_sdk_native_declaration_count == 6
     assert native.bluetooth_gatt_hid_or_dial_symbol_count == 0
+    assert native.all_packaged_jni_roots_reviewed is True
+    assert native.rooted_transitive_call_graph_reviewed is True
+    assert native.rooted_jni_entry_count == 3
+    assert native.rooted_indirect_jni_call_count == 30
+    assert native.named_undefined_import_count == 43
+    assert native.needed_library_count == 4
+    assert native.runtime_initializer_count == 2
+    assert (
+        native.rooted_behavior_category
+        is NativeRootedBehaviorCategory.IMAGE_WALLPAPER_PROCESSING
+    )
+    assert native.rooted_bluetooth_transport_edge_observed is False
+    assert native.rooted_dial_transfer_edge_observed is False
+    assert native.rooted_java_reflection_edge_observed is False
+    assert native.rooted_jni_registration_edge_observed is False
+    assert native.rooted_module_loading_edge_observed is False
+    assert (
+        native.sdk_ordinary_name_binding_state
+        is NativeBindingReviewState.CONTRADICTED
+    )
+    assert (
+        native.sdk_any_possible_runtime_binding_state
+        is NativeBindingReviewState.INCONCLUSIVE
+    )
     assert native.native_instruction_review_completed is False
     assert native.native_bluetooth_absence_established is False
 
@@ -179,16 +206,43 @@ def test_dynamic_dial_activation_remains_inconclusive_across_all_surfaces():
     assert dynamic.direct_external_dial_construction_observed is False
     assert dynamic.application_reflective_method_file_count == 2
     assert dynamic.embedded_sdk_reflective_method_file_count == 3
+    assert dynamic.owned_reflective_method_count == 10
+    assert dynamic.owned_reflective_invoke_count == 11
+    assert dynamic.owned_constant_reflective_target_count == 9
+    assert dynamic.owned_reflection_targets_resolved is True
+    assert dynamic.owned_reflection_dial_activation_observed is False
     assert dynamic.owned_common_dynamic_class_construction_file_count == 0
+    assert dynamic.standalone_dial_descriptor_reference_file_count == 3
+    assert dynamic.standalone_dial_external_descriptor_reference_count == 0
+    assert dynamic.standalone_dial_dotted_name_reference_count == 0
+    assert dynamic.standalone_dial_manifest_component_count == 0
+    assert dynamic.reviewed_relevant_resource_xml_count == 11
+    assert dynamic.resource_on_click_or_navigation_edge_count == 0
+    assert dynamic.app_owned_explicit_launch_site_count == 6
+    assert dynamic.standalone_dial_explicit_launch_count == 0
     assert dynamic.binder_stub_class_count == 19
     assert dynamic.binder_proxy_class_count == 13
     assert dynamic.binder_transact_file_count == 25
     assert dynamic.binder_on_transact_method_count == 23
     assert dynamic.direct_owned_service_binding_call_observed is False
+    assert dynamic.relevant_binder_request_transaction_count == 9
+    assert dynamic.app_relevant_binder_outbound_invoke_count == 0
+    assert dynamic.relevant_callback_transaction_count == 7
+    assert dynamic.generic_ota_service_construction_observed is True
+    assert dynamic.standalone_dial_binder_construction_observed is False
+    assert dynamic.standalone_dial_static_activation_observed is False
     assert dynamic.resource_dial_tokens_present is True
-    assert dynamic.resource_activation_resolved is False
+    assert dynamic.resource_activation_resolved is True
     assert dynamic.native_dial_identifier_evidence is False
     assert dynamic.exhaustive_dynamic_activation_review is False
+
+    reflection = {item.category: item for item in dynamic.reflection_surfaces}
+    assert reflection[OwnedReflectionCategory.ANDROID_BOND].invoke_count == 3
+    assert reflection[OwnedReflectionCategory.ANDROID_TELEPHONY].invoke_count == 2
+    assert reflection[OwnedReflectionCategory.ANDROID_CLASSIC_PROFILE].invoke_count == 3
+    assert reflection[OwnedReflectionCategory.ANDROID_GATT_CACHE].invoke_count == 3
+    assert sum(item.invoke_count for item in reflection.values()) == 11
+    assert all(item.dial_transfer_activation_observed is False for item in reflection.values())
 
 
 def test_artifact_evidence_is_closed_sanitized_and_without_runtime_authority():
@@ -212,6 +266,7 @@ def test_artifact_evidence_is_closed_sanitized_and_without_runtime_authority():
         type(evidence.manifest_surface), type(evidence.dynamic_receiver_surface),
         type(evidence.resource_surface), type(evidence.native_surface),
         type(evidence.dynamic_activation_surface),
+        type(evidence.dynamic_activation_surface.reflection_surfaces[0]),
     ):
         with pytest.raises(TypeError):
             model()
@@ -226,6 +281,7 @@ def test_artifact_evidence_is_closed_sanitized_and_without_runtime_authority():
         type(evidence.manifest_surface), type(evidence.dynamic_receiver_surface),
         type(evidence.resource_surface), type(evidence.native_surface),
         type(evidence.dynamic_activation_surface),
+        type(evidence.dynamic_activation_surface.reflection_surfaces[0]),
     ):
         assert forbidden.isdisjoint(item.name for item in fields(model))
 
