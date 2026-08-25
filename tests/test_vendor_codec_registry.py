@@ -56,13 +56,18 @@ def test_shared_and_stateful_codecs_are_not_misrepresented_as_direct():
     assert REQUEST_CODEC_LOCATORS["setHeartRateMode"].kind is (
         CodecBindingKind.BRANCHING_FACTORY
     )
-    for name in (
-        "setBloodPressureMode", "setPressureMode", "setSpoMode", "setSugarMode",
-    ):
-        assert REQUEST_CODEC_LOCATORS[name].kind is (
-            CodecBindingKind.FAMILY_BINDING_UNRESOLVED
-        )
-        assert REQUEST_CODEC_LOCATORS[name].limitations
+    expected_sensor_modes = {
+        "setBloodPressureMode": "SensorSessionMode.MODE_1",
+        "setSpoMode": "SensorSessionMode.MODE_2",
+        "setSugarMode": "SensorSessionMode.MODE_3",
+        "setPressureMode": "SensorSessionMode.MODE_4",
+    }
+    for name, mode in expected_sensor_modes.items():
+        locator = REQUEST_CODEC_LOCATORS[name]
+        assert locator.kind is CodecBindingKind.BRANCHING_FACTORY
+        assert locator.targets[0].binding == (f"enabled=true:{mode}",)
+        assert locator.targets[1].binding == ("enabled=false:mode_zero",)
+        assert locator.limitations == ()
 
     assert CALLBACK_CODEC_LOCATORS["onGetWifiSsid"].kind is (
         CodecBindingKind.STATEFUL_FACTORY

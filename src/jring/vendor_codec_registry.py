@@ -228,14 +228,16 @@ for _name, _qualname in {
 }.items():
     _REQUESTS[_name] = _direct(_VS, _qualname)
 
-for _name in (
-    "setBloodPressureMode", "setPressureMode", "setSpoMode", "setSugarMode",
-):
+for _name, _mode in {
+    "setBloodPressureMode": "SensorSessionMode.MODE_1",
+    "setSpoMode": "SensorSessionMode.MODE_2",
+    "setSugarMode": "SensorSessionMode.MODE_3",
+    "setPressureMode": "SensorSessionMode.MODE_4",
+}.items():
     _REQUESTS[_name] = _locator(
-        CodecBindingKind.FAMILY_BINDING_UNRESOLVED,
-        _symbol(_VS, "encode_sensor_session_start", "SensorSessionMode"),
-        _symbol(_VS, "encode_sensor_session_stop"),
-        limitations=("public_row_to_neutral_sensor_mode_binding_not_established",),
+        CodecBindingKind.BRANCHING_FACTORY,
+        _symbol(_VS, "encode_sensor_session_start", f"enabled=true:{_mode}"),
+        _symbol(_VS, "encode_sensor_session_stop", "enabled=false:mode_zero"),
     )
 
 

@@ -179,9 +179,10 @@ rather than invented as wire frames. All 105 remain hardware-ineligible.
 The coverage ledger is mechanically linked to code. Immutable registries account for
 exactly 85 request-codec rows and 86 response-decoder rows. Every locator resolves to an
 importable callable or closed typed/stateful factory. Four neutral sensor-setting
-request rows still lack a proven row-to-mode binding, and five raw callback rows share a
-broad parser without a closed expected-type parameter; those nine relationships are
-reported as unresolved family bindings, not direct codecs. Locator resolution does not
+request rows have exact wrapper-to-mode bindings: blood pressure/SpO/sugar/pressure
+start selectors are 1/2/3/4 and every false branch uses selector 0. Five raw callback
+rows still share a broad parser without a closed expected-type parameter; those five
+relationships are reported as unresolved family bindings, not direct codecs. Locator resolution does not
 run a codec or make a row live.
 
 The request-routing evidence independently partitions all 112 rows: 79 deterministic

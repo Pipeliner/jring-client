@@ -121,8 +121,9 @@ and one non-runnable control model. Evidence rows are not behavioral parity or c
 features. All 86 callback declarations classified as opcode-originated have offline
 decoder coverage; this is not a count of distinct wire families.
 Every one of those 85 request and 86 callback codec rows links to an importable Python
-encoder, parser, typed factory, or stateful pipeline. Nine shared-family bindings remain
-explicitly unresolved rather than being invented as one-to-one operations.
+encoder, parser, typed factory, or stateful pipeline. The four shared `23` sensor
+wrappers now have exact start selectors and a common stop selector; five raw callback
+rows remain explicitly unresolved rather than being invented as one-to-one parsers.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 103 directly

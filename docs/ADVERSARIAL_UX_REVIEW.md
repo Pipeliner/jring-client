@@ -48,7 +48,7 @@ Date: 2026-08-24
 | A recognized failure opcode implied callback delivery | Failure metadata identifies callback-silent `83`/`8b`/`8c` branches and both `a5` byte predicates |
 | Fixed-width callback strings lost leading zeroes as integers | Device revisions and dial codes preserve uppercase hexadecimal text and add numeric convenience properties |
 | Codec counts were disconnected from their implementations | Immutable registries resolve all 171 designated rows to code without invoking it |
-| Shared parsers/factories looked one-to-one | Pipeline, stateful, branching, and nine unresolved-family bindings are separate locator kinds |
+| Shared parsers/factories looked one-to-one | Pipeline, stateful, branching, and five unresolved raw-family bindings are separate locator kinds; four sensor selectors are now exact |
 | Every AIDL request looked like one fixed GATT command | A 112-row route partition separates 85 deterministic codecs from shared state, dynamic writes, descriptor control, DFU, and 23 no-packet operations |
 | SDK exposure was presented as APK use | A separate exact ledger distinguishes 51 app-invoked request targets from 61 bundled-but-uninvoked targets and keeps runtime reachability unclaimed |
 | Same-spelled request and callback methods could collapse | Interface roles preserve both `setAutoHeartMode` rows without name-only joining |
