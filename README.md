@@ -60,10 +60,12 @@ The legacy `--address` option remains available, but it exposes the identifier i
 shell history and process listings. Neither discovery result aliases nor addresses are
 persisted by the client, and discovery never auto-selects a device.
 
-For an interactive status check without putting an address in argv or a file, use:
+For an interactive status or metadata-only capability check without putting an address
+in argv or a file, use:
 
 ```sh
 jring status --select --active-scan
+jring capabilities --select --active-scan
 ```
 
 The scan and connection are separate consent steps. The command shows temporary
@@ -72,6 +74,8 @@ heuristic, then asks a default-no confirmation before it can connect. It never
 auto-selects a sole result. Discovery JSON includes the same
 `likely_jring_basis=client_name_heuristic` boundary. This guided path is human-only and
 does not support `--json`; scripts should keep using the mode-0600 address file.
+The capabilities path reads service/characteristic metadata only; it never reads
+values, subscribes, or writes.
 
 Human-readable output is the default. Add `--json` to `status` or `discover` for
 automation. Both task-first options (`jring status --simulate`) and the original
@@ -257,6 +261,10 @@ operating-system input device exists.
 Hardware JRing motion events are not enabled yet: the vendor event frames are not
 verified. This boundary prevents a guessed packet or misclassified health payload from
 generating desktop input.
+
+JRing is not a live HID driver. Linux `uinput` is used only for an explicitly approved
+simulated event today and is a future translation sink for hardware events only after
+those events are owner-verified.
 
 `jring capabilities --simulate` demonstrates the versioned non-health inventory. The
 offline `jring non-health-capabilities` view lists all 13 statically mapped device

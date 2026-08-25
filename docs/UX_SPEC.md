@@ -134,19 +134,28 @@ HID reports.
 ### Read-only non-health capability inventory
 
 Given no ring, `jring non-health-capabilities` starts with the boundary that live ring
-input is unavailable, then lists standard HID metadata, statically classified device
-actions, cumulative-step and unknown-motion candidates, classic profile attachment,
-an RFCOMM socket lifecycle reference, two classic metadata callbacks, the host
-volume-state request, and raw
-non-health framing. A separate general-use section lists the 15 already-decoded
+input is unavailable, JRing is not a live HID driver, and Linux `uinput` is currently
+only a simulator/future translation sink. Screen-reader order is task-first: statically
+classified device actions and cumulative-step/unknown-motion candidates precede
+standard HID metadata, classic profile/RFCOMM evidence, host integration, general-use
+codecs, and raw non-health framing. A general-use section lists the 15 already-decoded
 AI/speech, Wi-Fi, device-system, EQ/media/dial, touch, and screen-light surfaces.
 Every item carries evidence, maturity, neutral meaning, privacy classes, recovered
 request/callback operation names, runnable/hardware-eligibility, hardware-verification,
 live, candidate, and input-eligibility states. All runnable, hardware-eligible,
 hardware-verified, live, and input-eligible states are false. Every operation link
 must still exist in the recovered codec or callback-behavior ledger.
+Device-action labels are source classifications only; their inventory meaning remains
+`unverified_static_action_code`, and available/input-eligible state is announced before
+future candidacy.
 The command is local-only: it rejects simulation and device selectors and constructs
 neither a BLE transport nor an input sink.
+
+For metadata on an explicitly selected ring, `jring capabilities --select
+--active-scan` reuses the same ephemeral-alias, default-no, human-only selection flow
+as status. Confirmation names the capabilities task. After confirmation it inventories
+only services, characteristics, properties, and descriptors; it does not read values,
+subscribe, write, persist an address, or expose an address in output.
 
 Given a selected device or the HID simulator, when a person runs `jring capabilities`,
 then the client enumerates standard GATT metadata only. Human and schema-1 JSON output
@@ -623,7 +632,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_payload_projection_zero_fills_short_and_ignores_extra`, `test_raw_generic_callback_and_typed_projection_are_separate`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
-| Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_all_thirteen_statically_mapped_device_actions_are_discoverable_once`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors` |
+| Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_all_thirteen_statically_mapped_device_actions_are_discoverable_once`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors`, `test_guided_capabilities_selects_ephemerally_and_reads_metadata_only`, `test_guided_capabilities_default_no_never_constructs_transport` |
 | Repeated HID Report metadata | `test_repeated_hid_reports_preserve_instance_and_descriptor_metadata`, `test_repeated_hid_aggregate_is_order_independent_and_preserves_malformed_peer`, `test_bleak_gatt_inventory_enumerates_metadata_without_reading_values`, `test_cli_capability_inventory_human_copy_is_honest` |
 | Fail-closed offline vendor transaction | `test_notification_subscription_confirmation_is_required_before_any_write_intent`, `test_late_subscription_confirmation_from_old_connection_cannot_ready_a_reconnect`, `test_unknown_write_outcome_is_uncertain_and_blocks_work_until_disconnect`, `test_notification_cannot_complete_before_characteristic_write_confirmation`, `test_success_requires_the_closed_operation_specific_parser`, `test_unrelated_frames_never_refresh_the_immutable_deadline`, `test_disconnect_closes_once_and_clears_every_pending_layer`, `test_operation_constructor_is_closed_over_typed_static_requests` |
 | Fake-only race coordinator | `test_success_discards_early_frames_and_processes_write_hook_frame_after_ack`, `test_preflight_requires_one_unambiguous_response_write_and_notify_cccd`, `test_write_error_after_invocation_is_uncertain_tainted_and_never_retried`, `test_retained_callback_from_old_generation_is_ignored`, `test_unsubscribe_failure_after_write_makes_cleanup_uncertain_and_taints` |

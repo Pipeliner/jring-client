@@ -58,6 +58,9 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     }
     assert by_name["standard_hid_metadata"].evidence == "bluetooth_standard"
     assert by_name["standard_hid_metadata"].maturity == "selected_device_metadata"
+    assert "this local list observes no device" in (
+        by_name["standard_hid_metadata"].description
+    )
     assert by_name["media_play_pause"].evidence == "static_apk"
     assert by_name["media_play_pause"].input_candidate is True
     for blocked in (
@@ -82,6 +85,7 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert "discards" in by_name["raw_ai_actions"].description
     assert "discards" in by_name["unknown_motion_channels"].description
     assert all(item.hardware_verified is False for item in items)
+    assert all(item.evidence and item.maturity for item in items)
     assert all(item.hardware_eligible is False for item in items)
     assert all(item.runnable is False for item in items)
     assert all(item.live_available is False for item in items)
@@ -231,3 +235,6 @@ def test_all_thirteen_statically_mapped_device_actions_are_discoverable_once():
 
     assert len(inventory) == 13
     assert set(inventory) == decoded
+    assert {item.meaning for item in inventory.values()} == {
+        "unverified_static_action_code"
+    }

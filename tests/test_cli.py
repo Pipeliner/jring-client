@@ -551,7 +551,11 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert cli.main(["non-health-capabilities"]) == 0
     output = capsys.readouterr().out
 
-    assert output.startswith("LIVE RING INPUT UNAVAILABLE — no ring contacted\n")
+    assert output.startswith(
+        "LIVE RING INPUT UNAVAILABLE — no ring contacted\n"
+        "JRing is not a live HID driver. Linux uinput is simulator-only today and "
+        "a future translation sink for verified events.\n"
+    )
     assert "Standard HID metadata" in output
     assert "Media play/pause" in output
     assert "Call answer" in output
@@ -568,13 +572,16 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "Device dial metadata" in output
     assert "privacy: network_identifier" in output
     assert "runnable: no; hardware eligible: no" in output
-    assert "hardware verified: no; live available: no; input eligible: no" in output
-    assert output.index("Standard HID metadata") < output.index("Static device actions")
+    assert "available now: no; input eligible: no; hardware verified: no" in output
     assert output.index("Static device actions") < output.index("Sensor-derived candidates")
+    assert output.index("Sensor-derived candidates") < output.index("Standards metadata")
     assert output.index("Standards metadata") < output.index("Classic Bluetooth evidence")
     assert output.index("Classic Bluetooth evidence") < output.index("Host integration")
     assert output.index("Host integration") < output.index("General-use static codecs")
-    assert output.index("General-use static codecs") < output.index("Static device actions")
+    assert output.index("General-use static codecs") < output.index("Raw non-health framing")
+    first_candidate = output.index("input candidate: yes")
+    assert output.rfind("available now: no; input eligible: no", 0, first_candidate) != -1
+    assert "meaning: source-classified label; hardware meaning: unverified" in output
 
 
 def test_guided_selection_labels_name_match_as_client_heuristic(monkeypatch, capsys):
@@ -608,6 +615,14 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
         item["group"] == "device_actions" for item in result["capabilities"]
     ) == 13
     assert all("evidence" in item for item in result["capabilities"])
+    expected_keys = {
+        "name", "label", "group", "description", "evidence", "maturity",
+        "meaning", "input_candidate", "privacy_classes", "request_operations",
+        "callback_operations", "runnable", "hardware_eligible",
+        "hardware_verified", "live_available", "input_eligible",
+    }
+    assert all(set(item) == expected_keys for item in result["capabilities"])
+    assert all(item["evidence"] and item["maturity"] for item in result["capabilities"])
     assert sum(
         item["group"] == "general_use" for item in result["capabilities"]
     ) == 15
@@ -618,6 +633,32 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     serialized = json.dumps(result).lower()
     assert "payload_bytes" not in serialized
     assert '"frame"' not in serialized
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["non-health-capabilities"],
+        ["non-health-capabilities", "--json"],
+        ["input-actions"],
+        ["input-actions", "--json"],
+    ],
+)
+def test_local_inventory_commands_construct_no_transport_scan_or_input_sink(
+    monkeypatch, capsys, argv
+):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("local inventory must not construct an external capability")
+
+    monkeypatch.setattr(cli, "BleakTransport", forbidden)
+    monkeypatch.setattr(cli, "JRingClient", forbidden)
+    monkeypatch.setattr(cli.FakeTransport, "for_simulator_profile", forbidden)
+    monkeypatch.setattr(cli, "discover", forbidden)
+    monkeypatch.setattr(cli, "discover_for_selection", forbidden)
+    monkeypatch.setattr(cli, "create_uinput_sink", forbidden)
+
+    assert cli.main(argv) == 0
+    assert capsys.readouterr().out
 
 
 def test_non_health_capabilities_rejects_unrelated_runtime_selectors(capsys):
@@ -771,6 +812,155 @@ def test_guided_status_selects_only_after_confirmation(monkeypatch, capsys):
     assert selected.alias in output
     assert "AA:BB" not in output
     assert "11:22" not in output
+
+
+def test_guided_capabilities_selects_ephemerally_and_reads_metadata_only(
+    monkeypatch, capsys
+):
+    enable_interactive_terminal(monkeypatch)
+    candidates = synthetic_selection_candidates()
+    selected = candidates[1]
+    transport = FakeTransport.standard_hid_ring()
+    connected = []
+
+    async def forbidden_value(*_args, **_kwargs):
+        raise AssertionError("capability inventory must not read, write, or subscribe")
+
+    def forbidden_sink(*_args, **_kwargs):
+        raise AssertionError("capability inventory must not open uinput")
+
+    transport.read = forbidden_value
+    transport.write = forbidden_value
+    transport.write_with_response = forbidden_value
+    transport.subscribe = forbidden_value
+
+    async def scan(**_kwargs):
+        return candidates
+
+    def make_transport(address):
+        connected.append(address)
+        return transport
+
+    responses = iter(["2", "y"])
+    monkeypatch.setattr(cli, "discover_for_selection", scan)
+    monkeypatch.setattr(cli, "BleakTransport", make_transport)
+    monkeypatch.setattr(cli, "create_uinput_sink", forbidden_sink)
+    monkeypatch.setattr(
+        cli.Path,
+        "write_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("guided selection must not persist a result")
+        ),
+    )
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert cli.main(["capabilities", "--select", "--active-scan"]) == 0
+    output = capsys.readouterr().out
+    assert connected == [selected.connection_address()]
+    assert "for capabilities" in output
+    assert output.index("ACTIVE SCAN") < output.index("CONNECTION NOT STARTED")
+    assert selected.alias in output
+    assert "AA:BB" not in output
+    assert "11:22" not in output
+
+
+@pytest.mark.parametrize("confirmation", ["", "n", "no"])
+def test_guided_capabilities_default_no_never_constructs_transport(
+    monkeypatch, capsys, confirmation
+):
+    enable_interactive_terminal(monkeypatch)
+    candidates = synthetic_selection_candidates()[:1]
+    constructed = False
+
+    async def scan(**_kwargs):
+        return candidates
+
+    def forbidden_transport(_address):
+        nonlocal constructed
+        constructed = True
+        raise AssertionError("default-no selection must not construct a transport")
+
+    responses = iter(["1", confirmation])
+    monkeypatch.setattr(cli, "discover_for_selection", scan)
+    monkeypatch.setattr(cli, "BleakTransport", forbidden_transport)
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert cli.main(["capabilities", "--select", "--active-scan"]) == 0
+    assert constructed is False
+    assert "Cancelled; no connection made." in capsys.readouterr().out
+
+
+def test_guided_capabilities_eof_at_confirmation_is_default_no(monkeypatch, capsys):
+    enable_interactive_terminal(monkeypatch)
+    candidates = synthetic_selection_candidates()[:1]
+    calls = iter(["1"])
+
+    async def scan(**_kwargs):
+        return candidates
+
+    def answer(_prompt):
+        try:
+            return next(calls)
+        except StopIteration as exc:
+            raise EOFError from exc
+
+    monkeypatch.setattr(cli, "discover_for_selection", scan)
+    monkeypatch.setattr(
+        cli,
+        "BleakTransport",
+        lambda _address: (_ for _ in ()).throw(
+            AssertionError("EOF confirmation must not construct a transport")
+        ),
+    )
+    monkeypatch.setattr("builtins.input", answer)
+
+    assert cli.main(["capabilities", "--select", "--active-scan"]) == 0
+    assert "Cancelled; no connection made." in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "argv,message",
+    [
+        (["capabilities", "--select"], "--active-scan"),
+        (["capabilities", "--active-scan"], "--select"),
+    ],
+)
+def test_guided_capabilities_requires_explicit_human_scan_consent(
+    argv, message, capsys
+):
+    with pytest.raises(SystemExit) as raised:
+        cli.main(argv)
+    assert raised.value.code == 2
+    captured = capsys.readouterr()
+    assert message in captured.err
+
+
+def test_guided_capabilities_json_fails_with_private_usage_envelope(capsys):
+    assert cli.main([
+        "capabilities", "--select", "--active-scan", "--json",
+    ]) == 2
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["error"]["code"] == "usage"
+    assert "human-only" in result["error"]["message"]
+    assert "AA:BB" not in captured.out
+    assert captured.err == ""
+
+
+def test_guided_capabilities_noninteractive_rejects_before_scan(monkeypatch, capsys):
+    scanned = False
+
+    async def scan(**_kwargs):
+        nonlocal scanned
+        scanned = True
+
+    monkeypatch.setattr(cli, "discover_for_selection", scan)
+
+    with pytest.raises(SystemExit) as raised:
+        cli.main(["capabilities", "--select", "--active-scan"])
+    assert raised.value.code == 2
+    assert scanned is False
+    assert "interactive terminal" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("confirmation", ["", "n", "no"])

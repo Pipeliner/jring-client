@@ -196,7 +196,9 @@ def _print_discovery(results: list[dict[str, object]]) -> None:
     print("Or run jring status --select --active-scan for same-process guided selection.")
 
 
-def _choose_candidate(candidates: list[SelectionCandidate]) -> str | None:
+def _choose_candidate(
+    candidates: list[SelectionCandidate], *, purpose: str = "status"
+) -> str | None:
     if not candidates:
         raise UnavailableError("no nearby Bluetooth devices found; no connection attempted")
     print(f"Found {len(candidates)} nearby Bluetooth device(s):")
@@ -222,13 +224,15 @@ def _choose_candidate(candidates: list[SelectionCandidate]) -> str | None:
     selected = candidates[int(answer) - 1]
     print(f"CONNECTION NOT STARTED — selected {selected.alias}.")
     try:
-        confirmation = input("Connect to this device for status? [y/N]: ").strip().lower()
+        confirmation = input(
+            f"Connect to this device for {purpose}? [y/N]: "
+        ).strip().lower()
     except EOFError:
         confirmation = ""
     if confirmation not in {"y", "yes"}:
         print("Cancelled; no connection made.")
         return None
-    print(f"CONNECTION AUTHORIZED — connecting to {selected.alias} for status.")
+    print(f"CONNECTION AUTHORIZED — connecting to {selected.alias} for {purpose}.")
     return selected.connection_address()
 
 
@@ -998,16 +1002,20 @@ def _non_health_payload() -> dict[str, object]:
 def _print_non_health_capabilities(payload: dict[str, object]) -> None:
     print("LIVE RING INPUT UNAVAILABLE — no ring contacted")
     print(
+        "JRing is not a live HID driver. Linux uinput is simulator-only today and "
+        "a future translation sink for verified events."
+    )
+    print(
         "JRing can inspect standard metadata and static candidates offline; "
         "none is enabled as live input."
     )
     headings = (
+        ("device_actions", "Static device actions"),
+        ("sensor_candidates", "Sensor-derived candidates"),
         ("standard_metadata", "Standards metadata"),
         ("classic_bluetooth", "Classic Bluetooth evidence"),
         ("host_integration", "Host integration"),
         ("general_use", "General-use static codecs"),
-        ("device_actions", "Static device actions"),
-        ("sensor_candidates", "Sensor-derived candidates"),
         ("raw_channel", "Raw non-health framing"),
     )
     for group, heading in headings:
@@ -1019,9 +1027,13 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
             print(f"- {item['label']}: {item['description']}")
             print(
                 f"  evidence: {item['evidence']}; maturity: {item['maturity']}; "
-                f"input candidate: {candidate}; hardware verified: no; "
-                "live available: no; input eligible: no; runnable: no; "
+                "available now: no; input eligible: no; "
+                "hardware verified: no; live available: no; "
+                f"input candidate: {candidate}; runnable: no; "
                 f"hardware eligible: no; privacy: {', '.join(item['privacy_classes'])}"
+            )
+            print(
+                "  meaning: source-classified label; hardware meaning: unverified"
             )
     print("This inventory never authorizes Bluetooth writes, subscriptions, or input.")
 
@@ -1197,7 +1209,7 @@ async def _run(args: argparse.Namespace) -> int:
     if getattr(args, "select", False):
         print("ACTIVE SCAN — sends BLE scan requests; no connection has started.")
         candidates = await discover_for_selection(timeout=args.timeout)
-        address = _choose_candidate(candidates)
+        address = _choose_candidate(candidates, purpose=args.command)
         if address is None:
             return ExitCode.OK
     else:
@@ -1390,6 +1402,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="inventory standard HID and known vendor metadata without reading values",
     )
     _add_runtime_options(capabilities, suppress=True, simulator_profiles=True)
+    capabilities.add_argument(
+        "--select", action="store_true",
+        help="interactively select an ephemeral discovery alias in this process",
+    )
+    capabilities.add_argument(
+        "--active-scan", action="store_true",
+        help="authorize BLE scan requests for interactive selection",
+    )
     sync = sub.add_parser("time-sync", help="write standard Bluetooth Current Time")
     _add_runtime_options(sync, suppress=True)
     sync.add_argument(
@@ -1544,8 +1564,8 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         parser.error("--select is mutually exclusive with simulation and address selectors")
     if guided_selection and not active_scan:
         parser.error("--select requires --active-scan because it sends BLE scan requests")
-    if args.command == "status" and active_scan and not guided_selection:
-        parser.error("--active-scan on status requires --select")
+    if args.command in {"status", "capabilities"} and active_scan and not guided_selection:
+        parser.error(f"--active-scan on {args.command} requires --select")
     if guided_selection and json_output:
         parser.error("guided selection is human-only; automation should use --address-file")
     if guided_selection and not sys.stdin.isatty():
