@@ -315,6 +315,16 @@ def test_multi_sport_day_decodes_six_packed_records():
     assert [sample.value for sample in result.samples] == [
         0x123, 0x234, 0x345, 0x456, 0x567, 0x678
     ]
+    assert result.generic_sensor_mode_success is True
+    assert result.callback_projection_order == (
+        "generic_sensor_mode_success",
+        "multi_sport_sample",
+        "multi_sport_sample",
+        "multi_sport_sample",
+        "multi_sport_sample",
+        "multi_sport_sample",
+        "multi_sport_sample",
+    )
     assert result.end_of_history is False
 
 

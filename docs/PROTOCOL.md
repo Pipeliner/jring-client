@@ -334,7 +334,8 @@ sensor-mode acknowledgement remains deliberately generic because four different 
 requests use the same wire opcode and callback. The dispatcher also reports opcode
 `25` as a successful generic sensor-mode acknowledgement before decoding the same frame
 as multiple-sport data. Both relationships are preserved; the opcode is not counted as
-two distinct wire families.
+two distinct wire families. The multi-sport result exposes the recovered order as one
+generic-mode success projection followed by six sample projections.
 
 Notification-content acknowledgement is separate and requires the expected outbound
 marker in addition to the response opcode. ECG-mode acknowledgement is also separate:

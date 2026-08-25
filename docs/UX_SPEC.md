@@ -182,7 +182,8 @@ callbacks. Advanced sensor fields and unverified sport codes retain neutral name
 No decoded frame becomes eligible for hardware merely because the parser accepts it.
 The decoder also preserves the recovered many-to-many dispatch for opcode `25`: one
 synthetic frame can be decoded as multiple-sport data and can satisfy the generic
-sensor-mode acknowledgement parser, without inventing a second opcode family.
+sensor-mode acknowledgement parser, without inventing a second opcode family. The
+result reports the exact one-success-then-six-samples projection order.
 Four-byte values on SDK paths backed by Java's signed integer parser fail closed above
 `7fffffff`; ECG paths proven to use a wider parser keep the full unsigned range. A
 failed sensor open or close result reports requested direction separately and leaves

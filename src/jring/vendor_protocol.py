@@ -285,7 +285,14 @@ class VendorMultiSportSample:
 class VendorMultiSportDay:
     device_epoch_seconds: int
     samples: tuple[VendorMultiSportSample, ...]
+    generic_sensor_mode_success: bool = True
     end_of_history: bool = False
+
+    @property
+    def callback_projection_order(self) -> tuple[str, ...]:
+        return ("generic_sensor_mode_success",) + (
+            "multi_sport_sample",
+        ) * len(self.samples)
 
 
 @dataclass(frozen=True)

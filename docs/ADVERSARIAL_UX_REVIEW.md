@@ -39,7 +39,7 @@ Date: 2026-08-24
 | `readable` sounded like a successful read | The state is `read_property_advertised`; human output says the value was not read |
 | Callback targets, invoke sites, and opcode branches were treated as one count | The dispatcher crosswalk separates 85 targets, 125 syntactic/124 reachable invokes, and 104 distinct opcodes |
 | A duplicated case-insensitive opcode made every invoke look reachable | The shadowed ECG failure invoke is retained as syntax evidence but excluded from reachable routes |
-| One opcode dispatching two callback families was flattened into a single meaning | Opcode `25` remains both multiple-sport data and a generic sensor-mode success without inflating the family count |
+| One opcode dispatching two callback families was flattened into a single meaning | Opcode `25` exposes one generic-mode success followed by six sport samples without inflating the family count |
 | Python accepted unsigned values for callbacks the SDK suppresses | Integer-parsed four-byte fields enforce the APK signed ceiling while wider ECG paths remain unsigned |
 | A failed sensor command looked like observed device state | Requested direction is separate and actual `active` state is unknown on failure |
 | A recognized failure opcode implied callback delivery | Failure metadata identifies callback-silent `83`/`8b`/`8c` branches and both `a5` byte predicates |
