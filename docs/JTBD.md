@@ -127,6 +127,10 @@ Desired outcomes:
   validation, complete smali review, complete DEX coverage, protocol parity, or ring
   compatibility.
 - Publish aggregates only; keep rendered source, locators, logs, and bytecode private.
+- Treat structured/fallback agreement only as same-tool surface corroboration, and keep
+  divergences, omitted bodies, and warning-bearing dependencies visibly unresolved.
+- Require bounded instruction review before a warning-site result can support a named
+  branch, selector, signedness, byte-order, or retry claim.
 
 ### Select my ring without exposing its address
 

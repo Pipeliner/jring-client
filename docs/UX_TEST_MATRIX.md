@@ -27,6 +27,9 @@ vendor implementation or hardware verification.
 | Startup clock owner | Notification setup completes | Never write time implicitly; explain that time sync is a separate explicit mutation | No opcode-`01` write without dedicated consent |
 | Binding prompt user | Device requests a `4b` transition | Name the binding action and require its own consent; do not cite cloud or OS bond as approval | Binding transition has its own token and audit state |
 | Input-mapping user | Connection is uncertain or policy changes | Disarm input immediately and emit no catch-up clicks | Input eligibility requires current generation and confirmed source state |
+| Protocol maintainer | Structured and fallback decompiler output agree at a warning site | Say “same-tool surface corroboration,” never “validated” or “resolved” | Semantic correctness stays false until bounded instruction review |
+| Security reviewer | A fallback file exists but the warned receiver body is absent | Name the body as unavailable and keep its branch claims unresolved | Counterpart state is `fallback_body_unavailable`; no completeness promotion |
+| OTA reviewer | Decompiler modes disagree on selector/write control flow | Refuse a selector meaning and retain the hardware block | Comparison is divergent; instruction review is not performed |
 
 Across every row, logs and errors omit Bluetooth addresses, cloud identifiers, frame
 bytes, raw measurements, and decompiled-source details. Simulation provenance remains

@@ -269,6 +269,14 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Complete semantic source review: not performed." in output
     assert "Complete smali/instruction review: not performed." in output
     assert "Complete DEX coverage: not claimed." in output
+    assert "Owned-scope warning audit: semantic correctness not established." in output
+    assert (
+        "Bluetooth-related warning-bearing files: 11 application; 21 embedded SDK; "
+        "5 dependency files excluded."
+    ) in output
+    assert "Owned warning occurrences: 29 application; 62 embedded SDK." in output
+    assert "Same-tool surface corroborations: 2; comparison divergences: 1." in output
+    assert "Instruction-reviewed warning facts: 0." in output
     assert "missing failure" not in output.lower()
     assert "success rate" not in output.lower()
     assert "Requests: 112" in output
@@ -312,6 +320,10 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["decompiler_failed_method_stubs"] == 88
     assert result["summary"]["decompiler_hard_failure_files"] == 52
     assert result["summary"]["decompiler_error_or_incorrect_markers"] == 87
+    assert result["summary"]["owned_warning_audit_files"] == 32
+    assert result["summary"]["owned_warning_audit_occurrences"] == 91
+    assert result["summary"]["same_tool_surface_corroborations"] == 2
+    assert result["summary"]["warning_comparison_divergences"] == 1
     assert result["summary"]["offline_control_models"] == 1
     assert result["summary"]["offline_behavior_evidence"] == 26
     assert result["summary"]["unclassified_requests"] == 0
@@ -347,6 +359,16 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert decompilation["hardware_verified"] is False
     assert "missing_error_count" not in json.dumps(decompilation)
     assert "success_rate" not in json.dumps(decompilation)
+    warning_audit = result["supplemental"]["warning_audit"]
+    assert warning_audit["interface_entries"] is False
+    assert warning_audit["source_recovery_completeness"] == "not_established"
+    assert warning_audit["semantic_correctness_established"] is False
+    assert warning_audit["instruction_review_complete"] is False
+    assert warning_audit["exhaustive_bluetooth_dependency_audit"] is False
+    assert warning_audit["hardware_eligible"] is False
+    assert warning_audit["hardware_verified"] is False
+    assert len(warning_audit["scopes"]) == 3
+    assert len(warning_audit["comparisons"]) == 8
     assert "frame" not in json.dumps(result).lower()
 
 

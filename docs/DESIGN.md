@@ -129,6 +129,14 @@ review, complete DEX coverage, protocol parity, or hardware support. The public 
 contains no rendered source, class or method locator, stack trace, log, bytecode, or
 private artifact path.
 
+Warning triage is a narrower supplemental graph. It distinguishes file population,
+warning occurrences, method sites, domain consequence, counterpart availability,
+same-tool surface corroboration, divergence, and independent instruction review. Two
+JADX modes agreeing never becomes equivalence; a fallback file never proves that one
+warned method body exists. Warning-bearing dependency and transitive call paths remain
+outside the owned-scope population, so the graph cannot claim exhaustive Bluetooth
+dependency coverage.
+
 `status --select --active-scan` retains the scan's private address association only in
 an in-process selection candidate whose representation and public summary omit it.
 Aliases use a new cryptographic salt for each discovery call. A numbered choice is

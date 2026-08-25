@@ -464,6 +464,20 @@ _START_FILE = OfflineFirmwareAndTransferEvidence._create(
             "semantics, timing, negotiated sizes, and status ordering.",
         ),
         _blocker(
+            "gpio_selector_same_tool_divergence",
+            "SUOTA configuration",
+            "Structured and fallback decompiler modes disagree on selector packing and "
+            "write control flow; no selector meaning is accepted without bounded "
+            "instruction review.",
+        ),
+        _blocker(
+            "dormant_custom_dial_transfer_no_interface_call_site",
+            "SDK surface separation",
+            "A distinct custom-dial transfer implementation has no observed construction "
+            "or interface call site; the ordinary editDeviceDialCustom request neither "
+            "models nor authorizes dial-file transfer.",
+        ),
+        _blocker(
             "write_without_response_chunk_stream",
             "SUOTA patch-data characteristic",
             "Firmware chunks use direct no-response writes; safe pacing and delivery have "

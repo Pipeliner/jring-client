@@ -127,7 +127,7 @@ def test_fallback_pass_is_complete_output_generation_not_semantic_or_smali_revie
     assert fallback.hard_failure_file_count == 0
     assert fallback.warning_marker_count is None
     assert fallback.warning_file_count is None
-    assert fallback.completed_without_reported_failures is True
+    assert fallback.process_completed is True
     assert fallback.semantic_review_completed is False
     assert evidence.complete_semantic_source_review_completed is False
     assert evidence.complete_smali_review_completed is False
@@ -146,7 +146,10 @@ def test_fallback_scope_counts_match_owned_scopes_without_proving_correctness():
     assert scopes[DecompilationScope.OTHER_DEPENDENCY].fallback_files_scanned == 9_952
     assert all(item.fallback_hard_failure_files == 0 for item in scopes.values())
     assert sum(item.fallback_files_scanned for item in scopes.values()) == 10_267
-    assert recovered_decompilation_coverage().no_recognized_owned_scope_markers is True
+    assert (
+        recovered_decompilation_coverage().no_recognized_owned_scope_hard_failure_files
+        is True
+    )
     assert recovered_decompilation_coverage().semantic_correctness_established is False
 
 

@@ -41,6 +41,7 @@ from .vendor_coverage import (
 )
 from .vendor_decompilation_evidence import recovered_decompilation_coverage
 from .vendor_session_evidence import recovered_session_evidence
+from .vendor_warning_evidence import ComparisonState, recovered_warning_audit
 
 
 class ExitCode(IntEnum):
@@ -258,6 +259,8 @@ def _protocol_coverage_payload() -> dict[str, object]:
     callbacks = static_vendor_callback_coverage()
     session = recovered_session_evidence()
     decompilation = recovered_decompilation_coverage()
+    warning_audit = recovered_warning_audit()
+    warning_scopes = {item.scope.value: item for item in warning_audit.scopes}
     return {
         "summary": {
             "request_total": len(requests),
@@ -311,6 +314,23 @@ def _protocol_coverage_payload() -> dict[str, object]:
             ),
             "decompiler_error_or_incorrect_markers": (
                 decompilation.primary_pass.error_or_incorrect_marker_count
+            ),
+            "owned_warning_audit_files": (
+                warning_scopes["application"].selected_file_count
+                + warning_scopes["embedded_sdk"].selected_file_count
+            ),
+            "owned_warning_audit_occurrences": (
+                warning_scopes["application"].warning_occurrence_count
+                + warning_scopes["embedded_sdk"].warning_occurrence_count
+            ),
+            "same_tool_surface_corroborations": sum(
+                item.comparison_state
+                is ComparisonState.SAME_TOOL_SURFACE_CORROBORATION
+                for item in warning_audit.comparisons
+            ),
+            "warning_comparison_divergences": sum(
+                item.comparison_state is ComparisonState.COMPARISON_DIVERGENCE
+                for item in warning_audit.comparisons
             ),
             "request_routes": dict(sorted(Counter(
                 entry.route for entry in requests
@@ -376,8 +396,8 @@ def _protocol_coverage_payload() -> dict[str, object]:
                     decompilation.complete_dex_instruction_review_completed
                 ),
                 "complete_dex_coverage": decompilation.complete_dex_coverage,
-                "no_recognized_owned_scope_markers": (
-                    decompilation.no_recognized_owned_scope_markers
+                "no_recognized_owned_scope_hard_failure_files": (
+                    decompilation.no_recognized_owned_scope_hard_failure_files
                 ),
                 "static_review_authorized": (
                     decompilation.static_review_authorized
@@ -388,6 +408,31 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 "hardware_eligible": decompilation.hardware_eligible,
                 "hardware_verified": decompilation.hardware_verified,
                 "limitations": decompilation.limitations,
+            },
+            "warning_audit": {
+                "interface_entries": warning_audit.interface_entries,
+                "maturity": warning_audit.maturity,
+                "evidence_scope": warning_audit.evidence_scope,
+                "source_recovery_completeness": (
+                    warning_audit.source_recovery_completeness
+                ),
+                "semantic_correctness_established": (
+                    warning_audit.semantic_correctness_established
+                ),
+                "instruction_review_complete": (
+                    warning_audit.instruction_review_complete
+                ),
+                "exhaustive_bluetooth_dependency_audit": (
+                    warning_audit.exhaustive_bluetooth_dependency_audit
+                ),
+                "runnable": warning_audit.runnable,
+                "python_callable": warning_audit.python_callable,
+                "hardware_eligible": warning_audit.hardware_eligible,
+                "hardware_verified": warning_audit.hardware_verified,
+                "scopes": [asdict(item) for item in warning_audit.scopes],
+                "comparisons": [
+                    asdict(item) for item in warning_audit.comparisons
+                ],
             },
         },
     }
@@ -431,6 +476,28 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     print("Complete semantic source review: not performed.")
     print("Complete smali/instruction review: not performed.")
     print("Complete DEX coverage: not claimed.")
+    warning_audit = payload["supplemental"]["warning_audit"]
+    warning_scopes = {item["scope"]: item for item in warning_audit["scopes"]}
+    print("Owned-scope warning audit: semantic correctness not established.")
+    print(
+        "Bluetooth-related warning-bearing files: "
+        f"{warning_scopes['application']['selected_file_count']} application; "
+        f"{warning_scopes['embedded_sdk']['selected_file_count']} embedded SDK; "
+        f"{warning_scopes['excluded_dependency']['selected_file_count']} dependency "
+        "files excluded."
+    )
+    print(
+        "Owned warning occurrences: "
+        f"{warning_scopes['application']['warning_occurrence_count']} application; "
+        f"{warning_scopes['embedded_sdk']['warning_occurrence_count']} embedded SDK."
+    )
+    print(
+        "Same-tool surface corroborations: "
+        f"{summary['same_tool_surface_corroborations']}; "
+        f"comparison divergences: {summary['warning_comparison_divergences']}."
+    )
+    print("Instruction-reviewed warning facts: 0.")
+    print("This audit is not exhaustive for dependency or transitive Bluetooth behavior.")
     print(f"Requests: {summary['request_total']}")
     print(f"Callbacks: {summary['callback_total']}")
     print(f"Offline request codecs: {summary['offline_request_codecs']}")

@@ -233,7 +233,13 @@ marker, scoped-denominator, warning, and fallback-pass facts one per line. It sa
 counts are different measurements and names complete semantic source review, complete
 smali/instruction review, and complete DEX coverage as unperformed or unclaimed. Every
 scoped zero is paired with its outputs-scanned denominator and the final hardware count
-remains zero.
+remains zero. A following owned-scope warning audit names the 11 application and 21
+embedded-SDK file population, their 29 and 62 warning occurrences, two same-tool surface
+corroborations, one comparison divergence, and zero instruction-reviewed warning facts.
+It separately says five dependency files are excluded and that transitive Bluetooth
+coverage is not exhaustive. A file count is never substituted for a warning-site count,
+fallback file presence never proves a method body, and same-tool agreement is never
+called validation or resolution.
 `--json` returns every ledger entry and both closed, non-runnable evidence graphs in a
 schema-1 success envelope without frame bytes, locators, logs, or source. The command
 constructs no transport and rejects simulation, address, and timeout options because
@@ -482,6 +488,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_opcode_sources`, `test_all_eighty_six_wire_callback_families_have_offline_response_codecs`, `test_three_apk_generated_end_callbacks_are_local_projections_not_wire_codecs` |
 | Static session sequencing and race evidence | `test_session_evidence_is_a_closed_immutable_singleton`, `test_session_graph_has_closed_unique_codes_and_only_known_interface_links`, `test_source_connected_is_dispatch_acceptance_not_descriptor_acknowledgement`, `test_device_policy_occurs_after_connected_and_does_not_become_owner_authority`, `test_all_adversarial_session_races_have_python_safety_rules` |
 | Honest aggregate decompilation evidence | `test_primary_run_and_emitted_markers_remain_different_observables`, `test_zero_scoped_markers_have_nonzero_scanned_denominators`, `test_warning_scope_is_visible_without_becoming_a_hard_failure_or_success_claim`, `test_fallback_pass_is_complete_output_generation_not_semantic_or_smali_review`, `test_decompilation_evidence_never_promotes_runtime_or_hardware_maturity`, `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry` |
+| Scoped warning triage without false resolution | `test_warning_audit_accounts_for_owned_scope_without_inflating_interfaces`, `test_application_warning_partition_keeps_risk_exclusion_and_sites_distinct`, `test_sdk_warning_partition_preserves_kind_and_consequence_axes`, `test_same_tool_dispatch_surface_corroboration_does_not_validate_branches`, `test_gpio_selector_divergence_and_missing_receiver_bodies_remain_unresolved`, `test_ota_patch_and_dormant_dial_transfer_stay_separate_and_non_runnable`, `test_warning_evidence_is_closed_aggregate_only_and_without_authority` |
 | Offline device/config decoding | `test_device_code_discards_all_identifier_bytes`, `test_device_dial_decodes_every_field_in_the_twenty_byte_layout`, `test_eq_info_decodes_signed_values_and_requires_expected_kind`, `test_factory_test_bytes_are_hidden_and_byte_19_is_not_claimed` |
 | Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |
 | Operation-specific acknowledgements | `test_vendor_ack_decodes_operation_specific_success_and_failure`, `test_vendor_success_only_ack_rejects_guessed_failure_branch`, `test_notify_ack_requires_the_outbound_marker_for_success`, `test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode` |

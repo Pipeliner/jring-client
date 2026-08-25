@@ -50,7 +50,7 @@ class DecompilationPassEvidence:
     hard_failure_file_count: int
     warning_marker_count: int | None
     warning_file_count: int | None
-    completed_without_reported_failures: bool
+    process_completed: bool
     semantic_review_completed: bool
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -103,7 +103,7 @@ class RecoveredDecompilationCoverage:
         raise TypeError("use recovered_decompilation_coverage()")
 
     @property
-    def no_recognized_owned_scope_markers(self) -> bool:
+    def no_recognized_owned_scope_hard_failure_files(self) -> bool:
         owned = {
             DecompilationScope.JRING_APPLICATION,
             DecompilationScope.EMBEDDED_BLE_SDK,
@@ -177,7 +177,7 @@ _PRIMARY = _closed_instance(
     hard_failure_file_count=52,
     warning_marker_count=6_191,
     warning_file_count=1_215,
-    completed_without_reported_failures=False,
+    process_completed=True,
     semantic_review_completed=False,
 )
 
@@ -194,7 +194,7 @@ _FALLBACK = _closed_instance(
     hard_failure_file_count=0,
     warning_marker_count=None,
     warning_file_count=None,
-    completed_without_reported_failures=True,
+    process_completed=True,
     semantic_review_completed=False,
 )
 

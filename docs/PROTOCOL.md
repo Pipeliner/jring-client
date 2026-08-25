@@ -395,6 +395,13 @@ no-response firmware writes, callback gaps, and reboot/disconnect side effects. 
 model exposes reconstructible field evidence but no runnable byte object, encoder,
 parser, file/network access, or transport plan.
 
+Warning-focused comparison keeps two OTA uncertainties explicit. Structured and
+fallback output disagree on GPIO-selector packing and write control flow, so no selector
+meaning is accepted without bounded instruction review. A separate custom-dial transfer
+implementation has no observed SDK-interface construction or call site;
+`editDeviceDialCustom` remains only its existing offline main-channel setting request
+and does not model or authorize dial-file transfer.
+
 ## Static history streams
 
 `jring.vendor_history` provides a pure, transaction-scoped decoder for the `10`, `11`,
