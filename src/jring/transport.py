@@ -59,6 +59,15 @@ class BleTransport(Protocol):
     async def close(self) -> None: ...
     async def read(self, characteristic: str) -> bytes: ...
     async def write(self, characteristic: str, data: bytes) -> None: ...
+
+    async def write_with_response(self, characteristic: str, data: bytes) -> None:
+        """Request an ATT response and return only after backend success.
+
+        Failure to dispatch or receive that response must raise.  This transport-level
+        response is not an application-level notification from the device.
+        """
+        ...
+
     async def subscribe(self, characteristic: str, callback: NotifyCallback) -> None: ...
     async def unsubscribe(self, characteristic: str) -> None: ...
     async def service_uuids(self) -> set[str]: ...
@@ -142,6 +151,10 @@ class FakeTransport:
             raise LookupError("characteristic unavailable") from exc
 
     async def write(self, characteristic: str, data: bytes) -> None:
+        await self.write_with_response(characteristic, data)
+
+    async def write_with_response(self, characteristic: str, data: bytes) -> None:
+        """Record a completed response-requesting write in this in-memory fake."""
         self.values[characteristic.lower()] = bytes(data)
 
     async def subscribe(self, characteristic: str, callback: NotifyCallback) -> None:

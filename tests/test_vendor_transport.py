@@ -7,7 +7,6 @@ from jring.uuids import (
     VENDOR_CHARACTERISTIC_33F3,
     VENDOR_CHARACTERISTIC_33F4,
     VENDOR_CHARACTERISTIC_33F6,
-    uuid16,
 )
 from jring.vendor_protocol import (
     StaticQuery,
@@ -19,14 +18,13 @@ from jring.vendor_protocol import (
 from jring.vendor_transport import (
     EnginePhase,
     NotificationDisposition,
+    NotificationSubscriptionOutcome,
     OfflineVendorOperation,
     OfflineVendorTransactionEngine,
     TransactionCloseReason,
     TransactionCompleteness,
+    WriteOutcome,
 )
-
-
-CCCD = uuid16(0x2902)
 
 
 def _operation(name: str = "battery") -> OfflineVendorOperation:
@@ -43,34 +41,32 @@ def _operation(name: str = "battery") -> OfflineVendorOperation:
 
 def _ready_engine(*, timeout: float = 2.0) -> OfflineVendorTransactionEngine:
     engine = OfflineVendorTransactionEngine(operation_timeout=timeout)
-    descriptor = engine.mark_connected(now=0.0)
-    engine.confirm_cccd(
-        token=descriptor.token,
-        characteristic_uuid=descriptor.characteristic_uuid,
-        descriptor_uuid=descriptor.descriptor_uuid,
-        enabled=True,
+    subscription = engine.mark_connected(now=0.0)
+    engine.confirm_subscription(
+        token=subscription.token,
+        characteristic_uuid=subscription.characteristic_uuid,
+        outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
         now=0.1,
     )
     return engine
 
 
-def test_cccd_confirmation_is_required_before_any_write_intent():
+def test_notification_subscription_confirmation_is_required_before_any_write_intent():
     engine = OfflineVendorTransactionEngine(operation_timeout=5.0)
-    descriptor = engine.mark_connected(now=0.0)
+    subscription = engine.mark_connected(now=0.0)
     token = engine.enqueue(_operation(), now=0.1)
 
-    assert engine.phase is EnginePhase.DESCRIPTOR_REQUIRED
-    assert descriptor.characteristic_uuid == VENDOR_CHARACTERISTIC_33F4
-    assert descriptor.descriptor_uuid == CCCD
-    assert descriptor.notifications_enabled is True
-    assert descriptor.hardware_eligible is False
+    assert engine.phase is EnginePhase.SUBSCRIPTION_REQUIRED
+    assert subscription.characteristic_uuid == VENDOR_CHARACTERISTIC_33F4
+    assert not hasattr(subscription, "descriptor_uuid")
+    assert not hasattr(subscription, "notifications_enabled")
+    assert subscription.hardware_eligible is False
     assert engine.take_write(now=0.2).write_intent is None
 
-    engine.confirm_cccd(
-        token=descriptor.token,
+    engine.confirm_subscription(
+        token=subscription.token,
         characteristic_uuid=VENDOR_CHARACTERISTIC_33F4,
-        descriptor_uuid=CCCD,
-        enabled=True,
+        outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
         now=0.3,
     )
     update = engine.take_write(now=0.4)
@@ -83,80 +79,81 @@ def test_cccd_confirmation_is_required_before_any_write_intent():
 
 
 @pytest.mark.parametrize(
-    "characteristic,descriptor,enabled",
+    "characteristic,outcome",
     [
-        (VENDOR_CHARACTERISTIC_33F3, CCCD, True),
-        (VENDOR_CHARACTERISTIC_33F4, uuid16(0x2901), True),
+        (
+            VENDOR_CHARACTERISTIC_33F3,
+            NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
+        ),
+        (VENDOR_CHARACTERISTIC_33F4, "activated"),
     ],
 )
-def test_cccd_confirmation_fails_closed_on_wrong_readiness_shape(
-    characteristic, descriptor, enabled
+def test_subscription_confirmation_fails_closed_on_wrong_readiness_shape(
+    characteristic, outcome
 ):
     engine = OfflineVendorTransactionEngine()
     intent = engine.mark_connected(now=0.0)
 
-    with pytest.raises(ProtocolError):
-        engine.confirm_cccd(
+    with pytest.raises((ProtocolError, TypeError)):
+        engine.confirm_subscription(
             token=intent.token,
             characteristic_uuid=characteristic,
-            descriptor_uuid=descriptor,
-            enabled=enabled,
+            outcome=outcome,
             now=0.1,
         )
 
-    assert engine.phase is EnginePhase.DESCRIPTOR_REQUIRED
+    assert engine.phase is EnginePhase.SUBSCRIPTION_REQUIRED
 
 
-def test_late_cccd_confirmation_from_old_connection_cannot_ready_a_reconnect():
+def test_late_subscription_confirmation_from_old_connection_cannot_ready_a_reconnect():
     engine = OfflineVendorTransactionEngine()
     old_intent = engine.mark_connected(now=0.0)
-    engine.disconnect()
+    engine.record_disconnected()
     current_intent = engine.mark_connected(now=0.1)
 
     with pytest.raises(ProtocolError, match="stale"):
-        engine.confirm_cccd(
+        engine.confirm_subscription(
             token=old_intent.token,
             characteristic_uuid=current_intent.characteristic_uuid,
-            descriptor_uuid=current_intent.descriptor_uuid,
-            enabled=True,
+            outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
             now=0.2,
         )
 
-    assert engine.phase is EnginePhase.DESCRIPTOR_REQUIRED
-    engine.confirm_cccd(
+    assert engine.phase is EnginePhase.SUBSCRIPTION_REQUIRED
+    engine.confirm_subscription(
         token=current_intent.token,
         characteristic_uuid=current_intent.characteristic_uuid,
-        descriptor_uuid=current_intent.descriptor_uuid,
-        enabled=True,
+        outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
         now=0.3,
     )
     assert engine.phase is EnginePhase.READY
 
 
-def test_definite_cccd_failure_closes_queued_work_and_cannot_be_replayed():
+def test_definite_subscription_failure_aborts_queued_work_and_requires_reconnect():
     engine = OfflineVendorTransactionEngine()
     intent = engine.mark_connected(now=0.0)
     operation_token = engine.enqueue(_operation(), now=0.1)
 
-    failed = engine.confirm_cccd(
+    failed = engine.confirm_subscription(
         token=intent.token,
         characteristic_uuid=intent.characteristic_uuid,
-        descriptor_uuid=intent.descriptor_uuid,
-        enabled=False,
+        outcome=NotificationSubscriptionOutcome.FAILED,
         now=0.2,
     )
 
     assert failed.closure.token == operation_token
-    assert failed.closure.reason is TransactionCloseReason.DESCRIPTOR_FAILURE
-    assert failed.closure.completeness is TransactionCompleteness.FAILED
+    assert failed.closure.reason is TransactionCloseReason.SUBSCRIPTION_FAILURE
+    assert failed.closure.completeness is TransactionCompleteness.ABORTED
     assert engine.active_token is None
-    assert engine.phase is EnginePhase.DESCRIPTOR_REQUIRED
-    with pytest.raises(ProtocolError, match="stale"):
-        engine.confirm_cccd(
+    assert engine.phase is EnginePhase.RECONNECT_REQUIRED
+    assert engine.requires_reconnect is True
+    with pytest.raises(ProtocolError, match="disconnect"):
+        engine.enqueue(_operation(), now=0.25)
+    with pytest.raises(ProtocolError, match="disconnect"):
+        engine.confirm_subscription(
             token=intent.token,
             characteristic_uuid=intent.characteristic_uuid,
-            descriptor_uuid=intent.descriptor_uuid,
-            enabled=True,
+            outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
             now=0.3,
         )
 
@@ -178,7 +175,7 @@ def test_matcher_requires_exact_endpoint_opcode_and_subcommand():
     operation = _operation("screen_light")
     token = engine.enqueue(operation, now=0.2)
     engine.take_write(now=0.3)
-    engine.confirm_write(token, succeeded=True, now=0.35)
+    engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.35)
 
     wrong_endpoint = engine.receive(
         token,
@@ -217,7 +214,7 @@ def test_exact_failure_opcode_closes_failed_and_is_not_guessed():
     engine = _ready_engine()
     token = engine.enqueue(_operation(), now=0.2)
     engine.take_write(now=0.3)
-    engine.confirm_write(token, succeeded=True, now=0.35)
+    engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.35)
 
     result = engine.receive(
         token,
@@ -247,7 +244,7 @@ def test_notification_cannot_complete_before_characteristic_write_confirmation()
     assert premature.disposition is NotificationDisposition.NOT_IN_FLIGHT
     assert premature.closure is None
     assert engine.active_token == token
-    engine.confirm_write(token, succeeded=True, now=0.5)
+    engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.5)
     matched = engine.receive(
         token,
         endpoint_uuid=VENDOR_CHARACTERISTIC_33F4,
@@ -257,17 +254,90 @@ def test_notification_cannot_complete_before_characteristic_write_confirmation()
     assert matched.disposition is NotificationDisposition.MATCHED_SUCCESS
 
 
-def test_characteristic_write_failure_closes_without_retry():
+def test_definitely_not_dispatched_write_aborts_without_retry_or_taint():
     engine = _ready_engine()
     token = engine.enqueue(_operation(), now=0.2)
     engine.take_write(now=0.3)
 
-    failed = engine.confirm_write(token, succeeded=False, now=0.4)
+    failed = engine.confirm_write(
+        token, outcome=WriteOutcome.DEFINITELY_NOT_DISPATCHED, now=0.4
+    )
 
     assert failed.closure.reason is TransactionCloseReason.WRITE_FAILURE
-    assert failed.closure.completeness is TransactionCompleteness.FAILED
+    assert failed.closure.completeness is TransactionCompleteness.ABORTED
+    assert engine.requires_reconnect is False
     assert engine.active_token is None
     assert engine.take_write(now=0.5).write_intent is None
+
+
+def test_unknown_write_outcome_is_uncertain_and_blocks_work_until_disconnect():
+    engine = _ready_engine()
+    token = engine.enqueue(_operation(), now=0.2)
+    engine.take_write(now=0.3)
+
+    failed = engine.confirm_write(
+        token, outcome=WriteOutcome.OUTCOME_UNKNOWN, now=0.4
+    )
+
+    assert failed.closure.reason is TransactionCloseReason.WRITE_FAILURE
+    assert failed.closure.completeness is TransactionCompleteness.UNCERTAIN
+    assert engine.requires_reconnect is True
+    assert engine.phase is EnginePhase.RECONNECT_REQUIRED
+    assert engine.active_token is None
+    with pytest.raises(ProtocolError, match="disconnect"):
+        engine.enqueue(_operation(), now=0.5)
+    engine.record_disconnected()
+    assert engine.requires_reconnect is False
+    subscription = engine.mark_connected(now=0.6)
+    engine.confirm_subscription(
+        token=subscription.token,
+        characteristic_uuid=subscription.characteristic_uuid,
+        outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
+        now=0.7,
+    )
+    assert engine.enqueue(_operation(), now=0.8) is not None
+
+
+def test_reconnect_required_phase_refuses_all_progress_until_observed_teardown():
+    engine = OfflineVendorTransactionEngine()
+    subscription = engine.mark_connected(now=0.0)
+    engine.confirm_subscription(
+        token=subscription.token,
+        characteristic_uuid=subscription.characteristic_uuid,
+        outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
+        now=0.1,
+    )
+    token = engine.enqueue(_operation(), now=0.2)
+    engine.take_write(now=0.3)
+    engine.confirm_write(token, outcome=WriteOutcome.OUTCOME_UNKNOWN, now=0.4)
+
+    with pytest.raises(ProtocolError, match="disconnect"):
+        engine.mark_connected(now=0.5)
+    with pytest.raises(ProtocolError, match="disconnect"):
+        engine.enqueue(_operation(), now=0.6)
+    with pytest.raises(ProtocolError, match="disconnect"):
+        engine.confirm_subscription(
+            token=subscription.token,
+            characteristic_uuid=subscription.characteristic_uuid,
+            outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
+            now=0.7,
+        )
+    assert engine.take_write(now=0.8).write_intent is None
+    assert (
+        engine.confirm_write(
+            token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.9
+        ).closure
+        is None
+    )
+    assert engine.receive(
+        token,
+        endpoint_uuid=VENDOR_CHARACTERISTIC_33F4,
+        data=bytes((0x0B, 50)) + bytes(18),
+        now=1.0,
+    ).disposition is NotificationDisposition.STALE
+    assert engine.poll(now=1.1).closure is None
+    assert engine.phase is EnginePhase.RECONNECT_REQUIRED
+    assert not hasattr(engine, "disconnect")
 
 
 def test_write_confirmation_requires_a_previously_issued_write_intent():
@@ -275,7 +345,7 @@ def test_write_confirmation_requires_a_previously_issued_write_intent():
     token = engine.enqueue(_operation(), now=0.2)
 
     with pytest.raises(ProtocolError):
-        engine.confirm_write(token, succeeded=True, now=0.3)
+        engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.3)
 
     assert engine.active_token == token
 
@@ -289,7 +359,11 @@ def test_missing_characteristic_write_confirmation_times_out_uncertain():
 
     assert closure.reason is TransactionCloseReason.TIMEOUT
     assert closure.completeness is TransactionCompleteness.UNCERTAIN
+    assert engine.requires_reconnect is True
+    assert engine.phase is EnginePhase.RECONNECT_REQUIRED
     assert engine.take_write(now=1.3).write_intent is None
+    with pytest.raises(ProtocolError, match="disconnect"):
+        engine.enqueue(_operation(), now=1.4)
 
 
 def test_current_generation_notification_at_deadline_times_out_before_stage_check():
@@ -313,24 +387,23 @@ def test_one_end_to_end_deadline_never_restarts_at_dispatch_or_write_ack():
     token = engine.enqueue(_operation(), now=0.2)
     expected = engine.deadline
     intent = engine.take_write(now=1.0).write_intent
-    engine.confirm_write(token, succeeded=True, now=1.5)
+    engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=1.5)
 
     assert expected == 2.2
     assert intent.deadline == expected
     assert engine.deadline == expected
 
 
-def test_cccd_confirmation_cannot_stand_in_for_characteristic_write_confirmation():
+def test_subscription_confirmation_cannot_stand_in_for_write_confirmation():
     engine = _ready_engine()
     token = engine.enqueue(_operation(), now=0.2)
     engine.take_write(now=0.3)
 
     with pytest.raises(ProtocolError):
-        engine.confirm_cccd(
+        engine.confirm_subscription(
             token=token,
             characteristic_uuid=VENDOR_CHARACTERISTIC_33F4,
-            descriptor_uuid=CCCD,
-            enabled=True,
+            outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
             now=0.4,
         )
     premature = engine.receive(
@@ -346,7 +419,7 @@ def test_success_requires_the_closed_operation_specific_parser():
     engine = _ready_engine()
     token = engine.enqueue(_operation(), now=0.2)
     engine.take_write(now=0.3)
-    engine.confirm_write(token, succeeded=True, now=0.4)
+    engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.4)
 
     malformed = engine.receive(
         token,
@@ -367,7 +440,7 @@ def test_success_returns_typed_value_without_raw_notification_bytes():
     engine = _ready_engine()
     token = engine.enqueue(_operation(), now=0.2)
     engine.take_write(now=0.3)
-    engine.confirm_write(token, succeeded=True, now=0.4)
+    engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.4)
     data = bytes((0x0B, 64, 7)) + bytes(17)
 
     result = engine.receive(
@@ -387,7 +460,7 @@ def test_unrelated_frames_never_refresh_the_immutable_deadline():
     engine = _ready_engine(timeout=2.0)
     token = engine.enqueue(_operation(), now=0.2)
     intent = engine.take_write(now=0.3).write_intent
-    engine.confirm_write(token, succeeded=True, now=0.35)
+    engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.35)
     assert intent.deadline == 2.2
 
     unrelated = engine.receive(
@@ -408,7 +481,7 @@ def test_timeout_wins_over_a_matching_frame_at_the_exact_deadline():
     engine = _ready_engine(timeout=1.0)
     token = engine.enqueue(_operation(), now=0.2)
     engine.take_write(now=0.3)
-    engine.confirm_write(token, succeeded=True, now=0.4)
+    engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.4)
 
     result = engine.receive(
         token,
@@ -427,7 +500,7 @@ def test_stale_or_cross_engine_tokens_are_ignored_without_touching_current_work(
     engine.cancel()
     current = engine.enqueue(_operation(), now=0.3)
     engine.take_write(now=0.4)
-    engine.confirm_write(current, succeeded=True, now=0.45)
+    engine.confirm_write(current, outcome=WriteOutcome.ACKNOWLEDGED, now=0.45)
 
     stale = engine.receive(
         old,
@@ -460,22 +533,21 @@ def test_stale_or_cross_engine_tokens_are_ignored_without_touching_current_work(
 )
 def test_disconnect_closes_once_and_clears_every_pending_layer(state, completeness):
     engine = OfflineVendorTransactionEngine()
-    descriptor = engine.mark_connected(now=0.0)
+    subscription = engine.mark_connected(now=0.0)
     token = engine.enqueue(_operation(), now=0.1)
     if state != "queued":
-        engine.confirm_cccd(
-            token=descriptor.token,
+        engine.confirm_subscription(
+            token=subscription.token,
             characteristic_uuid=VENDOR_CHARACTERISTIC_33F4,
-            descriptor_uuid=CCCD,
-            enabled=True,
+            outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
             now=0.2,
         )
         engine.take_write(now=0.3)
     if state == "in_flight":
-        engine.confirm_write(token, succeeded=True, now=0.35)
+        engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.35)
 
-    first = engine.disconnect()
-    second = engine.disconnect()
+    first = engine.record_disconnected()
+    second = engine.record_disconnected()
 
     assert first.closure.reason is TransactionCloseReason.DISCONNECTED
     assert first.closure.completeness is completeness
@@ -483,12 +555,11 @@ def test_disconnect_closes_once_and_clears_every_pending_layer(state, completene
     assert second.closure is None
     assert engine.phase is EnginePhase.DISCONNECTED
     assert engine.active_token is None
-    descriptor = engine.mark_connected(now=0.4)
-    engine.confirm_cccd(
-        token=descriptor.token,
-        characteristic_uuid=descriptor.characteristic_uuid,
-        descriptor_uuid=descriptor.descriptor_uuid,
-        enabled=True,
+    subscription = engine.mark_connected(now=0.4)
+    engine.confirm_subscription(
+        token=subscription.token,
+        characteristic_uuid=subscription.characteristic_uuid,
+        outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
         now=0.5,
     )
     assert engine.take_write(now=0.6).write_intent is None
@@ -509,9 +580,44 @@ def test_cancel_closes_once_clears_work_and_never_retries():
     assert second.closure is None
     assert engine.take_write(now=0.5).write_intent is None
     assert engine.active_token is None
+    assert engine.requires_reconnect is True
+    assert engine.phase is EnginePhase.RECONNECT_REQUIRED
 
 
-def test_queued_work_times_out_even_if_descriptor_never_becomes_ready():
+@pytest.mark.parametrize("action", ["cancel", "timeout"])
+@pytest.mark.parametrize(
+    "stage,completeness,reconnect",
+    [
+        ("queued", TransactionCompleteness.ABORTED, False),
+        ("write_pending", TransactionCompleteness.UNCERTAIN, True),
+        ("in_flight", TransactionCompleteness.UNCERTAIN, True),
+    ],
+)
+def test_cancel_and_timeout_taint_only_after_write_intent_issuance(
+    action, stage, completeness, reconnect
+):
+    engine = _ready_engine(timeout=1.0)
+    token = engine.enqueue(_operation(), now=0.2)
+    if stage != "queued":
+        engine.take_write(now=0.3)
+    if stage == "in_flight":
+        engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.4)
+
+    update = engine.cancel() if action == "cancel" else engine.poll(now=1.2)
+
+    assert update.closure.completeness is completeness
+    assert update.closure.reason is (
+        TransactionCloseReason.CANCELLED
+        if action == "cancel"
+        else TransactionCloseReason.TIMEOUT
+    )
+    assert engine.requires_reconnect is reconnect
+    assert engine.phase is (
+        EnginePhase.RECONNECT_REQUIRED if reconnect else EnginePhase.READY
+    )
+
+
+def test_queued_work_times_out_even_if_subscription_never_becomes_ready():
     engine = OfflineVendorTransactionEngine(operation_timeout=1.0)
     engine.mark_connected(now=0.0)
     engine.enqueue(_operation(), now=0.1)
@@ -538,7 +644,7 @@ def test_right_endpoint_with_malformed_frame_fails_closed_without_rescheduling()
     engine = _ready_engine(timeout=2.0)
     token = engine.enqueue(_operation(), now=0.2)
     engine.take_write(now=0.3)
-    engine.confirm_write(token, succeeded=True, now=0.4)
+    engine.confirm_write(token, outcome=WriteOutcome.ACKNOWLEDGED, now=0.4)
 
     result = engine.receive(
         token,
@@ -550,27 +656,40 @@ def test_right_endpoint_with_malformed_frame_fails_closed_without_rescheduling()
     assert result.disposition is NotificationDisposition.MALFORMED
     assert result.closure.reason is TransactionCloseReason.MALFORMED_RESPONSE
     assert result.closure.completeness is TransactionCompleteness.UNCERTAIN
+    assert engine.requires_reconnect is True
+    assert engine.phase is EnginePhase.RECONNECT_REQUIRED
     assert engine.deadline is None
 
 
-def test_operation_and_action_repr_never_expose_frames_or_cccd_value():
+@pytest.mark.parametrize("outcome", [True, False, "acknowledged", None])
+def test_write_confirmation_requires_closed_outcome_enum(outcome):
+    engine = _ready_engine()
+    token = engine.enqueue(_operation(), now=0.2)
+    engine.take_write(now=0.3)
+
+    with pytest.raises(TypeError):
+        engine.confirm_write(token, outcome=outcome, now=0.4)
+
+    assert engine.active_token == token
+
+
+def test_operation_and_action_repr_never_expose_frames_or_invent_cccd_state():
     operation = _operation()
     frame = operation.synthetic_request_for_test()
     engine = OfflineVendorTransactionEngine()
-    descriptor = engine.mark_connected(now=0.0)
+    subscription = engine.mark_connected(now=0.0)
     engine.enqueue(operation, now=0.1)
-    engine.confirm_cccd(
-        token=descriptor.token,
-        characteristic_uuid=descriptor.characteristic_uuid,
-        descriptor_uuid=descriptor.descriptor_uuid,
-        enabled=True,
+    engine.confirm_subscription(
+        token=subscription.token,
+        characteristic_uuid=subscription.characteristic_uuid,
+        outcome=NotificationSubscriptionOutcome.TRANSPORT_CALL_COMPLETED,
         now=0.2,
     )
     write = engine.take_write(now=0.3).write_intent
 
     assert frame.hex() not in repr(operation)
     assert frame.hex() not in repr(write)
-    assert "0100" not in repr(descriptor)
+    assert "2902" not in repr(subscription)
     assert operation.hardware_eligible is False
     assert operation.maturity == "static_apk_only"
     assert write.hardware_eligible is False

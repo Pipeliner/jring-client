@@ -25,6 +25,10 @@ class BleakTransport:
         return bytes(await self._client.read_gatt_char(characteristic))
 
     async def write(self, characteristic: str, data: bytes) -> None:
+        await self.write_with_response(characteristic, data)
+
+    async def write_with_response(self, characteristic: str, data: bytes) -> None:
+        """Return after Bleak completes an explicitly response-requesting write."""
         await self._client.write_gatt_char(characteristic, data, response=True)
 
     async def subscribe(self, characteristic: str, callback: NotifyCallback) -> None:

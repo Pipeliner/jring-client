@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import email.policy
+from importlib.metadata import PackageNotFoundError, version
 import shutil
 import subprocess
 import sys
@@ -9,6 +10,8 @@ import zipfile
 from email.message import Message
 from email.parser import Parser
 from pathlib import Path
+
+import pytest
 
 try:
     import tomllib
@@ -80,6 +83,26 @@ def _project_urls(metadata: Message) -> dict[str, str]:
     return result
 
 
+def _require_pinned_local_setuptools(pyproject: dict) -> None:
+    requirements = pyproject["build-system"]["requires"]
+    pins = [
+        value.removeprefix("setuptools==")
+        for value in requirements
+        if value.startswith("setuptools==")
+    ]
+    assert len(pins) == 1, "build-system must have one exact setuptools pin"
+    required = pins[0]
+    try:
+        installed = version("setuptools")
+    except PackageNotFoundError:
+        installed = "not installed"
+    if installed != required:
+        pytest.skip(
+            "fresh artifact metadata requires the pinned local build backend: "
+            f"setuptools=={required} (installed: {installed})"
+        )
+
+
 def _build_distributions(tmp_path: Path) -> tuple[Message, Message]:
     source = tmp_path / "source"
     output = tmp_path / "dist"
@@ -134,15 +157,29 @@ def _build_distributions(tmp_path: Path) -> tuple[Message, Message]:
     return wheel_metadata, sdist_metadata
 
 
-def test_public_distributions_have_safe_discovery_metadata(tmp_path):
+def test_source_has_safe_discovery_metadata():
     pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     project = tomllib.loads(pyproject)["project"]
-    wheel_metadata, sdist_metadata = _build_distributions(tmp_path)
 
     source_keywords = tuple(project["keywords"])
     source_urls = project["urls"]
     assert source_keywords == EXPECTED_KEYWORDS
     assert source_urls == EXPECTED_URLS
+
+    for keyword in source_keywords:
+        normalized = keyword.casefold()
+        assert not any(claim in normalized for claim in FORBIDDEN_KEYWORD_CLAIMS)
+
+
+def test_fresh_public_distributions_have_safe_discovery_metadata(tmp_path):
+    pyproject_text = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    pyproject = tomllib.loads(pyproject_text)
+    _require_pinned_local_setuptools(pyproject)
+    project = pyproject["project"]
+    wheel_metadata, sdist_metadata = _build_distributions(tmp_path)
+
+    source_keywords = tuple(project["keywords"])
+    source_urls = project["urls"]
 
     for metadata in (wheel_metadata, sdist_metadata):
         assert _keywords(metadata) == EXPECTED_KEYWORDS
@@ -150,7 +187,3 @@ def test_public_distributions_have_safe_discovery_metadata(tmp_path):
 
     assert _keywords(wheel_metadata) == _keywords(sdist_metadata) == source_keywords
     assert _project_urls(wheel_metadata) == _project_urls(sdist_metadata) == source_urls
-
-    for keyword in source_keywords:
-        normalized = keyword.casefold()
-        assert not any(claim in normalized for claim in FORBIDDEN_KEYWORD_CLAIMS)

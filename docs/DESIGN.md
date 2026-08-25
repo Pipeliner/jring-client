@@ -55,9 +55,18 @@ and never turns an idle timeout into confirmed completeness or retains a raw fra
 `jring.non_health` is an immutable, local-only evidence inventory; it exposes no frame,
 transport, parser, input sink, or authority to promote a static candidate.
 `jring.vendor_transport` is likewise pure: it models one typed vendor transaction,
-keeps CCCD, ATT-write, and application acknowledgements distinct, binds stale callbacks
-to connection/operation generations, and classifies post-write ambiguity as uncertain.
-It has no BLE/client import and cannot make an operation hardware-eligible.
+keeps notification-subscription readiness, modeled characteristic-write outcomes, and
+application responses distinct, provides generation tokens for a coordinator to bind,
+and classifies an unknown post-dispatch write outcome as uncertain. Subscription
+readiness means only that the transport's high-level activation call completed; it
+does not claim an explicit CCCD write or peripheral descriptor acknowledgement. The
+model has no BLE/client import and cannot make an operation hardware-eligible.
+`jring.vendor_runtime_fake` and `jring.vendor_runtime_simulator` exercise that ordering
+against one exact scripted in-memory transport. The coordinator refuses subclasses and
+real transports, performs route preflight, calls only the explicit response-write
+boundary, binds callbacks to a connection generation, buffers response-before-write
+races, and poisons reuse after uncertain delivery or cleanup. It is synthetic test
+infrastructure—not a `JRingClient` feature or evidence of device support.
 `jring.vendor_behavior_settings`, `jring.vendor_settings`, and
 `jring.vendor_personal_settings` hold closed, strict synthetic mutation encoders. They
 preserve proven valid layouts while rejecting SDK wrapping, implicit encodings,
@@ -88,6 +97,8 @@ backend sends scan requests. It prints redacted aliases, never addresses, and ne
 connects. Connection prefers a mode-0600 `--address-file`; legacy `--address` remains
 available with a shell-history/process-list warning. Vendor writes, pairing,
 firmware/DFU, destructive history operations, cloud access, and telemetry are absent.
+The recovered vendor cloud checks, Android bonding, BLE binding mutation, and startup
+device-time mutation are separate state machines; none is inferred or run implicitly.
 
 `status --select --active-scan` retains the scan's private address association only in
 an in-process selection candidate whose representation and public summary omit it.

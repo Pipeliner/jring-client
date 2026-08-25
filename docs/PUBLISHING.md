@@ -75,6 +75,15 @@ and [GitHub environment protection](https://docs.github.com/en/actions/how-tos/d
 This path is appropriate while configuring PyPI or reviewing a candidate. It never
 runs for a pull request, fork, push, release, or tag automatically.
 
+Offline source-tree tests always validate the declared project keywords and URLs. The
+fresh wheel-and-sdist metadata test additionally requires the exact setuptools version
+pinned in `pyproject.toml`. On a distribution Python with an older build backend, only
+that artifact-building test is skipped; it must not silently use the older backend to
+judge current metadata behavior. Use the isolated development environment or the
+pinned validation workflow for artifact assertions. Files already present in local
+`dist/` are disposable build outputs and are never evidence for the current source;
+the release workflow builds twice from the selected commit and compares fresh outputs.
+
 ## Publish an approved version
 
 1. Confirm the clean commit has passed normal tests and validation-only publishing.

@@ -35,6 +35,17 @@ def test_simulated_safe_reads_and_capabilities():
 
     run(scenario())
 
+
+def test_fake_transport_write_with_response_copies_payload_after_completion():
+    transport = FakeTransport.standard_ring()
+    payload = bytearray(b"payload")
+
+    run(transport.write_with_response("Characteristic", payload))
+    payload[0] = ord("X")
+
+    assert transport.values["characteristic"] == b"payload"
+
+
 def test_live_heart_rate_notification_and_clean_stop():
     transport = FakeTransport.standard_ring()
 

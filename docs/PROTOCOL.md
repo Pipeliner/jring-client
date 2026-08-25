@@ -150,17 +150,29 @@ events, five raw notification families, operation-specific acknowledgements, and
 generic by-day history decoder. The three local end projections are modeled separately
 rather than invented as wire frames. All 105 remain hardware-ineligible.
 
-Three authorization domains remain separate: vendor developer-cloud SDK validation,
-device-cloud authorization, and a local BLE binding exchange. The independent Python
-client does not copy cloud credentials or endpoints and does not forge or replay cloud
-decisions. Local bind/unbind remains disabled because multiple fields, physical
-confirmation behavior, timeout state, and firmware coverage are unproven. Android OS
-bonding is not treated as vendor binding.
+Four authorization or attachment domains remain separate: vendor developer-cloud SDK
+validation, device-cloud gear policy, the local BLE binding mutation, and Android OS
+bonding. Static control-flow review shows that the two cloud checks do not perform a
+ring wire challenge, and ordinary `33f3` queries can be queued after GATT readiness
+before the asynchronous device-cloud result. The independent Python client therefore
+does not copy cloud credentials or endpoints, replay cloud decisions, or relabel cloud
+policy as ring authentication. Local bind/unbind remains disabled because its three
+fields, physical confirmation behavior, timeout state, and firmware coverage are
+unproven. Android bonding is not treated as vendor binding.
 
-Before any future live vendor command path can be ready, it must serialize CCCD and
-characteristic writes, require successful primary notification acknowledgement, match
-responses by an operation-specific shape, clear pending work on disconnect, redact
-frames from logs, and fail uncertain without automatically replaying a write.
+The recovered SDK also schedules an automatic `01` device-time mutation after its
+notification-descriptor callback. Its timestamp uses the current total timezone offset
+while its separate offset byte uses the raw non-DST whole-hour offset, so the two can
+disagree. The SDK accepts nearly every descriptor result and has timeout/resend behavior;
+the Python client does not reproduce that unsafe startup write. The exact frame remains
+available only through the explicit, hardware-ineligible offline codec. Binding (`4b`)
+is likewise an explicit mutation, not an implicit part of connection or cloud auth.
+
+Before any future live vendor command path can be ready, it must serialize notification
+activation and characteristic writes, require successful primary subscription
+readiness without relabeling it as direct CCCD evidence, match responses by an
+operation-specific shape, clear pending work on disconnect, redact frames from logs,
+and fail uncertain without automatically replaying a write.
 
 ## Non-health and general-use findings
 
@@ -366,19 +378,33 @@ their request/response endpoint roles internally, and uses the corresponding str
 operation parser before a response can succeed. Arbitrary UUIDs, outbound bytes,
 matchers, and parser callbacks are not public inputs.
 
-The pure engine separates three distinct facts: a generation-bound CCCD enable
-confirmation, an operation-token-bound GATT characteristic-write confirmation, and a
-matched application response. It allows one queued or in-flight operation, uses one
-finite monotonic deadline from enqueue through response, rejects stale connection and
-operation tokens, and never retries. Unrelated notifications do not refresh the
-deadline. A timeout, cancellation, disconnect, or malformed response after write
-issuance is explicitly `uncertain`; work stopped before issuance is `aborted`.
+The pure engine separates three distinct facts: generation-bound notification
+subscription readiness, an operation-token-bound GATT characteristic-write outcome,
+and a matched application response. Subscription readiness deliberately makes no
+claim that a `2902` value was written or acknowledged by the peripheral. Write outcomes
+are closed and explicit: acknowledged, definitely not dispatched, or unknown. An
+unknown outcome taints the connection and requires disconnect before more work. The
+engine allows one queued or in-flight operation, uses one finite monotonic deadline
+from enqueue through response, rejects stale connection and operation tokens, and
+never retries. Unrelated notifications do not refresh the deadline. A timeout,
+cancellation, disconnect, malformed response, or unknown outcome after write issuance
+is explicitly `uncertain`; work stopped before issuance is `aborted`.
 
 This is simulator state only: every operation, intent, token, closure, and engine stays
 hardware-ineligible and hides frame bytes from representations. It is not imported by
-the BLE transport or client. A live adapter remains blocked on real CCCD enable/disable
-acknowledgements, surfaced ATT write outcomes, disconnect generations, endpoint/model
-evidence, owner authorization state, and read-only hardware canaries.
+the BLE transport or client. A dedicated fake-only coordinator now proves race,
+deadline, disconnect, bounded-queue, cleanup, and no-retry behavior without accepting
+Bleak or arbitrary transport implementations. Its results always say synthetic and
+hardware-unverified; an uncertain result explains that the command may have been
+received, was not repeated, and requires a fresh simulator. A live adapter remains
+blocked on surfaced ATT write outcomes, disconnect generations, endpoint/model
+evidence, owner authorization state,
+and read-only hardware canaries. It must also refuse duplicate UUID instances, select
+characteristics by service/handle rather than UUID alone, require the response-write
+property, serialize callbacks through a bounded generation-tagged queue, buffer any
+response arriving before write completion, bound unsubscribe cleanup, and taint the
+session after cancellation or an unknown write outcome. Bleak/BlueZ notification
+activation is not promoted to direct CCCD evidence.
 
 ## Required hardware evidence to advance
 

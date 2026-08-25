@@ -3,7 +3,10 @@
 The objects in this module describe and simulate ordering; they cannot access a radio,
 subscribe, unsubscribe, or write.  In particular, a returned write intent is test data
 rather than authorization to send its bytes to hardware.  Planning and confirming a
-live CCCD-disable operation remains a live-adapter blocker outside this offline slice.
+live notification-unsubscribe operation remains a live-adapter blocker outside this
+offline slice.  Notification readiness is intentionally modeled at the subscription
+API level: this module never claims that a client observed a CCCD write or
+acknowledgement.
 """
 
 from __future__ import annotations
@@ -16,11 +19,7 @@ from typing import Callable
 from uuid import UUID
 
 from .protocol import ProtocolError
-from .uuids import (
-    VENDOR_CHARACTERISTIC_33F3,
-    VENDOR_CHARACTERISTIC_33F4,
-    uuid16,
-)
+from .uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 from .vendor_protocol import (
     StaticQuery,
     StaticVendorRequest,
@@ -37,15 +36,27 @@ from .vendor_protocol import (
     static_protocol_coverage,
 )
 
-
-CLIENT_CHARACTERISTIC_CONFIGURATION = uuid16(0x2902)
 _ENGINE_IDS = itertools.count()
 
 
 class EnginePhase(str, Enum):
     DISCONNECTED = "disconnected"
-    DESCRIPTOR_REQUIRED = "descriptor_required"
+    SUBSCRIPTION_REQUIRED = "subscription_required"
     READY = "ready"
+    RECONNECT_REQUIRED = "reconnect_required"
+
+
+class NotificationSubscriptionOutcome(str, Enum):
+    """Result of the transport's high-level subscription call only."""
+
+    TRANSPORT_CALL_COMPLETED = "transport_call_completed"
+    FAILED = "failed"
+
+
+class WriteOutcome(str, Enum):
+    ACKNOWLEDGED = "acknowledged"
+    DEFINITELY_NOT_DISPATCHED = "definitely_not_dispatched"
+    OUTCOME_UNKNOWN = "outcome_unknown"
 
 
 class NotificationDisposition(str, Enum):
@@ -63,7 +74,7 @@ class TransactionCloseReason(str, Enum):
     DEVICE_FAILURE = "device_failure"
     TIMEOUT = "timeout"
     WRITE_FAILURE = "write_failure"
-    DESCRIPTOR_FAILURE = "descriptor_failure"
+    SUBSCRIPTION_FAILURE = "subscription_failure"
     MALFORMED_RESPONSE = "malformed_response"
     CANCELLED = "cancelled"
     DISCONNECTED = "disconnected"
@@ -242,7 +253,7 @@ class VendorOperationToken:
 
 
 @dataclass(frozen=True, repr=False)
-class CccdReadinessToken:
+class NotificationSubscriptionToken:
     generation: int
     _engine_id: int = field(repr=False)
 
@@ -251,32 +262,22 @@ class CccdReadinessToken:
         return False
 
     def __repr__(self) -> str:
-        return f"CccdReadinessToken(generation={self.generation})"
+        return f"NotificationSubscriptionToken(generation={self.generation})"
 
 
 @dataclass(frozen=True, repr=False)
-class CccdEnableIntent:
-    token: CccdReadinessToken
+class NotificationSubscriptionIntent:
+    token: NotificationSubscriptionToken
     characteristic_uuid: str
-    descriptor_uuid: str
-    _value: bytes = field(repr=False)
-
-    @property
-    def notifications_enabled(self) -> bool:
-        return self._value == b"\x01\x00"
 
     @property
     def hardware_eligible(self) -> bool:
         return False
 
-    def synthetic_value_for_test(self) -> bytes:
-        return bytes(self._value)
-
     def __repr__(self) -> str:
         return (
-            "CccdEnableIntent("
+            "NotificationSubscriptionIntent("
             f"token={self.token!r}, characteristic_uuid={self.characteristic_uuid!r}, "
-            f"descriptor_uuid={self.descriptor_uuid!r}, value=<redacted>, "
             "hardware_eligible=False)"
         )
 
@@ -379,7 +380,7 @@ class OfflineVendorTransactionEngine:
         self._generation = 0
         self._connection_generation = 0
         self._phase = EnginePhase.DISCONNECTED
-        self._expected_cccd_token: CccdReadinessToken | None = None
+        self._expected_subscription_token: NotificationSubscriptionToken | None = None
         self._last_now: float | None = None
         self._queued: _Pending | None = None
         self._write_pending: _Pending | None = None
@@ -392,6 +393,10 @@ class OfflineVendorTransactionEngine:
     @property
     def hardware_eligible(self) -> bool:
         return False
+
+    @property
+    def requires_reconnect(self) -> bool:
+        return self._phase is EnginePhase.RECONNECT_REQUIRED
 
     @property
     def active_token(self) -> VendorOperationToken | None:
@@ -408,8 +413,16 @@ class OfflineVendorTransactionEngine:
             "OfflineVendorTransactionEngine("
             f"phase={self._phase.value!r}, has_queued={self._queued is not None}, "
             f"write_confirmation_pending={self._write_pending is not None}, "
-            f"has_in_flight={self._in_flight is not None}, hardware_eligible=False)"
+            f"has_in_flight={self._in_flight is not None}, "
+            f"requires_reconnect={self.requires_reconnect}, hardware_eligible=False)"
         )
+
+    def _reject_reconnect_required(self) -> None:
+        if self._phase is EnginePhase.RECONNECT_REQUIRED:
+            raise ProtocolError(
+                "vendor session outcome is uncertain; record observed disconnect "
+                "before new work"
+            )
 
     def _observe_now(self, now: float) -> float:
         if isinstance(now, bool) or not isinstance(now, (int, float)):
@@ -422,52 +435,56 @@ class OfflineVendorTransactionEngine:
         self._last_now = current
         return current
 
-    def mark_connected(self, *, now: float) -> CccdEnableIntent:
+    def mark_connected(self, *, now: float) -> NotificationSubscriptionIntent:
         self._observe_now(now)
+        self._reject_reconnect_required()
         if self._phase is not EnginePhase.DISCONNECTED:
             raise ProtocolError("offline vendor engine is already connected")
         self._connection_generation += 1
-        token = CccdReadinessToken(self._connection_generation, self._engine_id)
-        self._expected_cccd_token = token
-        self._phase = EnginePhase.DESCRIPTOR_REQUIRED
-        return CccdEnableIntent(
+        token = NotificationSubscriptionToken(
+            self._connection_generation, self._engine_id
+        )
+        self._expected_subscription_token = token
+        self._phase = EnginePhase.SUBSCRIPTION_REQUIRED
+        return NotificationSubscriptionIntent(
             token=token,
             characteristic_uuid=VENDOR_CHARACTERISTIC_33F4,
-            descriptor_uuid=CLIENT_CHARACTERISTIC_CONFIGURATION,
-            _value=b"\x01\x00",
         )
 
-    def confirm_cccd(
+    def confirm_subscription(
         self,
         *,
-        token: CccdReadinessToken,
+        token: NotificationSubscriptionToken,
         characteristic_uuid: str,
-        descriptor_uuid: str,
-        enabled: bool,
+        outcome: NotificationSubscriptionOutcome,
         now: float,
     ) -> VendorEngineUpdate:
         self._observe_now(now)
-        if self._phase is not EnginePhase.DESCRIPTOR_REQUIRED:
-            raise ProtocolError("CCCD confirmation is not currently expected")
-        if not isinstance(token, CccdReadinessToken):
-            raise TypeError("CCCD token must be a CccdReadinessToken")
-        if token != self._expected_cccd_token:
-            raise ProtocolError("stale CCCD confirmation token")
-        if type(enabled) is not bool:
-            raise TypeError("CCCD enabled state must be a boolean")
-        characteristic = _normalize_uuid(characteristic_uuid, "CCCD characteristic")
-        descriptor = _normalize_uuid(descriptor_uuid, "CCCD descriptor")
-        if (
-            characteristic != VENDOR_CHARACTERISTIC_33F4
-            or descriptor != CLIENT_CHARACTERISTIC_CONFIGURATION
-        ):
-            raise ProtocolError("CCCD confirmation does not match notification readiness")
-        self._expected_cccd_token = None
-        if not enabled:
+        self._reject_reconnect_required()
+        if self._phase is not EnginePhase.SUBSCRIPTION_REQUIRED:
+            raise ProtocolError("subscription confirmation is not currently expected")
+        if not isinstance(token, NotificationSubscriptionToken):
+            raise TypeError(
+                "subscription token must be a NotificationSubscriptionToken"
+            )
+        if token != self._expected_subscription_token:
+            raise ProtocolError("stale notification subscription confirmation token")
+        if type(outcome) is not NotificationSubscriptionOutcome:
+            raise TypeError("outcome must be a NotificationSubscriptionOutcome")
+        characteristic = _normalize_uuid(
+            characteristic_uuid, "notification subscription characteristic"
+        )
+        if characteristic != VENDOR_CHARACTERISTIC_33F4:
+            raise ProtocolError(
+                "subscription confirmation does not match notification readiness"
+            )
+        self._expected_subscription_token = None
+        if outcome is NotificationSubscriptionOutcome.FAILED:
+            self._phase = EnginePhase.RECONNECT_REQUIRED
             return VendorEngineUpdate(
                 closure=self._close(
-                    TransactionCloseReason.DESCRIPTOR_FAILURE,
-                    TransactionCompleteness.FAILED,
+                    TransactionCloseReason.SUBSCRIPTION_FAILURE,
+                    TransactionCompleteness.ABORTED,
                 )
             )
         self._phase = EnginePhase.READY
@@ -479,6 +496,7 @@ class OfflineVendorTransactionEngine:
         current = self._observe_now(now)
         if type(operation) is not OfflineVendorOperation:
             raise TypeError("operation must be an OfflineVendorOperation")
+        self._reject_reconnect_required()
         if self._phase is EnginePhase.DISCONNECTED:
             raise ProtocolError("cannot queue a vendor operation while disconnected")
         if (
@@ -506,6 +524,8 @@ class OfflineVendorTransactionEngine:
         self._queued = None
         if pending is None:
             return None
+        if completeness is TransactionCompleteness.UNCERTAIN:
+            self._phase = EnginePhase.RECONNECT_REQUIRED
         return TransactionClosure(
             operation_name=pending.operation.name,
             token=pending.token,
@@ -552,13 +572,13 @@ class OfflineVendorTransactionEngine:
         self,
         token: VendorOperationToken,
         *,
-        succeeded: bool,
+        outcome: WriteOutcome,
         now: float,
     ) -> VendorEngineUpdate:
         if not isinstance(token, VendorOperationToken):
             raise TypeError("operation token must be a VendorOperationToken")
-        if type(succeeded) is not bool:
-            raise TypeError("write confirmation state must be a boolean")
+        if type(outcome) is not WriteOutcome:
+            raise TypeError("outcome must be a WriteOutcome")
         current = self._observe_now(now)
         if token != self.active_token:
             return VendorEngineUpdate()
@@ -567,11 +587,18 @@ class OfflineVendorTransactionEngine:
             return VendorEngineUpdate(closure=expired)
         if self._write_pending is None:
             raise ProtocolError("characteristic write confirmation was not expected")
-        if not succeeded:
+        if outcome is WriteOutcome.DEFINITELY_NOT_DISPATCHED:
             return VendorEngineUpdate(
                 closure=self._close(
                     TransactionCloseReason.WRITE_FAILURE,
-                    TransactionCompleteness.FAILED,
+                    TransactionCompleteness.ABORTED,
+                )
+            )
+        if outcome is WriteOutcome.OUTCOME_UNKNOWN:
+            return VendorEngineUpdate(
+                closure=self._close(
+                    TransactionCloseReason.WRITE_FAILURE,
+                    TransactionCompleteness.UNCERTAIN,
                 )
             )
         self._in_flight = self._write_pending
@@ -641,12 +668,14 @@ class OfflineVendorTransactionEngine:
             )
         )
 
-    def disconnect(self) -> VendorEngineUpdate:
+    def record_disconnected(self) -> VendorEngineUpdate:
+        """Record an observed link teardown, invalidating all connection state."""
+
         completeness = self._interrupted_completeness()
         closure = self._close(
             TransactionCloseReason.DISCONNECTED,
             completeness,
         )
-        self._expected_cccd_token = None
+        self._expected_subscription_token = None
         self._phase = EnginePhase.DISCONNECTED
         return VendorEngineUpdate(closure=closure)
