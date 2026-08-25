@@ -32,6 +32,7 @@ from jring.vendor_settings import (
     encode_hour_format,
     encode_sensor_session_start,
 )
+from jring.vendor_personal_settings import encode_reminder_text
 
 
 def _operation(name: str = "battery") -> OfflineVendorOperation:
@@ -783,3 +784,20 @@ def test_setting_operation_matcher_returns_typed_ack_without_becoming_live():
     assert parsed.operation.value == "hour_format"
     assert not hasattr(operation, "write")
     assert not hasattr(operation, "execute")
+
+
+def test_personal_setting_request_composes_success_only_fake_matcher_privately():
+    request = encode_reminder_text(index=2, text="private reminder")
+
+    operation = OfflineVendorOperation.from_personal_setting_request(request)
+
+    assert operation.name == "reminder_text"
+    assert operation.success_opcodes == (0x32,)
+    assert operation.failure_opcodes == ()
+    assert "private reminder" not in repr(operation)
+    disposition, parsed = operation._match(
+        VENDOR_CHARACTERISTIC_33F4, bytes((0x32,)) + bytes(19)
+    )
+    assert disposition.value == "success"
+    assert parsed.operation.value == "reminder_text"
+    assert parsed.success is True

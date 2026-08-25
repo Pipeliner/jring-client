@@ -42,6 +42,10 @@ from .vendor_settings import (
     StaticVendorSettingOperation,
     StaticVendorSettingRequest,
 )
+from .vendor_personal_settings import (
+    OfflinePersonalSettingRequest,
+    PersonalSettingOperation,
+)
 
 _ENGINE_IDS = itertools.count()
 
@@ -147,6 +151,24 @@ _SETTING_REQUEST_OPCODES = {
     StaticVendorSettingOperation.HEART_RATE_AREA: 0x26,
     StaticVendorSettingOperation.DEVICE_NAME: 0x30,
 }
+_PERSONAL_ACKS = {
+    PersonalSettingOperation.REMINDER: StaticAckOperation.REMINDER,
+    PersonalSettingOperation.REMINDER_TEXT: StaticAckOperation.REMINDER_TEXT,
+    PersonalSettingOperation.BP_ADJUST: StaticAckOperation.BP_ADJUST,
+    PersonalSettingOperation.DEVICE_DIAL_STATE: StaticAckOperation.DEVICE_DIAL_STATE,
+    PersonalSettingOperation.DEVICE_WALLPAPER_STATE: StaticAckOperation.WALLPAPER_STATE,
+    PersonalSettingOperation.EDIT_DEVICE_DIAL_CUSTOM: StaticAckOperation.EDIT_DIAL_CUSTOM,
+    PersonalSettingOperation.FEMALE_REMINDER: StaticAckOperation.FEMALE_REMINDER,
+}
+_PERSONAL_REQUEST_OPCODES = {
+    PersonalSettingOperation.REMINDER: 0x31,
+    PersonalSettingOperation.REMINDER_TEXT: 0x32,
+    PersonalSettingOperation.BP_ADJUST: 0x33,
+    PersonalSettingOperation.DEVICE_DIAL_STATE: 0x35,
+    PersonalSettingOperation.DEVICE_WALLPAPER_STATE: 0x36,
+    PersonalSettingOperation.EDIT_DEVICE_DIAL_CUSTOM: 0x41,
+    PersonalSettingOperation.FEMALE_REMINDER: 0x44,
+}
 
 
 @dataclass(frozen=True, init=False, repr=False)
@@ -250,6 +272,30 @@ class OfflineVendorOperation:
             request_frame=frame,
             success_opcodes=success,
             failure_opcodes=failure,
+            expected_subcommand=None,
+            parser=partial(parse_vendor_ack, operation=ack_operation),
+        )
+
+    @classmethod
+    def from_personal_setting_request(
+        cls, request: OfflinePersonalSettingRequest
+    ) -> "OfflineVendorOperation":
+        """Compose a success-only fake matcher from a closed personal encoder."""
+
+        if type(request) is not OfflinePersonalSettingRequest:
+            raise TypeError("request must be an OfflinePersonalSettingRequest")
+        if not isinstance(request.operation, PersonalSettingOperation):
+            raise TypeError("request operation must be a PersonalSettingOperation")
+        frame = request.synthetic_bytes_for_test()
+        expected_opcode = _PERSONAL_REQUEST_OPCODES[request.operation]
+        if len(frame) != 20 or frame[0] != expected_opcode:
+            raise ValueError("personal-setting request does not match its operation")
+        ack_operation = _PERSONAL_ACKS[request.operation]
+        return cls._create(
+            name=request.operation.value,
+            request_frame=frame,
+            success_opcodes=(expected_opcode,),
+            failure_opcodes=(),
             expected_subcommand=None,
             parser=partial(parse_vendor_ack, operation=ack_operation),
         )

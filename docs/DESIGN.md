@@ -206,10 +206,11 @@ and terminal rules. Raw typed notifications remain event candidates rather than
 acknowledgements. Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 
-The exact-type fake runtime accepts two closed operation factories: the seven static
-query encoders and all eight typed setting encoders, plus the independently closed
-screen-light route. Setting composition validates the fixed request opcode, binds the
-operation-specific acknowledgement parser, and preserves direct failure opcodes. It
+The exact-type fake runtime accepts closed operation factories for the seven static
+query encoders, all eight typed setting encoders, and all seven personal-setting
+encoders, plus the independently closed screen-light route. Composition validates the
+fixed request opcode, binds the operation-specific acknowledgement parser, and
+preserves direct failure opcodes where present. It
 cannot accept arbitrary messages or transports, and every result remains simulation
 only and hardware-ineligible.
 

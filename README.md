@@ -142,6 +142,8 @@ The fake-only transaction simulator can now compose all seven query families, th
 screen-light subcommand, and all eight typed settings families. A synthetic mutation
 acknowledgement is parsed through the same closed correlation rules; this still creates
 no client method, live adapter, write authority, retry policy, or hardware claim.
+All seven personal-setting encoders can likewise compose success-only fake matchers;
+their private input stays hidden and absence of a proven failure opcode remains explicit.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke
