@@ -527,6 +527,10 @@ The optional hardware test is skipped unless both `JRING_HARDWARE_TEST=1` and an
 ring was available during development. See [DESIGN.md](docs/DESIGN.md) for evidence,
 confidence levels, architecture, acceptance criteria, and exact gaps. Human-facing
 behavior and its test map live in [UX_SPEC.md](docs/UX_SPEC.md).
+The APK-first source contract is the complete, evidence-graded
+[clean-room functionality specification](docs/APK_FUNCTIONAL_SPEC.md), with linked
+request, callback, transport, session, OTA, UI, and data appendices. It describes the
+reviewed Android build rather than simulator behavior or a claim of hardware parity.
 The cross-persona [adversarial UX review](docs/ADVERSARIAL_UX_REVIEW.md) records the
 v0.5 trust repairs and the gates that remain before live sensor-to-input bridging.
 All deferred work, including non-health HID/sensor functionality, is owned by the
