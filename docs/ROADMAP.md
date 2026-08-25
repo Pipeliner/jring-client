@@ -13,11 +13,26 @@ owner.
 - [#2 Non-health services, HID descriptors, and sensor inventory](https://github.com/Pipeliner/jring-client/issues/2)
 - [#3 Verified non-health motion events](https://github.com/Pipeliner/jring-client/issues/3)
 - [#11 Privacy-safe real-hardware compatibility matrix](https://github.com/Pipeliner/jring-client/issues/11)
+- [#16 Complete clean-room APK-to-Python BLE protocol parity](https://github.com/Pipeliner/jring-client/issues/16)
+- [#17 Harden evidence scanning and private-ledger separation](https://github.com/Pipeliner/jring-client/issues/17)
+- [#22 Publish an exhaustive offline protocol coverage ledger](https://github.com/Pipeliner/jring-client/issues/22)
+
+## Vendor transport and owner hardware
+
+- [#18 Promote read-only vendor queries through owner hardware canaries](https://github.com/Pipeliner/jring-client/issues/18)
+- [#21 Build a fail-closed vendor GATT transaction engine](https://github.com/Pipeliner/jring-client/issues/21)
+- [#23 Detect authorization-gated firmware without vendor cloud requests](https://github.com/Pipeliner/jring-client/issues/23)
+- [#24 Verify owner-controlled vendor binding without cloud replay](https://github.com/Pipeliner/jring-client/issues/24)
 
 ## Desktop input and accessibility
 
 - [#4 Fail-safe live sensor-to-keyboard/mouse runtime](https://github.com/Pipeliner/jring-client/issues/4)
 - [#5 Accessible mappings and action inventory](https://github.com/Pipeliner/jring-client/issues/5)
+- [#20 Inventory and safely expose raw and non-health capabilities](https://github.com/Pipeliner/jring-client/issues/20)
+
+## High-risk and bulk capabilities
+
+- [#19 Threat-model private-data, bulk-transfer, and destructive features](https://github.com/Pipeliner/jring-client/issues/19)
 
 ## Everyday hardware UX and automation
 
