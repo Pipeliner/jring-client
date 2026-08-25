@@ -867,6 +867,7 @@ def test_live_owner_entrypoints_reject_reconstructed_and_stale_targets(
 
 
 def test_environment_captures_linux_bluez_and_bleak_majors(monkeypatch):
+    monkeypatch.setattr("importlib.metadata.version", lambda _name: "0.22.3")
     monkeypatch.setattr(
         evidence_module.platform,
         "freedesktop_os_release",
