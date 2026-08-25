@@ -591,6 +591,28 @@ short-lived CI artifact only. It has no package-index upload, GitHub-release cre
 contents-write permission, or signing secret. Installation documentation covers
 checksum verification, pipx/uv-tool install, upgrade, and uninstall.
 
+The source metadata claims Console on POSIX Linux and only the fixed CPython minors
+exercised by committed CI: 3.10, 3.11, and 3.13. It does not promote rolling distro
+interpreters, documentation-only distributions, or an accepted `requires-python`
+range into fixed-minor test evidence. The SPDX MIT expression remains authoritative;
+the legacy MIT classifier is omitted because the pinned backend rejects combining it
+with the modern license expression.
+
+Given a reviewed source tree and local wheelhouse containing every exact pin from
+`requirements/release.txt`, a fresh virtual environment installs the frontend with
+`--no-index --find-links`, and the default isolated PEP 517 backend resolves from the
+same wheelhouse under `PIP_NO_INDEX=1`. The build produces one wheel and one source
+archive without changing system Python.
+
+Given any change to the authoritative parser, `generate_cli_artifacts.py --check`
+byte-compares deterministic Bash completion and man-page resources. Visible options,
+aliases, choices, required values, file values, and parser command order stay scoped to
+their parser context; suppressed compatibility arguments remain absent. The manual
+states the offline/no-contact safety boundary before its catalog. Generation reads no
+environment value, address, capture, Bluetooth state, shell history, or runtime device
+state. These files ship as inert wheel resources: package installation neither edits a
+shell configuration nor installs them into host completion or manual directories.
+
 ### Non-destructive export
 
 History refuses to replace an existing destination unless `--force` is explicit.
@@ -650,7 +672,8 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Guided same-process selection | `test_guided_status_selects_only_after_confirmation`, `test_guided_selection_never_autoconnects`, `test_guided_selection_zero_or_invalid_results_do_not_connect`, `test_aliases_change_between_process_seeds` |
 | Privacy-safe evidence | `test_unsafe_evidence_is_rejected_without_echo`, `test_manifest_requires_provenance_consent_coverage_and_redactions`, `test_safe_synthetic_manifest_derives_deterministically`, `test_repository_evidence_scan_rejects_raw_artifacts` |
 | Honest compatibility | `test_compatibility_report_rejects_sensitive_values_without_echo`, `test_untested_dimensions_cannot_claim_compatibility`, `test_synthetic_reports_merge_deterministically`, `test_zero_failure_synthetic_report_names_hardware_as_untested` |
-| Verified install artifact | `test_project_version_agrees_with_runtime`, `test_artifact_inspection_and_checksums_are_deterministic`, `test_sdist_normalization_removes_build_time_variance`, `test_release_workflow_is_pinned_and_has_no_publish_step`, `test_install_documentation_covers_lifecycle_and_verification` |
+| Verified install artifact | `test_project_version_agrees_with_runtime`, `test_artifact_inspection_and_checksums_are_deterministic`, `test_sdist_normalization_removes_build_time_variance`, `test_release_workflow_is_pinned_and_has_no_publish_step`, `test_install_documentation_covers_lifecycle_and_verification`, `test_build_inputs_are_complete_and_exactly_pinned`, `test_release_workflow_proves_an_isolated_no_index_build_from_pinned_inputs` |
+| Parser-derived terminal help | `test_surface_exactly_tracks_visible_parser_contexts_aliases_and_choices`, `test_checked_in_artifacts_are_exact_parser_derived_bytes`, `test_generation_is_reproducible_private_and_host_independent`, `test_manual_leads_with_safety_and_covers_every_parser_item_once`, `test_roff_renderer_neutralizes_macro_and_control_injection`, `test_bash_completion_sources_and_preserves_command_scope` |
 | Non-destructive export | `test_history_export_requires_force_to_replace` |
 
 ## Deliberate non-goals

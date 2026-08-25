@@ -1326,7 +1326,10 @@ def _add_json_option(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="jring", description="Privacy-first JRing Linux client")
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}",
+        help="show the installed JRing version and exit",
+    )
     _add_runtime_options(parser, suppress=True, simulator_profiles=True)
     sub = parser.add_subparsers(dest="command", required=True)
     doctor = sub.add_parser(
@@ -1420,7 +1423,9 @@ def build_parser() -> argparse.ArgumentParser:
     history.add_argument("--simulate", action="store_true", default=argparse.SUPPRESS,
                          help="required: use offline simulated history")
     _add_json_option(history)
-    history.add_argument("--output", type=Path, required=True)
+    history.add_argument(
+        "--output", type=Path, required=True, help="destination JSON export file"
+    )
     history.add_argument("--force", action="store_true", help="replace an existing export")
     return parser
 

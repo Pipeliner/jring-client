@@ -1,0 +1,232 @@
+.TH "JRING" "1" "" "jring" "User Commands"
+.SH "NAME"
+jring \- privacy\-first Linux client for explicitly selected JRing devices
+.SH "SYNOPSIS"
+.B jring
+[global options] command [command options]
+.SH "DESCRIPTION"
+JRing is offline by default and does not scan, connect, write, or emit desktop input unless the matching command and explicit authorization gate are supplied. Generated help never probes Bluetooth or the host.
+Privacy\-first JRing Linux client
+.SH "COMMANDS"
+.TP
+.B doctor
+passively check local simulator and hardware prerequisites
+.TP
+.B input\-actions
+list local simulator events and allowlisted input actions
+.TP
+.B protocol\-coverage
+inspect offline APK\-to\-Python parity without Bluetooth
+.TP
+.B non\-health\-capabilities
+list offline non\-health, HID, sensor, and input candidates
+.TP
+.B input
+simulator\-only preview or emission; live ring events are unavailable
+.TP
+.B discover
+actively scan with explicit consent; redacts addresses and never connects
+.TP
+.B status
+read battery, device information, and capabilities
+.TP
+.B capabilities
+inventory standard HID and known vendor metadata without reading values
+.TP
+.B time\-sync
+write standard Bluetooth Current Time
+.TP
+.B history
+export history (simulator only until verified)
+.SH "GLOBAL OPTIONS"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-version
+show the installed JRing version and exit
+.TP
+.B \-\-address \fIADDRESS\fR
+exact selected ring Bluetooth address
+.TP
+.B \-\-address\-file \fIADDRESS\-FILE\fR
+mode\-0600 file containing the selected ring address
+.TP
+.B \-\-simulate
+use an offline simulated ring
+.TP
+.B \-\-simulate\-profile \fISIMULATOR\-PROFILE\fR
+with \-\-simulate, select basic (default) or hid; the hid profile advertises metadata but never reads or emits HID reports Choices: basic, hid.
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+Bluetooth operation timeout in seconds (default: 8)
+.TP
+.B \-\-json
+print structured JSON where supported
+.SS "jring doctor"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-json
+print structured JSON
+.TP
+.B \-\-require\-hardware
+exit nonzero when optional hardware prerequisites are missing
+.TP
+.B \-\-require\-input
+exit nonzero when desktop\-input prerequisites are missing
+.SS "jring input-actions"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-json
+print structured JSON
+.SS "jring protocol-coverage"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-json
+print structured JSON
+.SS "jring non-health-capabilities"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-json
+print structured JSON
+.SS "jring input"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-simulate
+required: use one offline simulated step event
+.TP
+.B \-\-simulate\-profile \fISIMULATOR\-PROFILE\fR
+with \-\-simulate, select basic (default) or hid; the hid profile advertises metadata but never reads or emits HID reports Choices: basic, hid.
+.TP
+.B \-\-json
+print structured JSON
+.TP
+.B \-\-map \fIMAPPING\fR
+mapping such as step=key:space or step=click:left Required.
+.TP
+.B \-\-allow\-input
+authorize one simulated event through Linux uinput
+.SS "jring discover"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-simulate
+unsupported: discovery requires a real radio scan
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+scan timeout in seconds (default: 8)
+.TP
+.B \-\-json
+print structured JSON
+.TP
+.B \-\-active\-scan
+authorize BLE scan requests; does not connect
+.SS "jring status"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-address \fIADDRESS\fR
+exact selected ring Bluetooth address
+.TP
+.B \-\-address\-file \fIADDRESS\-FILE\fR
+mode\-0600 file containing the selected ring address
+.TP
+.B \-\-simulate
+use an offline simulated ring
+.TP
+.B \-\-simulate\-profile \fISIMULATOR\-PROFILE\fR
+with \-\-simulate, select basic (default) or hid; the hid profile advertises metadata but never reads or emits HID reports Choices: basic, hid.
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+Bluetooth operation timeout in seconds (default: 8)
+.TP
+.B \-\-json
+print structured JSON where supported
+.TP
+.B \-\-select
+interactively select an ephemeral discovery alias in this process
+.TP
+.B \-\-active\-scan
+authorize BLE scan requests for interactive selection
+.SS "jring capabilities"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-address \fIADDRESS\fR
+exact selected ring Bluetooth address
+.TP
+.B \-\-address\-file \fIADDRESS\-FILE\fR
+mode\-0600 file containing the selected ring address
+.TP
+.B \-\-simulate
+use an offline simulated ring
+.TP
+.B \-\-simulate\-profile \fISIMULATOR\-PROFILE\fR
+with \-\-simulate, select basic (default) or hid; the hid profile advertises metadata but never reads or emits HID reports Choices: basic, hid.
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+Bluetooth operation timeout in seconds (default: 8)
+.TP
+.B \-\-json
+print structured JSON where supported
+.TP
+.B \-\-select
+interactively select an ephemeral discovery alias in this process
+.TP
+.B \-\-active\-scan
+authorize BLE scan requests for interactive selection
+.SS "jring time-sync"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-address \fIADDRESS\fR
+exact selected ring Bluetooth address
+.TP
+.B \-\-address\-file \fIADDRESS\-FILE\fR
+mode\-0600 file containing the selected ring address
+.TP
+.B \-\-simulate
+use an offline simulated ring
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+Bluetooth operation timeout in seconds (default: 8)
+.TP
+.B \-\-json
+print structured JSON where supported
+.TP
+.B \-\-allow\-write, \-\-yes
+confirm this one standard Bluetooth time write Required.
+.SS "jring history"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-simulate
+required: use offline simulated history
+.TP
+.B \-\-json
+print structured JSON
+.TP
+.B \-\-output \fIOUTPUT\fR
+destination JSON export file Required.
+.TP
+.B \-\-force
+replace an existing export
+.SH "EXIT STATUS"
+Zero indicates success. Nonzero values identify usage, unavailable prerequisite, permission, timeout, protocol, or internal failures.
+.SH "PRIVACY AND FILES"
+Completion and manual artifacts are static package resources. Installing JRing does not configure a shell or copy these files into host completion or manual directories. Device addresses, captures, environment values, and runtime observations are never inputs to generation.

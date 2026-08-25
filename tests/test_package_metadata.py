@@ -43,6 +43,24 @@ EXPECTED_URLS = {
     "Issues": "https://github.com/Pipeliner/jring-client/issues",
     "Repository": "https://github.com/Pipeliner/jring-client",
 }
+EXPECTED_CLASSIFIERS = (
+    "Environment :: Console",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+)
+EXPECTED_BUILD_SYSTEM = ("setuptools==84.0.0",)
+EXPECTED_RELEASE_REQUIREMENTS = (
+    "build==1.5.0",
+    "packaging==26.3",
+    "pyproject-hooks==1.2.0",
+    "setuptools==84.0.0",
+    "tomli==2.4.1",
+)
 FORBIDDEN_KEYWORD_CLAIMS = {
     "activity",
     "blood-pressure",
@@ -165,6 +183,7 @@ def test_source_has_safe_discovery_metadata():
     source_urls = project["urls"]
     assert source_keywords == EXPECTED_KEYWORDS
     assert source_urls == EXPECTED_URLS
+    assert tuple(project["classifiers"]) == EXPECTED_CLASSIFIERS
 
     for keyword in source_keywords:
         normalized = keyword.casefold()
@@ -184,6 +203,46 @@ def test_fresh_public_distributions_have_safe_discovery_metadata(tmp_path):
     for metadata in (wheel_metadata, sdist_metadata):
         assert _keywords(metadata) == EXPECTED_KEYWORDS
         assert _project_urls(metadata) == EXPECTED_URLS
+        assert tuple(metadata.get_all("Classifier", [])) == EXPECTED_CLASSIFIERS
 
     assert _keywords(wheel_metadata) == _keywords(sdist_metadata) == source_keywords
     assert _project_urls(wheel_metadata) == _project_urls(sdist_metadata) == source_urls
+
+    wheel = next((tmp_path / "dist").glob("*.whl"))
+    with zipfile.ZipFile(wheel) as archive:
+        members = {member.filename: member for member in archive.infolist()}
+        for relative in (
+            "jring/resources/completions/jring.bash",
+            "jring/resources/man/jring.1",
+        ):
+            assert relative in members
+            assert (members[relative].external_attr >> 16) & 0o111 == 0
+        assert not any("share/" in name for name in members)
+
+    sdist = next((tmp_path / "dist").glob("*.tar.gz"))
+    with tarfile.open(sdist, "r:gz") as archive:
+        members = {member.name: member for member in archive.getmembers()}
+        prefix = f"jring_client-{pyproject['project']['version']}/"
+        for relative in (
+            "scripts/generate_cli_artifacts.py",
+            "src/jring/resources/completions/jring.bash",
+            "src/jring/resources/man/jring.1",
+        ):
+            assert prefix + relative in members
+            assert members[prefix + relative].mode & 0o111 == 0
+
+
+def test_build_inputs_are_complete_and_exactly_pinned():
+    pyproject = tomllib.loads(
+        (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    requirements = tuple(
+        line.strip()
+        for line in (PROJECT_ROOT / "requirements" / "release.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
+
+    assert tuple(pyproject["build-system"]["requires"]) == EXPECTED_BUILD_SYSTEM
+    assert requirements == EXPECTED_RELEASE_REQUIREMENTS

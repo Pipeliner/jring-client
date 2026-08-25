@@ -108,6 +108,12 @@ def inspect_artifacts(directory: Path, version: str) -> list[Path]:
         ]
         if len(license_names) != 1:
             raise ReleaseError("wheel license file is missing or ambiguous")
+        required_resources = {
+            "jring/resources/completions/jring.bash",
+            "jring/resources/man/jring.1",
+        }
+        if not required_resources.issubset(names):
+            raise ReleaseError("wheel is missing generated terminal resources")
         if any(not (name.startswith("jring/") or ".dist-info/" in name) for name in names):
             raise ReleaseError("wheel contains an undeclared top-level member")
 
@@ -149,6 +155,9 @@ def inspect_artifacts(directory: Path, version: str) -> list[Path]:
             f"jring_client-{version}/SECURITY.md",
             f"jring_client-{version}/CONTRIBUTING.md",
             f"jring_client-{version}/scripts/evidence_tool.py",
+            f"jring_client-{version}/scripts/generate_cli_artifacts.py",
+            f"jring_client-{version}/src/jring/resources/completions/jring.bash",
+            f"jring_client-{version}/src/jring/resources/man/jring.1",
         }
         if not required.issubset(names):
             raise ReleaseError("source archive is missing declared review files")

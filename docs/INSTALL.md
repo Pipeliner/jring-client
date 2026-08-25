@@ -51,7 +51,7 @@ pip's `--break-system-packages` escape hatch.
 Install a verified local wheel for the simulator:
 
 ```sh
-python -m pip install ./jring_client-0.5.0-py3-none-any.whl
+python -m pip install ./jring_client-VERSION-py3-none-any.whl
 jring doctor
 jring status --simulate
 jring capabilities --simulate
@@ -66,9 +66,9 @@ If `pipx` or `uv` is already managed by the distribution, either can create the
 isolated tool environment instead:
 
 ```sh
-pipx install ./jring_client-0.5.0-py3-none-any.whl
+pipx install ./jring_client-VERSION-py3-none-any.whl
 # or
-uv tool install ./jring_client-0.5.0-py3-none-any.whl
+uv tool install ./jring_client-VERSION-py3-none-any.whl
 ```
 
 For a source checkout, the equivalent developer install is:
@@ -77,6 +77,43 @@ For a source checkout, the equivalent developer install is:
 python -m pip install -e '.[dev]'
 jring status --simulate
 ```
+
+## Reproducible packager build
+
+The exact build frontend, backend, and frontend dependencies are pinned in
+`requirements/release.txt`. Prepare a wheelhouse on a connected staging machine; this
+is the only step that contacts a package index:
+
+```sh
+python3 -m venv /tmp/jring-wheelhouse-tools
+/tmp/jring-wheelhouse-tools/bin/python -m pip download --only-binary=:all: \
+  --dest /path/to/wheelhouse -r requirements/release.txt
+```
+
+Copy the reviewed source and wheelhouse to the build machine. Then create a new
+isolated virtual environment and perform both frontend installation and PEP 517 build
+resolution with index access disabled:
+
+```sh
+python3 -m venv /tmp/jring-build
+/tmp/jring-build/bin/python -m pip install --no-index \
+  --find-links /path/to/wheelhouse -r requirements/release.txt
+PIP_NO_INDEX=1 PIP_FIND_LINKS=/path/to/wheelhouse \
+  /tmp/jring-build/bin/python -m build --outdir /tmp/jring-dist
+```
+
+This produces `jring_client-VERSION-py3-none-any.whl` and
+`jring_client-VERSION.tar.gz` without changing the distribution-managed Python. The
+default isolated PEP 517 build is intentional: its temporary backend environment must
+also resolve the exact `setuptools` pin from the local wheelhouse. A packager should
+run `python scripts/generate_cli_artifacts.py --check` before building to detect parser
+and help drift.
+
+The wheel ships inert Bash completion and man-page resources below
+`jring/resources/`. Installing the package does not configure a shell and does not
+install a man page or copy files into host completion directories. Distribution
+packagers may place reviewed copies according to their own packaging policy; this
+project does not claim availability in any distribution.
 
 The base install has no Bluetooth or desktop-input dependency. Add only the extra for
 the job at hand:

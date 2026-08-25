@@ -45,6 +45,7 @@ jobs:
             echo "Publishing requires selecting the matching protected version tag." >&2
             exit 2
           fi
+          python scripts/generate_cli_artifacts.py --check
           if [[ "${PUBLISH_REQUESTED}" == "true" && "${GITHUB_REF_PROTECTED}" != "true" ]]; then
             echo "Publishing requires a protected tag." >&2
             exit 2

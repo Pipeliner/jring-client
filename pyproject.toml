@@ -29,6 +29,16 @@ keywords = [
     "wearable",
 ]
 dependencies = []
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
 
 [project.urls]
 Documentation = "https://github.com/Pipeliner/jring-client/tree/main/docs"
@@ -49,6 +59,12 @@ jring = "jring.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+jring = [
+    "resources/completions/jring.bash",
+    "resources/man/jring.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

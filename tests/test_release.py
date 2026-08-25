@@ -30,6 +30,8 @@ def make_artifacts(
     wheel = directory / f"jring_client-{version}-py3-none-any.whl"
     with zipfile.ZipFile(wheel, "w") as archive:
         archive.writestr("jring/__init__.py", "")
+        archive.writestr("jring/resources/completions/jring.bash", "generated")
+        archive.writestr("jring/resources/man/jring.1", "generated")
         archive.writestr(
             f"jring_client-{version}.dist-info/METADATA",
             (
@@ -51,6 +53,12 @@ def make_artifacts(
     if include_license:
         (source_root / "LICENSE").write_text("MIT License")
     (source_root / "scripts" / "evidence_tool.py").write_text("")
+    (source_root / "scripts" / "generate_cli_artifacts.py").write_text("")
+    resources = source_root / "src" / "jring" / "resources"
+    (resources / "completions").mkdir(parents=True)
+    (resources / "man").mkdir()
+    (resources / "completions" / "jring.bash").write_text("generated")
+    (resources / "man" / "jring.1").write_text("generated")
     egg_info = source_root / "src" / "jring_client.egg-info"
     egg_info.mkdir(parents=True)
     declared = {
@@ -58,6 +66,9 @@ def make_artifacts(
         "SECURITY.md",
         "CONTRIBUTING.md",
         "scripts/evidence_tool.py",
+        "scripts/generate_cli_artifacts.py",
+        "src/jring/resources/completions/jring.bash",
+        "src/jring/resources/man/jring.1",
         "src/jring_client.egg-info/SOURCES.txt",
     }
     if include_license:
@@ -181,3 +192,38 @@ def test_install_documentation_covers_lifecycle_and_verification():
         "uninstall",
     ):
         assert term in documentation
+
+
+def test_packager_guidance_is_version_neutral_pinned_and_non_mutating():
+    documentation = (ROOT / "docs" / "INSTALL.md").read_text(encoding="utf-8")
+    normalized = " ".join(documentation.split())
+
+    assert "jring_client-VERSION-py3-none-any.whl" in documentation
+    assert "jring_client-0.5.0-py3-none-any.whl" not in documentation
+    for term in (
+        "requirements/release.txt",
+        "--no-index",
+        "--find-links",
+        "PIP_NO_INDEX=1",
+        "python -m build",
+        "isolated virtual environment",
+        "does not configure a shell",
+        "does not install a man page",
+    ):
+        assert term in normalized
+    assert "do not use pip's `--break-system-packages`" in normalized.lower()
+
+
+def test_release_workflow_proves_an_isolated_no_index_build_from_pinned_inputs():
+    workflow = (ROOT / ".github" / "workflows" / "release-artifacts.yml").read_text()
+
+    for term in (
+        "pip download",
+        "requirements/release.txt",
+        "python -m venv /tmp/jring-offline-build",
+        "--no-index --find-links",
+        "PIP_NO_INDEX=1",
+        "PIP_FIND_LINKS=",
+        "python -m build",
+    ):
+        assert term in workflow

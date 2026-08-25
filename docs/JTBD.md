@@ -223,8 +223,13 @@ remove it without trusting an editable working tree.
 Desired outcomes:
 
 - Build byte-identical wheel and normalized source archives with pinned tooling.
+- Rebuild in a fresh isolated environment using only an explicitly prepared,
+  fully pinned local wheelhouse and no package-index access.
+- Advertise only Linux and fixed Python-minor classifiers backed by committed CI.
 - Reject tag/version drift, secrets, unsafe paths, and undeclared archive members.
 - Install the wheel in a clean environment and run only passive/simulated smoke paths.
+- Give Bash and man-page users deterministic help generated from the same
+  parser as the CLI, without probing the host or configuring their shell.
 - Keep artifact preparation separate from package-index publication and release creation.
 
 ### Reuse the ring as a general-purpose input

@@ -22,7 +22,11 @@ jobs:
           python-version: "3.13"
           cache: pip
       - name: Install pinned build tools
-        run: python -m pip install -r requirements/release.txt
+        shell: bash
+        run: |
+          python -m pip download --only-binary=:all: \
+            --dest /tmp/jring-build-wheelhouse -r requirements/release.txt
+          python -m pip install -r requirements/release.txt
       - name: Require a clean source and matching tag
         shell: bash
         run: |
@@ -30,6 +34,22 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             python scripts/release_artifacts.py check-version "${GITHUB_REF_NAME}"
           fi
+          python scripts/generate_cli_artifacts.py --check
+      - name: Prove isolated no-index build from pinned inputs
+        shell: bash
+        run: |
+          mkdir /tmp/jring-offline-source /tmp/jring-offline-dist
+          git archive HEAD -o /tmp/jring-offline-source.tar
+          tar -xf /tmp/jring-offline-source.tar -C /tmp/jring-offline-source
+          python -m venv /tmp/jring-offline-build
+          /tmp/jring-offline-build/bin/python -m pip install --no-index --find-links \
+            /tmp/jring-build-wheelhouse -r requirements/release.txt
+          cd /tmp/jring-offline-source
+          PIP_NO_INDEX=1 PIP_FIND_LINKS=/tmp/jring-build-wheelhouse \
+            /tmp/jring-offline-build/bin/python -m build \
+              --outdir /tmp/jring-offline-dist
+          /tmp/jring-offline-build/bin/python scripts/release_artifacts.py \
+            inspect /tmp/jring-offline-dist
       - name: Build twice and compare bytes
         shell: bash
         run: |

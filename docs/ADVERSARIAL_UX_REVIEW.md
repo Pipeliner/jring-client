@@ -10,6 +10,8 @@ Date: 2026-08-24
 - A sysadmin or automation author relying on JSON, exit codes, and bounded execution.
 - An owner of partially compatible JRing firmware with missing standard services.
 - A hardware reverse engineer or contributor handling sensitive protocol evidence.
+- A distro packager who needs reproducible metadata without mutating system Python.
+- A Bash or man-page user discovering a safety-sensitive command from the terminal.
 
 ## v0.5 findings addressed
 
@@ -72,6 +74,12 @@ Date: 2026-08-24
 | History silently replaced an existing file | Existing exports require `--force` |
 | `nan`, infinity, and excessive timeouts were accepted | CLI parsing enforces a finite 0–30 second range |
 | Unsupported hardware history could connect before refusing | Parser rejects it before transport construction |
+| Build pins omitted transitive frontend requirements | The release wheelhouse closes over exact build, packaging, pyproject-hooks, setuptools, and tomli pins; CI proves an isolated no-index backend build, and the same wheelhouse covers every claimed Python minor |
+| Version-specific wheel examples became stale every release | Packager and install examples use a `VERSION` placeholder and name the authoritative project metadata |
+| Shell and manual help could drift from argparse or expose suppressed compatibility flags | One stdlib-only generator derives all visible parser contexts, aliases, choices, and file values; byte-golden tests reject drift |
+| Generated help could absorb an address, secret environment, host path, or capture name | Hostile-environment generation is byte-identical and privacy-scanned; the generator never probes runtime state |
+| Completion installation could silently mutate a shell | Bash and man files ship only as inert package resources; no shell configuration or host help directory is changed |
+| Manual readers could encounter active commands before safety boundaries | The offline/no-scan/no-connect/no-write/no-uinput contract precedes every generated command and option listing |
 
 ## Release gates before live sensor-to-input bridging
 
