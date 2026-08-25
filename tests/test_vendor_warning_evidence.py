@@ -141,11 +141,11 @@ def test_ota_patch_and_dormant_dial_transfer_stay_separate_and_non_runnable():
     assert "local_completion_is_not_peripheral_acknowledgement" in patch.limitations
     assert dial.related_requests == ("editDeviceDialCustom",)
     assert dial.comparison_state is ComparisonState.NO_OBSERVED_INTERFACE_CALL_SITE
-    assert dial.instruction_review is InstructionReviewState.INCONCLUSIVE
+    assert dial.instruction_review is InstructionReviewState.BOUNDED_FACT_CONFIRMED
     assert dial.instruction_fact_scope is InstructionFactScope.WHOLE_CORPUS_SEARCH
-    assert dial.reviewed_span_count == 5
-    assert dial.public_fact_eligible is False
-    assert "reflection_native_and_dynamic_activation_not_exhaustively_disproved" in (
+    assert dial.reviewed_span_count == 23
+    assert dial.public_fact_eligible is True
+    assert "runtime_generated_or_external_activation_not_exhaustively_disproved" in (
         dial.limitations
     )
     assert "does_not_authorize_or_model_dial_file_transfer" in dial.limitations
@@ -165,12 +165,12 @@ def test_warning_evidence_is_closed_aggregate_only_and_without_authority():
     assert audit.semantic_correctness_established is False
     assert audit.instruction_review_complete is False
     assert audit.target_review_count == 8
-    assert audit.bounded_fact_confirmed_count == 7
+    assert audit.bounded_fact_confirmed_count == 8
     assert audit.bounded_fact_contradicted_count == 0
-    assert audit.inconclusive_review_count == 1
+    assert audit.inconclusive_review_count == 0
     assert audit.instruction_review_not_performed_count == 0
     assert audit.all_target_reviews_attempted is True
-    assert audit.all_bounded_facts_resolved is False
+    assert audit.all_bounded_facts_resolved is True
 
     for item in audit.comparisons:
         assert item.public_fact_eligible is (

@@ -414,16 +414,19 @@ _COMPARISONS = (
         WarningComparisonCode.SDK_DORMANT_DIAL_TRANSFER_CALL_SITE,
         WarningAuditScope.EMBEDDED_SDK,
         ComparisonState.NO_OBSERVED_INTERFACE_CALL_SITE,
-        "a three-DEX direct-reference search found no external construction edge for "
-        "the separate dial-transfer implementation",
+        "a bounded whole-artifact trace found no static activation edge for the "
+        "separate dial-transfer implementation through reviewed reflection, Binder, "
+        "service, manifest, resource, navigation, or packaged JNI-root paths",
         (
             "does_not_authorize_or_model_dial_file_transfer",
-            "reflection_native_and_dynamic_activation_not_exhaustively_disproved",
+            "runtime_generated_or_external_activation_not_exhaustively_disproved",
+            "static_no_edge_does_not_establish_runtime_dormancy",
         ),
         requests=("editDeviceDialCustom",),
-        instruction_review=InstructionReviewState.INCONCLUSIVE,
+        instruction_review=InstructionReviewState.BOUNDED_FACT_CONFIRMED,
         fact_scope=InstructionFactScope.WHOLE_CORPUS_SEARCH,
-        reviewed_spans=5,
+        reviewed_spans=23,
+        public_fact=True,
     ),
 )
 
