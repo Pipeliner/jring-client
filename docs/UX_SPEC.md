@@ -214,6 +214,15 @@ Deadline callbacks carry a session and generation guard, and timestamps stay raw
 than being shifted through the host timezone. No raw frame, timestamp, or measurement
 appears in object representations.
 
+Given the offline vendor transaction model, no write intent exists before a matching
+generation-bound CCCD confirmation. A write intent is not an application success: an
+operation-token-bound characteristic-write confirmation must precede a strict typed
+response parse. One enqueue-time deadline covers every phase, unrelated frames never
+extend it, and stale connection/operation tokens cannot complete newer work. A timeout,
+cancel, disconnect, or malformed response after write issuance reports uncertain
+delivery and is never replayed. This model has no transport/client integration and all
+objects remain static-only and hardware-ineligible.
+
 Identifier-bearing device responses are redacted or hidden by construction. Binding
 fields remain unnamed, factory bytes require an explicit local-use accessor, all 15 EQ
 wire values are preserved while the APK's callback bug is explicit, and parsing a dial
@@ -419,6 +428,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
 | Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors` |
+| Fail-closed offline vendor transaction | `test_cccd_confirmation_is_required_before_any_write_intent`, `test_late_cccd_confirmation_from_old_connection_cannot_ready_a_reconnect`, `test_notification_cannot_complete_before_characteristic_write_confirmation`, `test_success_requires_the_closed_operation_specific_parser`, `test_unrelated_frames_never_refresh_the_immutable_deadline`, `test_disconnect_closes_once_and_clears_every_pending_layer`, `test_operation_constructor_is_closed_over_typed_static_requests` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
 | Explicit simulator profiles | `test_simulator_profile_preserves_global_and_task_first_forms`, `test_simulator_profile_requires_simulation`, `test_simulator_profile_is_consistent_between_status_and_capabilities`, `test_input_profile_is_explicit_in_human_and_json_output`, `test_simulator_profiles_are_discoverable_in_help` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |

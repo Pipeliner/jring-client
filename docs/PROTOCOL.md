@@ -291,6 +291,28 @@ representations redact timestamps and values. The APK's timer-derived oxygen and
 advanced-sensor end callbacks remain local projections, preventing duplicate or
 host-clock-derived completion claims.
 
+## Offline vendor transaction model
+
+`jring.vendor_transport` models the fail-closed ordering required before any live
+vendor read can exist. It accepts only the closed typed static-query encoders, fixes
+their request/response endpoint roles internally, and uses the corresponding strict
+operation parser before a response can succeed. Arbitrary UUIDs, outbound bytes,
+matchers, and parser callbacks are not public inputs.
+
+The pure engine separates three distinct facts: a generation-bound CCCD enable
+confirmation, an operation-token-bound GATT characteristic-write confirmation, and a
+matched application response. It allows one queued or in-flight operation, uses one
+finite monotonic deadline from enqueue through response, rejects stale connection and
+operation tokens, and never retries. Unrelated notifications do not refresh the
+deadline. A timeout, cancellation, disconnect, or malformed response after write
+issuance is explicitly `uncertain`; work stopped before issuance is `aborted`.
+
+This is simulator state only: every operation, intent, token, closure, and engine stays
+hardware-ineligible and hides frame bytes from representations. It is not imported by
+the BLE transport or client. A live adapter remains blocked on real CCCD enable/disable
+acknowledgements, surfaced ATT write outcomes, disconnect generations, endpoint/model
+evidence, owner authorization state, and read-only hardware canaries.
+
 ## Required hardware evidence to advance
 
 Hardware evidence is owner-authorized and processed locally; autonomous work never

@@ -54,6 +54,10 @@ frames. It uses finite monotonic deadlines, distinguishes wire/device/local clos
 and never turns an idle timeout into confirmed completeness or retains a raw frame.
 `jring.non_health` is an immutable, local-only evidence inventory; it exposes no frame,
 transport, parser, input sink, or authority to promote a static candidate.
+`jring.vendor_transport` is likewise pure: it models one typed vendor transaction,
+keeps CCCD, ATT-write, and application acknowledgements distinct, binds stale callbacks
+to connection/operation generations, and classifies post-write ambiguity as uncertain.
+It has no BLE/client import and cannot make an operation hardware-eligible.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`
