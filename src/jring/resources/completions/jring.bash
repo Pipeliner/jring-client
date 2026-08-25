@@ -11,7 +11,7 @@ _jring_completion()
         word="${COMP_WORDS[index]}"
         case "$word" in
             --address|--address-file|--simulate-profile|--timeout) ((index++)) ;;
-            doctor|input-actions|protocol-coverage|non-health-capabilities|input|discover|status|capabilities|time-sync|history) command="$word"; break ;;
+            doctor|input-actions|protocol-coverage|non-health-capabilities|input|discover|status|capabilities|heart-rate|time-sync|history) command="$word"; break ;;
         esac
     done
 
@@ -56,7 +56,7 @@ _jring_completion()
                 return
                 ;;
         esac
-        words='-h --help --version --address --address-file --simulate --simulate-profile --timeout --json doctor input-actions protocol-coverage non-health-capabilities input discover status capabilities time-sync history'
+        words='-h --help --version --address --address-file --simulate --simulate-profile --timeout --json doctor input-actions protocol-coverage non-health-capabilities input discover status capabilities heart-rate time-sync history'
         mapfile -t COMPREPLY < <(compgen -W "$words" -- "$current")
         return
     fi
@@ -70,6 +70,7 @@ _jring_completion()
         discover) words='-h --help --simulate --timeout --json --active-scan' ;;
         status) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan' ;;
         capabilities) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan' ;;
+        heart-rate) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan --allow-notifications' ;;
         time-sync) words='-h --help --address --address-file --simulate --timeout --json --allow-write --yes' ;;
         history) words='-h --help --simulate --json --output --force' ;;
         *) return ;;
@@ -139,6 +140,29 @@ _jring_completion()
             COMPREPLY=()
             return
             ;;
+        heart-rate:--address-file=*)
+            option_prefix="${current%%=*}="
+            option_value="${current#*=}"
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$option_value")
+            for index in "${!COMPREPLY[@]}"; do
+                COMPREPLY[index]="$option_prefix${COMPREPLY[index]}"
+            done
+            return
+            ;;
+        heart-rate:--simulate-profile=*)
+            option_prefix="${current%%=*}="
+            option_value="${current#*=}"
+            mapfile -t COMPREPLY < <(compgen -W "basic hid" -- "$option_value")
+            for index in "${!COMPREPLY[@]}"; do
+                COMPREPLY[index]="$option_prefix${COMPREPLY[index]}"
+            done
+            return
+            ;;
+        heart-rate:--address=*|heart-rate:--timeout=*)
+            COMPREPLY=()
+            return
+            ;;
         time-sync:--address-file=*)
             option_prefix="${current%%=*}="
             option_value="${current#*=}"
@@ -201,6 +225,19 @@ _jring_completion()
             return
             ;;
         capabilities:--address|capabilities:--timeout)
+            COMPREPLY=()
+            return
+            ;;
+        heart-rate:--address-file)
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$current")
+            return
+            ;;
+        heart-rate:--simulate-profile)
+            mapfile -t COMPREPLY < <(compgen -W "basic hid" -- "$current")
+            return
+            ;;
+        heart-rate:--address|heart-rate:--timeout)
             COMPREPLY=()
             return
             ;;

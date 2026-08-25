@@ -33,6 +33,9 @@ read battery, device information, and capabilities
 .B capabilities
 inventory standard HID and known vendor metadata without reading values
 .TP
+.B heart\-rate
+collect one bounded standard Heart Rate notification
+.TP
 .B time\-sync
 write standard Bluetooth Current Time
 .TP
@@ -188,6 +191,37 @@ interactively select an ephemeral discovery alias in this process
 .TP
 .B \-\-active\-scan
 authorize BLE scan requests for interactive selection
+.SS "jring heart-rate"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-address \fIADDRESS\fR
+exact selected ring Bluetooth address
+.TP
+.B \-\-address\-file \fIADDRESS\-FILE\fR
+mode\-0600 file containing the selected ring address
+.TP
+.B \-\-simulate
+use an offline simulated ring
+.TP
+.B \-\-simulate\-profile \fISIMULATOR\-PROFILE\fR
+with \-\-simulate, select basic (default) or hid; the hid profile advertises metadata but never reads or emits HID reports Choices: basic, hid.
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+Bluetooth operation timeout in seconds (default: 8)
+.TP
+.B \-\-json
+print structured JSON where supported
+.TP
+.B \-\-select
+interactively select an ephemeral discovery alias in this process
+.TP
+.B \-\-active\-scan
+authorize BLE scan requests for interactive selection
+.TP
+.B \-\-allow\-notifications
+authorize one standard Heart Rate notification; BlueZ may perform standard CCCD control traffic
 .SS "jring time-sync"
 .TP
 .B \-h, \-\-help

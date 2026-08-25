@@ -9,7 +9,7 @@ decompiled vendor material.
 | Archive | Base APK; ko, vi, zh, de, hi, my, fr, it, ja, pt, ru, th, tr, es, in, en, ar language splits; xhdpi and arm64 splits | High | Documented |
 | Package | JRing 1.9.84/182, package `com.jaga.ibraceletplus.jyring` | High | Documented |
 | BLE SDK | `com.sxr.sdk.ble.keepfit` service, AIDL client/options/profiles/callbacks | High | Architecture informed only |
-| Standard GATT | Device Info `180a`/`2a23`–`2a2a`,`2a50`; Heart Rate `180d`/`2a37`; CCCD `2902` | High | Device text and HR parsers |
+| Standard GATT | Device Info `180a`/`2a23`–`2a2a`,`2a50`; Heart Rate `180d`/`2a37`; CCCD `2902` | High | Device text plus one bounded standard HR notification with explicit consent; model/firmware compatibility unverified |
 | Standard HID | HID service `1812` and assigned characteristic/descriptor UUID meanings are standards-based compatibility checks, not observed vendor evidence | Low for JRing presence | Enumerate metadata only; no values or reports |
 | Vendor GATT | SDK constants place `56ff` as a service with `33f3`/`33f4` transport characteristics and `33f5`/`33f6` raw-data characteristics; `ffe5`/`ffe9` form a second path; `57ff` and `fef5` also occur | High static roles; unverified on hardware | Service/characteristic metadata only |
 | Battery | SDK methods/callbacks and Android UI actions mention battery | High capability; unknown UUID | Standard `2a19` safe read |
@@ -26,6 +26,17 @@ Standard Bluetooth UUID semantics come from the Bluetooth SIG assignments; their
 presence proves code support, not that every JRing model exposes each characteristic.
 The Battery Service UUID was not observed in the extracted string set and is therefore
 a standards-based compatibility attempt, not vendor verification.
+
+The standard heart-rate runtime resolves exactly one connection-owned Heart Rate
+Measurement characteristic under service `180d`; it requires the notify property and
+exactly one advertised `2902` descriptor. The high-level backend subscription may
+cause BlueZ to perform standard CCCD control traffic, but the client sends no vendor
+characteristic command and does not claim a confirmed direct descriptor write. One
+post-confirmation notification is parsed, the subscription is disabled, and the
+connection is closed before CLI success is exposed. Absence, ambiguity, malformed
+metadata or value, timeout, overflow, disconnect, cancellation, or uncertain cleanup
+returns no measurement. `capabilities` exposes this endpoint as metadata only, with
+value `not_read`, subscription `not_attempted`, and live delivery `not_tested`.
 
 ## Static parity boundary
 

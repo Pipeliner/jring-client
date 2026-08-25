@@ -6,10 +6,17 @@ from uuid import UUID
 import pytest
 
 from jring.bleak_transport import BleakTransport
-from jring.transport import GattCharacteristicTarget, TargetedBleTransport
+from jring.transport import (
+    GattCharacteristicTarget,
+    HeartRateSubscriptionToken,
+    TargetedBleTransport,
+)
 from jring.uuids import (
+    CLIENT_CHARACTERISTIC_CONFIGURATION,
     CURRENT_TIME,
     CURRENT_TIME_SERVICE,
+    HEART_RATE_MEASUREMENT,
+    HEART_RATE_SERVICE,
     HID_REPORT,
     HUMAN_INTERFACE_DEVICE_SERVICE,
     REPORT_REFERENCE_DESCRIPTOR,
@@ -30,6 +37,25 @@ def current_time_service(*, properties=("write",)):
     )
     service = SimpleNamespace(
         uuid=CURRENT_TIME_SERVICE,
+        characteristics=[characteristic],
+    )
+    return service, characteristic
+
+
+def heart_rate_service(
+    *,
+    properties=("notify",),
+    descriptors=(CLIENT_CHARACTERISTIC_CONFIGURATION,),
+    service_uuid=HEART_RATE_SERVICE,
+    characteristic_uuid=HEART_RATE_MEASUREMENT,
+):
+    characteristic = SimpleNamespace(
+        uuid=characteristic_uuid,
+        properties=list(properties),
+        descriptors=[SimpleNamespace(uuid=value) for value in descriptors],
+    )
+    service = SimpleNamespace(
+        uuid=service_uuid,
         characteristics=[characteristic],
     )
     return service, characteristic
@@ -247,6 +273,308 @@ def test_forged_and_disconnected_targets_are_not_owned(monkeypatch):
 
     asyncio.run(scenario())
     assert transport._client.write_count == 0
+
+
+def test_heart_rate_subscription_uses_exact_backend_target_and_gates_early_callback(
+    monkeypatch,
+):
+    service, characteristic = heart_rate_service()
+    start_entered = asyncio.Event()
+    start_release = asyncio.Event()
+    observed = []
+
+    class Client:
+        def __init__(self, _address, *, disconnected_callback, timeout):
+            self.disconnected_callback = disconnected_callback
+            self.is_connected = False
+            self.services = [service]
+            self.callback = None
+            self.stop_targets = []
+
+        async def connect(self):
+            self.is_connected = True
+
+        async def start_notify(self, target, callback):
+            assert target is characteristic
+            self.callback = callback
+            callback(characteristic, b"early")
+            start_entered.set()
+            await start_release.wait()
+
+        async def stop_notify(self, target):
+            self.stop_targets.append(target)
+
+    monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakClient=Client))
+    transport = BleakTransport(TEST_ADDRESS, timeout=2)
+
+    async def scenario():
+        await transport.connect()
+        target = (await transport.gatt_characteristics())[0].target
+        assert target is not None
+        subscribing = asyncio.create_task(
+            transport.subscribe_heart_rate_measurement(target, observed.append)
+        )
+        await start_entered.wait()
+        assert observed == []
+        start_release.set()
+        token = await subscribing
+        assert type(token) is HeartRateSubscriptionToken
+        assert token.connection_generation == target.connection_generation
+
+        transport._client.callback(characteristic, bytearray(b"\x00\x48"))
+        assert observed == [b"\x00\x48"]
+        await transport.unsubscribe_heart_rate_measurement(token)
+        assert transport._client.stop_targets == [characteristic]
+
+    asyncio.run(scenario())
+
+
+def test_cancelled_heart_rate_setup_attempts_exact_notification_cleanup(monkeypatch):
+    service, characteristic = heart_rate_service()
+    start_entered = asyncio.Event()
+
+    class Client:
+        def __init__(self, _address, *, disconnected_callback, timeout):
+            self.disconnected_callback = disconnected_callback
+            self.is_connected = False
+            self.services = [service]
+            self.stop_targets = []
+
+        async def connect(self):
+            self.is_connected = True
+
+        async def start_notify(self, target, _callback):
+            assert target is characteristic
+            start_entered.set()
+            await asyncio.Event().wait()
+
+        async def stop_notify(self, target):
+            self.stop_targets.append(target)
+
+    monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakClient=Client))
+    transport = BleakTransport(TEST_ADDRESS, timeout=2)
+
+    async def scenario():
+        await transport.connect()
+        target = (await transport.gatt_characteristics())[0].target
+        assert target is not None
+        subscribing = asyncio.create_task(
+            transport.subscribe_heart_rate_measurement(target, lambda _data: None)
+        )
+        await start_entered.wait()
+        subscribing.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await subscribing
+        assert transport._client.stop_targets == [characteristic]
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "services,target_index",
+    (
+        ([heart_rate_service(properties=("read",))[0]], 0),
+        ([heart_rate_service(descriptors=())[0]], 0),
+        (
+            [
+                heart_rate_service(
+                    descriptors=(
+                        CLIENT_CHARACTERISTIC_CONFIGURATION,
+                        CLIENT_CHARACTERISTIC_CONFIGURATION,
+                    )
+                )[0]
+            ],
+            0,
+        ),
+        ([heart_rate_service(service_uuid=CURRENT_TIME_SERVICE)[0]], 0),
+        (
+            [heart_rate_service()[0], heart_rate_service()[0]],
+            0,
+        ),
+    ),
+)
+def test_heart_rate_subscription_rejects_non_exact_metadata_before_backend_io(
+    monkeypatch, services, target_index
+):
+    class Client:
+        def __init__(self, _address, *, disconnected_callback, timeout):
+            self.disconnected_callback = disconnected_callback
+            self.is_connected = False
+            self.services = services
+            self.start_count = 0
+
+        async def connect(self):
+            self.is_connected = True
+
+        async def start_notify(self, _target, _callback):
+            self.start_count += 1
+
+    monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakClient=Client))
+    transport = BleakTransport(TEST_ADDRESS, timeout=2)
+
+    async def scenario():
+        await transport.connect()
+        metadata = await transport.gatt_characteristics()
+        target = metadata[target_index].target
+        assert target is not None
+        with pytest.raises(PermissionError, match="heart-rate"):
+            await transport.subscribe_heart_rate_measurement(target, lambda _data: None)
+
+    asyncio.run(scenario())
+    assert transport._client.start_count == 0
+
+
+def test_heart_rate_subscription_rejects_forged_target_before_backend_io(monkeypatch):
+    service, _characteristic = heart_rate_service()
+
+    class Client:
+        def __init__(self, _address, *, disconnected_callback, timeout):
+            self.disconnected_callback = disconnected_callback
+            self.is_connected = False
+            self.services = [service]
+            self.start_count = 0
+
+        async def connect(self):
+            self.is_connected = True
+
+        async def start_notify(self, _target, _callback):
+            self.start_count += 1
+
+    monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakClient=Client))
+    transport = BleakTransport(TEST_ADDRESS, timeout=2)
+
+    async def scenario():
+        await transport.connect()
+        target = (await transport.gatt_characteristics())[0].target
+        assert target is not None
+        forged = GattCharacteristicTarget(
+            target.connection_generation,
+            target.service_uuid,
+            target.uuid,
+            target.instance_id,
+        )
+        with pytest.raises(PermissionError, match="heart-rate"):
+            await transport.subscribe_heart_rate_measurement(
+                forged, lambda _data: None
+            )
+
+    asyncio.run(scenario())
+    assert transport._client.start_count == 0
+
+
+def test_rejected_concurrent_subscriber_cannot_release_active_setup(monkeypatch):
+    service, characteristic = heart_rate_service()
+    start_entered = asyncio.Event()
+    start_release = asyncio.Event()
+
+    class Client:
+        def __init__(self, _address, *, disconnected_callback, timeout):
+            self.disconnected_callback = disconnected_callback
+            self.is_connected = False
+            self.services = [service]
+            self.start_count = 0
+
+        async def connect(self):
+            self.is_connected = True
+
+        async def start_notify(self, target, _callback):
+            assert target is characteristic
+            self.start_count += 1
+            start_entered.set()
+            await start_release.wait()
+
+    monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakClient=Client))
+    transport = BleakTransport(TEST_ADDRESS, timeout=2)
+
+    async def scenario():
+        await transport.connect()
+        target = (await transport.gatt_characteristics())[0].target
+        assert target is not None
+        first = asyncio.create_task(
+            transport.subscribe_heart_rate_measurement(target, lambda _data: None)
+        )
+        await start_entered.wait()
+        with pytest.raises(RuntimeError, match="already active"):
+            await transport.subscribe_heart_rate_measurement(
+                target, lambda _data: None
+            )
+        with pytest.raises(RuntimeError, match="already active"):
+            await transport.subscribe_heart_rate_measurement(
+                target, lambda _data: None
+            )
+        assert transport._client.start_count == 1
+        start_release.set()
+        await first
+
+    asyncio.run(scenario())
+
+
+def test_disconnect_and_close_retire_heart_rate_tokens_and_callbacks(monkeypatch):
+    service, characteristic = heart_rate_service()
+
+    class Client:
+        instances = []
+
+        def __init__(self, _address, *, disconnected_callback, timeout):
+            self.disconnected_callback = disconnected_callback
+            self.is_connected = False
+            self.services = [service]
+            self.callback = None
+            self.stop_count = 0
+            self.instances.append(self)
+
+        async def connect(self):
+            self.is_connected = True
+
+        async def disconnect(self):
+            self.is_connected = False
+            self.disconnected_callback(self)
+
+        async def start_notify(self, target, callback):
+            assert target is characteristic
+            self.callback = callback
+
+        async def stop_notify(self, target):
+            assert target is characteristic
+            self.stop_count += 1
+
+    monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakClient=Client))
+    transport = BleakTransport(TEST_ADDRESS, timeout=2)
+    observed = []
+
+    async def scenario():
+        await transport.connect()
+        first_client = transport._client
+        first_target = (await transport.gatt_characteristics())[0].target
+        assert first_target is not None
+        first_token = await transport.subscribe_heart_rate_measurement(
+            first_target, observed.append
+        )
+        first_callback = first_client.callback
+        first_client.is_connected = False
+        first_client.disconnected_callback(first_client)
+        first_callback(characteristic, b"stale-after-disconnect")
+        await transport.unsubscribe_heart_rate_measurement(first_token)
+        assert first_client.stop_count == 0
+
+        await transport.connect()
+        second_client = transport._client
+        second_target = (await transport.gatt_characteristics())[0].target
+        assert second_target is not None
+        second_token = await transport.subscribe_heart_rate_measurement(
+            second_target, observed.append
+        )
+        first_callback(characteristic, b"stale-after-reconnect")
+        second_client.callback(characteristic, b"current")
+        assert observed == [b"current"]
+
+        await transport.close()
+        second_client.callback(characteristic, b"stale-after-close")
+        await transport.unsubscribe_heart_rate_measurement(second_token)
+        assert second_client.stop_count == 0
+        assert observed == [b"current"]
+
+    asyncio.run(scenario())
 
 
 def test_disconnect_listeners_are_isolated_removable_and_fire_once(monkeypatch):
@@ -472,6 +800,8 @@ def test_bleak_exposes_target_ownership_but_no_live_target_io():
     for name in target_io:
         assert not hasattr(BleakTransport, name)
         assert not hasattr(TargetedBleTransport, name)
+    assert not hasattr(BleakTransport, "subscribe")
+    assert not hasattr(BleakTransport, "unsubscribe")
     assert hasattr(TargetedBleTransport, "add_disconnect_listener")
     assert hasattr(TargetedBleTransport, "owns_target")
 
@@ -681,8 +1011,15 @@ def test_failed_connected_candidate_is_never_promoted_to_live_io(monkeypatch):
         actions = (
             transport.read(HID_REPORT),
             transport.write_with_response(CURRENT_TIME, CURRENT_TIME_VALUE),
-            transport.subscribe(HID_REPORT, lambda _data: None),
-            transport.unsubscribe(HID_REPORT),
+            transport.subscribe_heart_rate_measurement(
+                GattCharacteristicTarget(
+                    1,
+                    HEART_RATE_SERVICE,
+                    HEART_RATE_MEASUREMENT,
+                    "synthetic-heart-rate",
+                ),
+                lambda _data: None,
+            ),
             transport.service_uuids(),
             transport.gatt_characteristics(),
         )
@@ -743,8 +1080,15 @@ def test_hardware_io_is_rejected_while_connecting_closing_or_disconnected(monkey
         return (
             transport.read(HID_REPORT),
             transport.write_with_response(CURRENT_TIME, CURRENT_TIME_VALUE),
-            transport.subscribe(HID_REPORT, lambda _data: None),
-            transport.unsubscribe(HID_REPORT),
+            transport.subscribe_heart_rate_measurement(
+                GattCharacteristicTarget(
+                    1,
+                    HEART_RATE_SERVICE,
+                    HEART_RATE_MEASUREMENT,
+                    "synthetic-heart-rate",
+                ),
+                lambda _data: None,
+            ),
             transport.service_uuids(),
             transport.gatt_characteristics(),
         )

@@ -9,6 +9,12 @@ class ProtocolError(ValueError):
     pass
 
 
+# Bluetooth GATT characteristic values are bounded to 512 octets.  Enforcing the
+# bound here also prevents a malformed notification from becoming unbounded parser
+# input even when a transport violates that contract.
+MAX_HEART_RATE_MEASUREMENT_LENGTH = 512
+
+
 @dataclass(frozen=True)
 class HeartRate:
     bpm: int
@@ -46,15 +52,38 @@ def parse_device_text(data: bytes, *, maximum: int = 64) -> str:
 
 
 def parse_heart_rate(data: bytes) -> HeartRate:
+    if len(data) > MAX_HEART_RATE_MEASUREMENT_LENGTH:
+        raise ProtocolError("heart-rate measurement is too long")
     if len(data) < 2:
         raise ProtocolError("truncated heart-rate measurement")
     flags = data[0]
+    if flags & 0xE0:
+        raise ProtocolError("heart-rate measurement uses reserved flags")
+    if flags & 0x06 == 0x02:
+        raise ProtocolError("invalid heart-rate contact flags")
+
     width = 2 if flags & 1 else 1
     if len(data) < 1 + width:
         raise ProtocolError("truncated heart-rate value")
-    bpm = int.from_bytes(data[1:1 + width], "little")
+    offset = 1 + width
+    bpm = int.from_bytes(data[1:offset], "little")
     if not 1 <= bpm <= 300:
         raise ProtocolError("implausible heart-rate value")
+
+    if flags & 0x08:
+        if len(data) < offset + 2:
+            raise ProtocolError("truncated heart-rate energy-expended field")
+        offset += 2
+
+    if flags & 0x10:
+        rr_length = len(data) - offset
+        if rr_length == 0:
+            raise ProtocolError("missing heart-rate RR interval")
+        if rr_length % 2:
+            raise ProtocolError("invalid heart-rate RR interval length")
+    elif len(data) != offset:
+        raise ProtocolError("unexpected trailing heart-rate data")
+
     contact = None
     if flags & 0x04:
         contact = bool(flags & 0x02)

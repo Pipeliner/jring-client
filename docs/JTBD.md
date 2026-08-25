@@ -81,6 +81,11 @@ Desired outcomes:
 
 - Human-readable status by default and stable JSON on request.
 - Explicit device selection and bounded timeouts.
+- Collect exactly one standard Heart Rate Measurement only after explicit hardware
+  notification consent, then confirm cleanup before revealing it. Keep simulation
+  synthetic and Bluetooth-free; send no vendor command, persist no measurement, and
+  describe the result as fitness information rather than medical advice or general
+  model/firmware compatibility.
 - Atomic exports with an unambiguous format.
 - Versioned machine-readable successes and failures with stable exit meanings, so
   automation never needs to scrape English diagnostics.

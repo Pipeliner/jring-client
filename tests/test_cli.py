@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 
@@ -8,7 +9,7 @@ from jring.discovery import DiscoveryObservation, build_selection_candidates
 from jring.protocol import ProtocolError
 from jring.readiness import ReadinessCheck, ReadinessReport
 from jring.transport import FakeTransport
-from jring.uuids import FIRMWARE
+from jring.uuids import FIRMWARE, HEART_RATE_MEASUREMENT
 
 
 def not_ready_report():
@@ -49,6 +50,168 @@ def test_json_status_is_stable_and_private(capsys):
     assert result["device_info"]["model"] == "JR-SIM"
     assert result["capabilities"]["hid_service_advertised"] is False
     assert "address" not in json.dumps(result).lower()
+
+
+def test_simulated_heart_rate_is_one_synthetic_private_sample(capsys):
+    assert cli.main(["heart-rate", "--simulate"]) == 0
+    output = capsys.readouterr().out
+    assert output.splitlines() == [
+        "SIMULATION — no ring contacted",
+        "Simulator profile: basic",
+        "Synthetic standard heart-rate sample",
+        "Health measurement: displayed only; not saved",
+        "Heart rate: 72 bpm",
+        "Contact: unknown",
+        "Meaning: fitness information only; not medical advice",
+        "Notification control: not used; no Bluetooth operation occurred",
+    ]
+    assert "0048" not in output
+
+
+def test_simulated_heart_rate_json_is_stable_and_private(capsys):
+    assert cli.main([
+        "heart-rate", "--simulate", "--simulate-profile", "hid", "--json",
+    ]) == 0
+    serialized = capsys.readouterr().out
+    result = json.loads(serialized)
+    assert result == {
+        "firmware_support": "not_established",
+        "medical_use": "not_for_medical_use",
+        "measurement": {"bpm": 72, "contact_state": "unknown"},
+        "notification_cleanup": "not_applicable",
+        "notification_control": "not_used",
+        "observation_scope": "synthetic",
+        "ok": True,
+        "operation": "heart_rate",
+        "persistence": "not_saved",
+        "schema_version": 1,
+        "simulator_profile": "hid",
+        "source": "simulator",
+        "synthetic": True,
+        "vendor_command_sent": False,
+    }
+    assert "address" not in serialized.lower()
+    assert "0048" not in serialized
+
+
+def test_heart_rate_rejects_hardware_consent_in_simulation_before_transport(
+    monkeypatch, capsys
+):
+    def forbidden_transport(*_args, **_kwargs):
+        raise AssertionError("invalid consent combination must not construct transport")
+
+    monkeypatch.setattr(cli, "BleakTransport", forbidden_transport)
+    monkeypatch.setattr(cli.FakeTransport, "for_simulator_profile", forbidden_transport)
+    assert cli.main([
+        "heart-rate", "--simulate", "--allow-notifications", "--json",
+    ]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["error"]["code"] == "usage"
+    assert "hardware-only" in result["error"]["message"]
+
+
+def test_hardware_heart_rate_requires_consent_before_transport(monkeypatch, capsys):
+    def forbidden_transport(*_args, **_kwargs):
+        raise AssertionError("missing consent must not construct transport")
+
+    monkeypatch.setattr(cli, "BleakTransport", forbidden_transport)
+    assert cli.main([
+        "heart-rate", "--address", "AA:BB:CC:DD:EE:FF", "--json",
+    ]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["error"]["code"] == "usage"
+    assert "CCCD control traffic" in result["error"]["message"]
+
+
+def _notifying_heart_rate_transport(*, fail_close=False):
+    source = FakeTransport.standard_ring()
+
+    class NotifyingTransport(FakeTransport):
+        async def subscribe_heart_rate_measurement(self, target, callback):
+            token = await super().subscribe_heart_rate_measurement(target, callback)
+
+            async def notify_after_confirmation():
+                await asyncio.sleep(0)
+                await asyncio.sleep(0)
+                callback(b"\x06\x48")
+
+            asyncio.create_task(notify_after_confirmation())
+            return token
+
+        async def close(self):
+            await super().close()
+            if fail_close:
+                raise OSError("private hardware close detail")
+
+    return NotifyingTransport(
+        source.values,
+        source.services,
+        gatt_metadata=source.gatt_metadata,
+    )
+
+
+def test_hardware_heart_rate_discloses_bounded_standard_notification(
+    monkeypatch, capsys
+):
+    transport = _notifying_heart_rate_transport()
+    monkeypatch.setattr(cli, "BleakTransport", lambda _address: transport)
+
+    assert cli.main([
+        "heart-rate", "--address", "AA:BB:CC:DD:EE:FF",
+        "--allow-notifications",
+    ]) == 0
+    output = capsys.readouterr().out
+    assert output.splitlines() == [
+        "HARDWARE — explicitly selected ring",
+        "STANDARD HEART-RATE NOTIFICATION — observed on this connection",
+        "Health measurement: displayed only; not saved",
+        "Heart rate: 72 bpm",
+        "Contact: detected",
+        "Meaning: fitness information only; not medical advice",
+        "Notification control: standard CCCD only; no vendor characteristic command was sent",
+        "Compatibility: model and firmware support not established",
+        "Notification cleanup: complete",
+    ]
+    assert transport.heart_rate_subscription_count == 1
+    assert transport.heart_rate_unsubscription_count == 1
+    assert transport.close_count == 1
+    assert transport.write_count == 0
+    assert "AA:BB" not in output
+    assert "0648" not in output
+
+
+def test_heart_rate_emits_no_measurement_when_context_close_fails(monkeypatch, capsys):
+    transport = _notifying_heart_rate_transport(fail_close=True)
+    monkeypatch.setattr(cli, "BleakTransport", lambda _address: transport)
+
+    assert cli.main([
+        "heart-rate", "--address", "AA:BB:CC:DD:EE:FF",
+        "--allow-notifications", "--json",
+    ]) == 3
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["ok"] is False
+    assert result["operation"] == "heart_rate"
+    assert result["error"]["code"] == "unavailable"
+    assert "measurement" not in result
+    assert "72" not in captured.out
+    assert captured.err == ""
+
+
+def test_capabilities_report_metadata_only_standard_heart_rate(capsys):
+    assert cli.main(["capabilities", "--simulate", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["standard_heart_rate"] == {
+        "cccd_state": "advertised",
+        "instance_count": 1,
+        "instance_resolution_state": "uuid_unique",
+        "live_delivery_state": "not_tested",
+        "measurement_characteristic_state": "notify_advertised",
+        "service_state": "advertised",
+        "subscription_state": "not_attempted",
+        "targeting_state": "structurally_ready",
+        "value_state": "not_read",
+    }
 
 
 @pytest.mark.parametrize(
@@ -937,6 +1100,38 @@ def test_guided_capabilities_selects_ephemerally_and_reads_metadata_only(
     assert "for capabilities" in output
     assert output.index("ACTIVE SCAN") < output.index("CONNECTION NOT STARTED")
     assert selected.alias in output
+    assert "AA:BB" not in output
+    assert "11:22" not in output
+
+
+def test_guided_heart_rate_reuses_private_default_no_selection(
+    monkeypatch, capsys
+):
+    enable_interactive_terminal(monkeypatch)
+    candidates = synthetic_selection_candidates()
+    selected = candidates[1]
+    transport = _notifying_heart_rate_transport()
+    connected = []
+
+    async def scan(**_kwargs):
+        return candidates
+
+    def make_transport(address):
+        connected.append(address)
+        return transport
+
+    responses = iter(["2", "y"])
+    monkeypatch.setattr(cli, "discover_for_selection", scan)
+    monkeypatch.setattr(cli, "BleakTransport", make_transport)
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(responses))
+
+    assert cli.main([
+        "heart-rate", "--select", "--active-scan", "--allow-notifications",
+    ]) == 0
+    output = capsys.readouterr().out
+    assert connected == [selected.connection_address()]
+    assert output.index("ACTIVE SCAN") < output.index("CONNECTION NOT STARTED")
+    assert output.index("CONNECTION NOT STARTED") < output.index("Heart rate: 72 bpm")
     assert "AA:BB" not in output
     assert "11:22" not in output
 

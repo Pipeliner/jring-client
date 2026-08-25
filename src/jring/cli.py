@@ -30,9 +30,10 @@ from .input import (
     parse_binding,
 )
 from .non_health import static_non_health_capabilities
-from .protocol import ProtocolError
+from .protocol import HeartRate, ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
+from .uuids import HEART_RATE_MEASUREMENT
 from .vendor_app_use_evidence import recovered_vendor_app_use_evidence
 from .vendor_artifact_evidence import recovered_artifact_surface_evidence
 from .vendor_binder_evidence import recovered_vendor_binder_evidence
@@ -175,6 +176,66 @@ def _absent_value(state: str) -> str:
         "timed_out": "unavailable (timed out)",
         "not_advertised": "not advertised",
     }.get(state, f"unavailable ({state})")
+
+
+def _heart_rate_payload(
+    sample: HeartRate,
+    *,
+    source: str,
+    simulator_profile: str | None,
+) -> dict[str, object]:
+    contact_state = (
+        "unknown"
+        if sample.contact_detected is None
+        else "detected" if sample.contact_detected else "not_detected"
+    )
+    payload: dict[str, object] = {
+        "synthetic": source == "simulator",
+        "measurement": {
+            "bpm": sample.bpm,
+            "contact_state": contact_state,
+        },
+        "observation_scope": (
+            "synthetic" if source == "simulator" else "this_connection_only"
+        ),
+        "firmware_support": "not_established",
+        "medical_use": "not_for_medical_use",
+        "persistence": "not_saved",
+        "notification_control": (
+            "not_used" if source == "simulator" else "standard_cccd"
+        ),
+        "notification_cleanup": (
+            "not_applicable" if source == "simulator" else "complete"
+        ),
+        "vendor_command_sent": False,
+    }
+    if source == "simulator":
+        payload["simulator_profile"] = simulator_profile
+    return payload
+
+
+def _print_heart_rate(payload: dict[str, object], source: str) -> None:
+    if source == "simulator":
+        print("SIMULATION — no ring contacted")
+        print(f"Simulator profile: {payload['simulator_profile']}")
+        print("Synthetic standard heart-rate sample")
+    else:
+        print("HARDWARE — explicitly selected ring")
+        print("STANDARD HEART-RATE NOTIFICATION — observed on this connection")
+    print("Health measurement: displayed only; not saved")
+    measurement = payload["measurement"]
+    print(f"Heart rate: {measurement['bpm']} bpm")
+    print(f"Contact: {measurement['contact_state'].replace('_', ' ')}")
+    print("Meaning: fitness information only; not medical advice")
+    if source == "simulator":
+        print("Notification control: not used; no Bluetooth operation occurred")
+    else:
+        print(
+            "Notification control: standard CCCD only; "
+            "no vendor characteristic command was sent"
+        )
+        print("Compatibility: model and firmware support not established")
+        print("Notification cleanup: complete")
 
 
 def _print_discovery(results: list[dict[str, object]]) -> None:
@@ -1154,6 +1215,7 @@ def _capability_payload(inventory: object) -> dict[str, object]:
     return {
         "inventory_state": inventory.inventory_state,
         "metadata_state": inventory.metadata_state,
+        "standard_heart_rate": asdict(inventory.standard_heart_rate),
         "standard_hid": {
             "service_state": inventory.hid_service_state,
             "characteristics": characteristics,
@@ -1185,6 +1247,20 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
         print(f"Simulator profile: {payload['simulator_profile']}")
     hid = payload["standard_hid"]
     print(f"Inventory metadata: {payload['inventory_state']}")
+    heart_rate = payload["standard_heart_rate"]
+    print("Standard Heart Rate metadata")
+    print(f"Service: {heart_rate['service_state'].replace('_', ' ')}")
+    print(
+        "Measurement notifications: "
+        f"{heart_rate['measurement_characteristic_state'].replace('_', ' ')}; "
+        f"{heart_rate['instance_count']} instance(s); "
+        f"{heart_rate['instance_resolution_state'].replace('_', ' ')}"
+    )
+    print(f"CCCD: {heart_rate['cccd_state'].replace('_', ' ')}")
+    print("Value: not read; subscription: not attempted")
+    print(
+        "Live delivery: not tested; metadata does not establish model or firmware support"
+    )
     print(f"Standard HID service: {hid['service_state']}")
     for feature in hid["characteristics"]:
         label = feature["name"].replace("_", " ").title().replace("Hid", "HID")
@@ -1330,6 +1406,34 @@ async def _run(args: argparse.Namespace) -> int:
         if args.simulate
         else BleakTransport(address)
     )
+    if args.command == "heart-rate":
+        async with JRingClient(transport, timeout=args.timeout) as client:
+            if source == "simulator":
+                sample_task = asyncio.create_task(client.heart_rate_sample())
+                try:
+                    while transport.heart_rate_subscription_count == 0:
+                        if sample_task.done():
+                            sample_task.result()
+                        await asyncio.sleep(0)
+                    await asyncio.sleep(0)
+                    transport.emit(HEART_RATE_MEASUREMENT, b"\x00\x48")
+                    sample = await sample_task
+                except BaseException:
+                    sample_task.cancel()
+                    await asyncio.gather(sample_task, return_exceptions=True)
+                    raise
+            else:
+                sample = await client.heart_rate_sample()
+        payload = _heart_rate_payload(
+            sample,
+            source=source,
+            simulator_profile=args.simulator_profile,
+        )
+        if args.json:
+            _print_json_success("heart_rate", source, payload)
+        else:
+            _print_heart_rate(payload, source)
+        return ExitCode.OK
     async with JRingClient(transport, timeout=args.timeout) as client:
         if args.command == "capabilities":
             inventory = await client.capability_inventory()
@@ -1524,6 +1628,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--active-scan", action="store_true",
         help="authorize BLE scan requests for interactive selection",
     )
+    heart_rate = sub.add_parser(
+        "heart-rate",
+        help="collect one bounded standard Heart Rate notification",
+    )
+    _add_runtime_options(heart_rate, suppress=True, simulator_profiles=True)
+    heart_rate.add_argument(
+        "--select", action="store_true",
+        help="interactively select an ephemeral discovery alias in this process",
+    )
+    heart_rate.add_argument(
+        "--active-scan", action="store_true",
+        help="authorize BLE scan requests for interactive selection",
+    )
+    heart_rate.add_argument(
+        "--allow-notifications", action="store_true",
+        help=(
+            "authorize one standard Heart Rate notification; BlueZ may perform "
+            "standard CCCD control traffic"
+        ),
+    )
     sync = sub.add_parser("time-sync", help="write standard Bluetooth Current Time")
     _add_runtime_options(sync, suppress=True)
     sync.add_argument(
@@ -1603,6 +1727,7 @@ _OPERATIONS = {
     "input-actions": "input_actions",
     "input": "input",
     "capabilities": "capabilities",
+    "heart-rate": "heart_rate",
     "discover": "discover",
     "status": "status",
     "time-sync": "time_sync",
@@ -1673,14 +1798,17 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
     if simulator_profile_explicit and not simulate:
         parser.error("--simulate-profile requires --simulate")
     if simulator_profile_explicit and args.command not in {
-        "status", "capabilities", "input"
+        "status", "capabilities", "heart-rate", "input"
     }:
-        parser.error("--simulate-profile is supported only by status, capabilities, and input")
+        parser.error(
+            "--simulate-profile is supported only by status, capabilities, "
+            "heart-rate, and input"
+        )
     if guided_selection and (simulate or has_hardware):
         parser.error("--select is mutually exclusive with simulation and address selectors")
     if guided_selection and not active_scan:
         parser.error("--select requires --active-scan because it sends BLE scan requests")
-    if args.command in {"status", "capabilities"} and active_scan and not guided_selection:
+    if args.command in {"status", "capabilities", "heart-rate"} and active_scan and not guided_selection:
         parser.error(f"--active-scan on {args.command} requires --select")
     if guided_selection and json_output:
         parser.error("guided selection is human-only; automation should use --address-file")
@@ -1690,6 +1818,17 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         parser.error("--simulate and hardware selection are mutually exclusive")
     if address and address_file:
         parser.error("--address and --address-file are mutually exclusive")
+    if args.command == "heart-rate":
+        allow_notifications = getattr(args, "allow_notifications", False)
+        if simulate and allow_notifications:
+            parser.error(
+                "--allow-notifications is hardware-only; simulation uses no Bluetooth"
+            )
+        if not simulate and not allow_notifications:
+            parser.error(
+                "hardware heart-rate requires --allow-notifications because BlueZ "
+                "may perform standard CCCD control traffic"
+            )
     if args.command == "doctor":
         ignored = provided & {"address", "address_file", "simulate", "timeout"}
         if ignored:
@@ -1747,7 +1886,9 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
             simulator_profile_name
             if simulator_profile_explicit
             else "basic"
-            if simulate and args.command in {"status", "capabilities", "input"}
+            if simulate and args.command in {
+                "status", "capabilities", "heart-rate", "input"
+            }
             else None
         ),
     }.items():

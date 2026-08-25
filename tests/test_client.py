@@ -53,6 +53,8 @@ def test_live_heart_rate_notification_and_clean_stop():
         async with JRingClient(transport, timeout=0.1) as client:
             stream = client.heart_rate_events()
             task = asyncio.create_task(anext(stream))
+            while transport.heart_rate_subscription_count == 0:
+                await asyncio.sleep(0)
             await asyncio.sleep(0)
             transport.emit("00002a37-0000-1000-8000-00805f9b34fb", b"\x00\x48")
             assert (await task).bpm == 72

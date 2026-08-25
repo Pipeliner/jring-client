@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date
 
 from .errors import UnavailableError
@@ -8,9 +10,24 @@ from .transport import (
     DisconnectListener,
     GattCharacteristicMetadata,
     GattCharacteristicTarget,
+    HeartRateSubscriptionToken,
     NotifyCallback,
 )
-from .uuids import CURRENT_TIME, CURRENT_TIME_SERVICE
+from .uuids import (
+    CLIENT_CHARACTERISTIC_CONFIGURATION,
+    CURRENT_TIME,
+    CURRENT_TIME_SERVICE,
+    HEART_RATE_MEASUREMENT,
+    HEART_RATE_SERVICE,
+)
+
+
+@dataclass
+class _HeartRateSubscription:
+    token: HeartRateSubscriptionToken
+    target: GattCharacteristicTarget
+    backend_characteristic: object
+    accepting: bool = False
 
 
 class BleakTransport:
@@ -30,6 +47,8 @@ class BleakTransport:
         self._targets_by_backend_id: dict[
             int, tuple[GattCharacteristicTarget, object]
         ] = {}
+        self._heart_rate_subscriptions: dict[int, _HeartRateSubscription] = {}
+        self._heart_rate_setup_active = False
         self._client_factory = BleakClient
         self._address = address
         self._timeout = timeout
@@ -56,6 +75,7 @@ class BleakTransport:
         self._connecting = True
         self._targets.clear()
         self._targets_by_backend_id.clear()
+        self._retire_heart_rate_subscriptions()
         expected_generation = self._connection_generation + 1
         try:
             self._client_generation = expected_generation
@@ -72,6 +92,7 @@ class BleakTransport:
         if self._connecting or self._closing or self._active_io:
             raise ConnectionError("BLE transport lifecycle operation is in progress")
         self._closing = True
+        self._retire_heart_rate_subscriptions()
         self._targets.clear()
         self._targets_by_backend_id.clear()
         try:
@@ -85,6 +106,7 @@ class BleakTransport:
             return
         self._targets.clear()
         self._targets_by_backend_id.clear()
+        self._retire_heart_rate_subscriptions()
         if generation <= 0 or self._disconnect_notified_generation == generation:
             return
         self._disconnect_notified_generation = generation
@@ -123,6 +145,60 @@ class BleakTransport:
 
     def _end_io(self) -> None:
         self._active_io -= 1
+
+    def _retire_heart_rate_subscriptions(self) -> None:
+        for subscription in self._heart_rate_subscriptions.values():
+            subscription.accepting = False
+        self._heart_rate_subscriptions.clear()
+
+    def _heart_rate_backend_target(
+        self, target: GattCharacteristicTarget
+    ) -> object:
+        if type(target) is not GattCharacteristicTarget:
+            raise PermissionError("invalid standard heart-rate target")
+        owned = self._targets.get(id(target))
+        if (
+            owned is None
+            or owned[0] is not target
+            or not self.owns_target(target)
+            or target.service_uuid != HEART_RATE_SERVICE
+            or target.uuid != HEART_RATE_MEASUREMENT
+        ):
+            raise PermissionError("invalid standard heart-rate target")
+
+        matches: list[tuple[str, object]] = []
+        for service in self._client.services:
+            service_uuid = str(getattr(service, "uuid", "")).lower()
+            for characteristic in getattr(service, "characteristics", ()):
+                if (
+                    str(getattr(characteristic, "uuid", "")).lower()
+                    == HEART_RATE_MEASUREMENT
+                ):
+                    matches.append((service_uuid, characteristic))
+        backend_characteristic = owned[1]
+        if (
+            len(matches) != 1
+            or matches[0][0] != HEART_RATE_SERVICE
+            or matches[0][1] is not backend_characteristic
+        ):
+            raise PermissionError("invalid standard heart-rate target")
+
+        properties = getattr(backend_characteristic, "properties", None)
+        descriptors = getattr(backend_characteristic, "descriptors", None)
+        if (
+            not isinstance(properties, (list, tuple, set, frozenset))
+            or not all(isinstance(value, str) for value in properties)
+            or "notify" not in {value.casefold() for value in properties}
+            or not isinstance(descriptors, (list, tuple))
+        ):
+            raise PermissionError("invalid standard heart-rate target")
+        descriptor_uuids = tuple(
+            str(getattr(descriptor, "uuid", "")).lower()
+            for descriptor in descriptors
+        )
+        if descriptor_uuids.count(CLIENT_CHARACTERISTIC_CONFIGURATION) != 1:
+            raise PermissionError("invalid standard heart-rate target")
+        return backend_characteristic
 
     def _current_time_target(self) -> object:
         matches: list[tuple[str, object]] = []
@@ -189,19 +265,88 @@ class BleakTransport:
         finally:
             self._end_io()
 
-    async def subscribe(self, characteristic: str, callback: NotifyCallback) -> None:
+    async def subscribe_heart_rate_measurement(
+        self, target: GattCharacteristicTarget, callback: NotifyCallback
+    ) -> HeartRateSubscriptionToken:
+        if not callable(callback):
+            raise TypeError("heart-rate callback must be callable")
+        setup_owned = False
+        start_attempted = False
+        subscription: _HeartRateSubscription | None = None
         self._begin_io()
         try:
-            await self._client.start_notify(
-                characteristic, lambda _sender, data: callback(bytes(data))
+            if self._heart_rate_setup_active or self._heart_rate_subscriptions:
+                raise RuntimeError("a heart-rate subscription is already active")
+            self._heart_rate_setup_active = True
+            setup_owned = True
+            backend_characteristic = self._heart_rate_backend_target(target)
+            token = HeartRateSubscriptionToken._create(
+                target.connection_generation, target.instance_id
             )
+            subscription = _HeartRateSubscription(
+                token=token,
+                target=target,
+                backend_characteristic=backend_characteristic,
+            )
+
+            def receive(_sender: object, data: object) -> None:
+                if (
+                    not subscription.accepting
+                    or not self.owns_target(subscription.target)
+                ):
+                    return
+                try:
+                    callback(bytes(data))
+                except Exception:
+                    return
+
+            start_attempted = True
+            await self._client.start_notify(backend_characteristic, receive)
+            if not self.owns_target(target):
+                raise ConnectionError(
+                    "heart-rate target was retired during subscription setup"
+                )
+            self._heart_rate_subscriptions[id(token)] = subscription
+            subscription.accepting = True
+            return token
+        except BaseException:
+            if subscription is not None:
+                subscription.accepting = False
+            # start_notify may install the callback before its await is cancelled
+            # or fails. Best-effort exact-object cleanup prevents an orphaned
+            # health notification; the caller will still close the connection.
+            if start_attempted and self._client.is_connected:
+                try:
+                    await asyncio.wait_for(
+                        self._client.stop_notify(backend_characteristic),
+                        min(self._timeout, 1.0),
+                    )
+                except BaseException:
+                    pass
+            raise
         finally:
+            if setup_owned:
+                self._heart_rate_setup_active = False
             self._end_io()
 
-    async def unsubscribe(self, characteristic: str) -> None:
+    async def unsubscribe_heart_rate_measurement(
+        self, subscription: HeartRateSubscriptionToken
+    ) -> None:
+        if type(subscription) is not HeartRateSubscriptionToken:
+            raise TypeError("subscription must be a heart-rate token")
+        active = self._heart_rate_subscriptions.pop(id(subscription), None)
+        if active is None:
+            return
+        if active.token is not subscription:
+            raise PermissionError("invalid heart-rate subscription token")
+        active.accepting = False
+        if not self.owns_target(active.target):
+            return
         self._begin_io()
         try:
-            await self._client.stop_notify(characteristic)
+            if not self.owns_target(active.target):
+                return
+            await self._client.stop_notify(active.backend_characteristic)
         finally:
             self._end_io()
 

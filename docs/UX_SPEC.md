@@ -43,6 +43,42 @@ Given the simulator, when a person runs `jring status --simulate --json`, then s
 is valid JSON with stable field names, includes `schema_version`, `operation`, `source`,
 and `ok`, and contains no device address.
 
+### One standard heart-rate sample
+
+Given no ring, `jring heart-rate --simulate` exercises the complete bounded
+subscription lifecycle against the fake transport and injects the synthetic
+`72 bpm` measurement only after subscription confirmation. Human output leads with
+simulation provenance and says that no Bluetooth operation occurred. Schema-1 JSON
+uses operation `heart_rate`, reports `synthetic`, `measurement.bpm`, a normalized
+`measurement.contact_state`, `not_saved` persistence, and non-medical meaning; it
+contains no address, raw bytes, or raw flags. A simulator profile remains explicit,
+but `--allow-notifications` is rejected because it is a hardware-only consent.
+
+Given an explicitly selected ring, `jring heart-rate` is rejected during argument
+parsing unless `--allow-notifications` is present. This happens before construction of
+the hardware transport. Help and the usage error disclose that enabling and disabling
+the standard notification through BlueZ may perform standard CCCD control traffic.
+The runtime validates one connection-owned, unambiguous `180d`/`2a37` notify endpoint
+with one `2902` descriptor, subscribes once, accepts one valid measurement, disables
+the notification, and closes the connection. It performs no characteristic read,
+vendor command, retry, background stream, export, or persistence.
+
+Human results announce hardware provenance, the one-connection observation, fitness-
+only/non-medical meaning, unknown general model/firmware support, no vendor command,
+and completed notification cleanup. JSON represents the same facts with stable enums.
+Neither human nor JSON success is emitted until both notification
+cleanup and connection-context cleanup succeed; any timeout, malformed value,
+disconnect, ambiguity, overflow, cancellation, unsubscribe failure, or close failure
+returns no measurement. Guided `--select --active-scan --allow-notifications` reuses
+the human-only ephemeral-alias and default-no connection flow; automation uses a
+mode-0600 address file.
+
+`jring capabilities` reports standard Heart Rate metadata separately from HID:
+service, measurement notify property, instance count/resolution, CCCD presence, exact
+targeting readiness, and explicit `not_read`, `not_attempted`, and `not_tested` states.
+Metadata inventory never starts a notification and never claims live delivery or
+model/firmware compatibility.
+
 ### Automation failures
 
 Given `--json`, when parsing, prerequisites, permissions, timeouts, protocol
@@ -667,6 +703,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 |---|---|
 | First safe success | `test_human_status_is_readable` |
 | Automation | `test_json_status_is_stable_and_private` |
+| One standard heart-rate sample | `test_simulated_heart_rate_is_one_synthetic_private_sample`, `test_simulated_heart_rate_json_is_stable_and_private`, `test_hardware_heart_rate_requires_consent_before_transport`, `test_hardware_heart_rate_discloses_bounded_standard_notification`, `test_heart_rate_emits_no_measurement_when_context_close_fails`, `test_guided_heart_rate_reuses_private_default_no_selection`, `test_exact_standard_target_yields_one_sample_then_cleans_up`, `test_capability_inventory_reports_structural_heart_rate_readiness_without_io` |
 | Automation failures | `test_json_failures_have_stable_envelopes_and_exit_codes`, `test_json_usage_error_has_no_stderr`, `test_json_error_redaction` |
 | Flexible option placement | `test_global_option_placement_remains_compatible` |
 | Recoverable setup error | `test_expected_error_is_actionable_without_traceback` |

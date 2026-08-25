@@ -18,6 +18,7 @@ jring doctor
 jring non-health-capabilities
 jring protocol-coverage
 jring status --simulate
+jring heart-rate --simulate
 jring capabilities --simulate
 jring history --simulate --output history.jsonl
 jring input --simulate --map step=click:left
@@ -53,6 +54,7 @@ chmod 700 ~/.config/jring
 # Add the exact address with your editor, then:
 chmod 600 ~/.config/jring/address
 jring status --address-file ~/.config/jring/address
+jring heart-rate --address-file ~/.config/jring/address --allow-notifications
 jring time-sync --address-file ~/.config/jring/address --yes
 ```
 
@@ -66,6 +68,7 @@ in argv or a file, use:
 ```sh
 jring status --select --active-scan
 jring capabilities --select --active-scan
+jring heart-rate --select --active-scan --allow-notifications
 ```
 
 The scan and connection are separate consent steps. The command shows temporary
@@ -77,7 +80,18 @@ does not support `--json`; scripts should keep using the mode-0600 address file.
 The capabilities path reads service/characteristic metadata only; it never reads
 values, subscribes, or writes.
 
-Human-readable output is the default. Add `--json` to `status` or `discover` for
+`jring heart-rate` collects exactly one standard Bluetooth Heart Rate Measurement and
+then disables its notification before displaying a result. Hardware use requires
+`--allow-notifications` before a transport is constructed because BlueZ may perform
+standard CCCD control traffic while enabling or disabling the notification. The
+client sends no vendor characteristic command, saves no measurement, omits raw bytes
+and the device address, and does not turn an advertisement or one valid sample into a
+broad model/firmware compatibility claim. Output is fitness information only, not
+medical advice. Use `jring heart-rate --simulate` for the synthetic 72 bpm sample;
+simulation rejects the hardware-only consent flag and performs no Bluetooth operation.
+
+Human-readable output is the default. Add `--json` to `status`, `heart-rate`,
+`capabilities`, or `discover` for
 automation. Both task-first options (`jring status --simulate`) and the original
 global-first form (`jring --simulate status`) are supported.
 Simulated human output clearly states that no ring was contacted; structured results

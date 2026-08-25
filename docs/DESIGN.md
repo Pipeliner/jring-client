@@ -353,6 +353,20 @@ descriptor UUIDs; no characteristic or descriptor value is read. Known standard 
 metadata is converted into explicit evidence states, while report contents, OS
 attachment, usability, and hardware motion remain unverified.
 
+The same inventory reports standard Heart Rate metadata without subscribing: service
+state, `2a37` notify-property state, characteristic multiplicity, `2902` presence,
+connection-scoped targeting readiness, and explicit value/subscription/live-delivery
+states. `JRingClient.heart_rate_sample` is the separate active path. It requires one
+unambiguous connection-owned `180d`/`2a37` target with exactly one advertised `2902`,
+accepts at most one post-confirmation notification within one immutable deadline, and
+returns only after unsubscribe succeeds. It never falls back to a UUID-only target,
+reads a value, writes a vendor characteristic, retries, persists, or streams in the
+background. Disconnect, malformed data, overflow, cancellation, or uncertain cleanup
+discards the measurement and stales the callback. The CLI adds hardware consent before
+transport construction, and holds success output until connection close also succeeds.
+BlueZ may perform standard CCCD control traffic as part of its high-level notification
+activation; the client does not describe this as a confirmed direct descriptor write.
+
 The same inventory preserves role-neutral observations of statically known vendor
 UUIDs wherever they appear as a service or characteristic. Characteristic-only
 evidence is no longer lost or mislabeled as a service. A vendor UUID's presence and
@@ -378,7 +392,9 @@ no publishing step or repository-contents write permission.
   connection consent, while other hardware access requires an explicit address.
 - Safe standard battery/device-info reads are bounded by timeouts.
 - Time sync is opt-in and requires `--allow-write`; vendor writes are impossible.
-- Live standard heart-rate notifications can be consumed and cancelled cleanly.
+- One live standard heart-rate notification requires explicit CLI consent, exact
+  instance targeting, one bounded sample, confirmed notification and connection
+  cleanup before output, no vendor command or persistence, and non-medical wording.
 - Simulated history can be paginated and exported as JSONL/CSV with atomic replace.
 - Reconnect attempts are bounded, cancellable, and use capped exponential backoff.
 - Diagnostics redact addresses and never log payloads by default.

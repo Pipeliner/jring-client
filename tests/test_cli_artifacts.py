@@ -30,6 +30,7 @@ EXPECTED_COMMANDS = (
     "discover",
     "status",
     "capabilities",
+    "heart-rate",
     "time-sync",
     "history",
 )
@@ -79,6 +80,18 @@ EXPECTED_OPTIONS = {
         ("--select",),
         ("--active-scan",),
     ),
+    "heart-rate": (
+        ("-h", "--help"),
+        ("--address",),
+        ("--address-file",),
+        ("--simulate",),
+        ("--simulate-profile",),
+        ("--timeout",),
+        ("--json",),
+        ("--select",),
+        ("--active-scan",),
+        ("--allow-notifications",),
+    ),
     "time-sync": (
         ("-h", "--help"),
         ("--address",),
@@ -118,6 +131,7 @@ def test_surface_exactly_tracks_visible_parser_contexts_aliases_and_choices():
         ("input", ("--simulate-profile",)): ("basic", "hid"),
         ("status", ("--simulate-profile",)): ("basic", "hid"),
         ("capabilities", ("--simulate-profile",)): ("basic", "hid"),
+        ("heart-rate", ("--simulate-profile",)): ("basic", "hid"),
     }
     assert not any(
         option.flags[0] in {"--address", "--address-file", "--timeout"}
@@ -156,9 +170,9 @@ def test_bash_completion_preserves_per_command_option_scope():
         assert f"input:{suppressed})" not in bash
     assert "input:--simulate-profile)" in bash
     assert "input:--map)" in bash
-    for command in ("status", "capabilities", "time-sync"):
+    for command in ("status", "capabilities", "heart-rate", "time-sync"):
         assert f"{command}:--address-file)" in bash
-    assert bash.count("compopt -o filenames 2>/dev/null || true") == 10
+    assert bash.count("compopt -o filenames 2>/dev/null || true") == 12
 
 
 def test_generation_is_reproducible_private_and_host_independent(monkeypatch):
