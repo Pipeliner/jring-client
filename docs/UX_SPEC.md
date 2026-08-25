@@ -255,9 +255,11 @@ resource identities stay outside human and JSON output. The aggregate may say th
 Binder/resource/navigation routes have no standalone-dial activation edge, and all
 three packaged JNI roots perform image/wallpaper work without a rooted Bluetooth edge.
 It still keeps runtime-generated, external-native, and exhaustive activation
-inconclusive.
-`--json` returns every ledger entry and both closed, non-runnable evidence graphs in a
-schema-1 success envelope without frame bytes, locators, logs, or source. The command
+inconclusive. The remaining 16 non-opcode callbacks are separately classified as 14
+closed behavior surfaces and two declarations without observed dispatch, leaving zero
+silently unclassified callback rows while exposing no callback values.
+`--json` returns every ledger entry and the closed, non-runnable evidence supplements in
+a schema-1 success envelope without frame bytes, private locators, logs, or source. The command
 constructs no transport and rejects simulation, address, and timeout options because
 none apply.
 

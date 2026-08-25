@@ -168,6 +168,9 @@ Desired outcomes:
   implementation and call-site methods never create additional interface rows.
 - Treat Android GATT, scanning, bonding, classic-profile, and OTA helpers as platform or
   internal transport evidence until a public interface relationship is established.
+- Give every non-opcode callback either closed behavior evidence or an explicit
+  declaration-without-dispatch state; never leave platform callbacks silently
+  unclassified.
 - Expose process-local/system broadcast mismatches, unhandled registered actions,
   sender-permission gaps, and teardown-domain mismatches as app defects, not features.
 - Treat resource keyword counts as UI/localization surface, never capability counts.

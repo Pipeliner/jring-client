@@ -374,9 +374,9 @@ class VendorWorshipTimes:
 @dataclass(frozen=True)
 class VendorMotionFrame:
     subcommand: int
-    channels: tuple[int, int, int, int, int, int, int, int]
+    channels: tuple[int, int, int, int, int, int, int, int, int]
     channel_meaning: str = "unknown"
-    trailing_bytes_ignored_by_sdk: bool = True
+    trailing_bytes_ignored_by_sdk: bool = False
     hardware_verified: bool = False
 
 
@@ -897,7 +897,7 @@ def parse_vendor_motion_frame(
     response = _subresponse(data, expected_subcommand)
     channels = tuple(
         int.from_bytes(response[offset : offset + 2], "little", signed=True)
-        for offset in range(2, 18, 2)
+        for offset in range(2, 20, 2)
     )
     return VendorMotionFrame(
         subcommand=expected_subcommand,

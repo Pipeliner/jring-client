@@ -243,8 +243,8 @@ only: a new connection or reset establishes a baseline, a multi-step jump is dis
 rather than replayed, and exact single increments are rate-limited. The adapter is
 unconditionally hardware-ineligible and is not connected to the transport or uinput.
 
-The motion path uses opcode family `78` and can yield eight signed 16-bit channels in
-bytes 2–17; bytes 18–19 are ignored by this APK branch. Axis order, units, sampling
+The motion path uses opcode family `78` and can yield nine signed 16-bit channels in
+bytes 2–19; this APK branch consumes the entire fixed frame. Axis order, units, sampling
 interval, subcommand scope, and gesture meanings are not proven.
 `parse_vendor_motion_frame()` therefore requires the caller to name the exact expected
 subcommand and rejects every known non-motion `78` subcommand. It retains neutral
@@ -428,6 +428,14 @@ Bluetooth-facing methods across 125 classes. Those methods include interface
 declarations, implementations, app call sites, SDK dispatch sites, Android Bluetooth
 helpers, and 188 internal OTA methods. Only the declaration sets define interface rows.
 
+The 16 callbacks outside the wire-opcode decoder are also explicitly accounted for.
+Fourteen have closed, non-runnable behavior evidence for Android GATT, connection,
+authorization, scan, network, OTA, raw-control, or local-file dispatch. Two are retained
+as declarations with no observed direct dispatch. Their privacy classes identify raw
+GATT values, Bluetooth addresses, advertisement data, network material, cloud content,
+and file references without storing those values. None is a live callback adapter or a
+hardware-support claim.
+
 Manifest and receiver review finds a required BLE feature and one private connected-
 device foreground service, but no app-owned static receiver or static Android Bluetooth
 action. The central Bluetooth controller is one of two exported app activities, while
@@ -453,8 +461,9 @@ The 11 reflection calls in five owned Bluetooth-related files are
 now instruction-resolved to nine constant Android bond, telephony, classic-profile, and
 GATT-cache targets; none has a dial-transfer receiver, argument, class-loading, or
 constructor flow. A bounded trace of manifest components, relevant resources, six
-app-owned launch sites, nine relevant Binder requests, seven callbacks, and the bound
-service finds no static activation edge for the standalone dial implementation. The
+app-owned launch sites, nine relevant Binder requests, seven callbacks, and the direct
+binding to the private app BLE service finds no static activation edge for the
+standalone dial implementation. The
 generic OTA implementation is constructed instead. Runtime-generated reflection,
 encrypted activation, or externally supplied native binding are not disproved, so
 runtime activation and complete artifact coverage remain inconclusive.

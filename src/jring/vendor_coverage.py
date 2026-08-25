@@ -7,6 +7,7 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Mapping
 
+from .vendor_callback_surfaces import recovered_callback_behavior_surfaces
 from .vendor_session_evidence import recovered_session_evidence
 
 
@@ -20,6 +21,7 @@ class VendorPythonState(str, Enum):
     OFFLINE_BEHAVIOR_EVIDENCE = "offline_behavior_evidence"
     OFFLINE_RESPONSE_CODEC = "offline_response_codec"
     OFFLINE_LOCAL_PROJECTION = "offline_local_projection"
+    OFFLINE_DECLARATION_EVIDENCE = "offline_declaration_evidence"
     LIVE_VENDOR = "live_vendor"
 
 
@@ -55,6 +57,9 @@ class StaticVendorCallback:
     maturity: str = "static_apk_only"
     hardware_eligible: bool = False
     hardware_verified: bool = False
+    evidence_locator: str | None = None
+    evidence_scope: str | None = None
+    known_limitations: tuple[str, ...] = ()
     session_sequence_locators: tuple[str, ...] = ()
 
 
@@ -519,6 +524,15 @@ _NON_OPCODE_CALLBACKS = frozenset(
     }
 )
 _UNUSED_CALLBACKS = frozenset({"onGetDeviceTime", "onSendWeather"})
+CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS: Mapping[str, str] = MappingProxyType(
+    {
+        row.name: (
+            "jring.vendor_callback_surfaces:CallbackBehaviorSurface:"
+            f"{row.name}"
+        )
+        for row in recovered_callback_behavior_surfaces()
+    }
+)
 _LOCAL_PROJECTION_CALLBACKS = frozenset(
     {
         "onGetAdvSensorOfflineDataEnd",
@@ -637,7 +651,25 @@ def static_vendor_callback_coverage() -> tuple[StaticVendorCallback, ...]:
                 if name in _OFFLINE_RESPONSE_CODECS
                 else VendorPythonState.OFFLINE_LOCAL_PROJECTION
                 if name in _LOCAL_PROJECTION_CALLBACKS
+                else VendorPythonState.OFFLINE_DECLARATION_EVIDENCE
+                if name in _UNUSED_CALLBACKS
+                else VendorPythonState.OFFLINE_BEHAVIOR_EVIDENCE
+                if name in _NON_OPCODE_CALLBACKS
                 else VendorPythonState.NOT_REPRODUCED
+            ),
+            evidence_locator=CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS.get(name),
+            evidence_scope=(
+                "statically_classified_non_runnable_surface"
+                if name in CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS
+                else None
+            ),
+            known_limitations=(
+                (
+                    "not_behavioral_parity",
+                    "no_runtime_or_hardware_verification",
+                )
+                if name in CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS
+                else ()
             ),
             session_sequence_locators=CALLBACK_SEQUENCE_EVIDENCE_LOCATORS.get(
                 name, ()

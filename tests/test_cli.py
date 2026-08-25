@@ -297,6 +297,9 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Offline request codecs: 85" in output
     assert "Offline response codecs: 86" in output
     assert "Offline local projections: 3" in output
+    assert "Offline callback behavior evidence: 14" in output
+    assert "Offline callback declaration evidence: 2" in output
+    assert "Unclassified callbacks: 0" in output
     assert "Supplemental session transitions (not interface entries): 33" in output
     assert "Adversarial session races: 22" in output
     assert "Source-labeled binding reactions: 6" in output
@@ -325,6 +328,9 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["offline_request_codecs"] == 85
     assert result["summary"]["offline_response_codecs"] == 86
     assert result["summary"]["offline_local_projections"] == 3
+    assert result["summary"]["offline_callback_behavior_evidence"] == 14
+    assert result["summary"]["offline_callback_declaration_evidence"] == 2
+    assert result["summary"]["unclassified_callbacks"] == 0
     assert result["summary"]["supplemental_session_transitions"] == 33
     assert result["summary"]["supplemental_session_races"] == 22
     assert result["summary"]["supplemental_binding_reactions"] == 6
@@ -387,6 +393,11 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert len(warning_audit["scopes"]) == 3
     assert len(warning_audit["comparisons"]) == 8
     artifact = result["supplemental"]["artifact_surface"]
+    callback_surfaces = result["supplemental"]["callback_behavior_surfaces"]
+    assert len(callback_surfaces) == 16
+    assert sum(row["direct_dispatch_observed"] for row in callback_surfaces) == 14
+    assert all(row["runnable"] is False for row in callback_surfaces)
+    assert all(row["hardware_eligible"] is False for row in callback_surfaces)
     assert artifact["interface_entries"] is False
     assert artifact["source_recovery_completeness"] == "not_established"
     assert artifact["complete_artifact_coverage"] is False

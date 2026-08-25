@@ -155,6 +155,14 @@ closed categories, mismatches, and limitations. Its method categories are mutual
 exclusive, while the direct Android API family counts are a separately labeled
 non-interface view. Neither count is added to the 112/105 ledgers.
 
+The 16 callbacks outside the wire-opcode decoder have a separate closed behavior
+surface. Fourteen observed Android, network, OTA, scan, and transport dispatches are
+classified without reproducing their side effects or data. Two declarations with no
+observed dispatch remain declaration evidence. Raw GATT values, scan identifiers,
+network material, cloud content, and file references are privacy classes only; the
+aggregate stores no corresponding values. This makes callback accounting complete
+without making any callback runnable or hardware-eligible.
+
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
 dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective
@@ -162,7 +170,8 @@ files to constant Android bond, telephony, classic-profile, or GATT-cache target
 excludes the separate dial-transfer object from those receiver/argument flows. A bounded
 Binder/resource/navigation trace also finds no static activation edge: the app-owned
 launches use app-owned flows, relevant Binder requests have no app-side invocation, and
-the bound service constructs the generic OTA object. All three packaged JNI roots and
+the app directly binds its private BLE service, whose inherited service path constructs
+the generic OTA object. All three packaged JNI roots and
 their bounded transitive call graph perform image/wallpaper work without a rooted
 Bluetooth or dial-transfer edge. Unmatched declarations, whole-ELF instructions, and
 runtime-generated or external binding still keep overall activation inconclusive and

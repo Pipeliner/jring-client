@@ -31,6 +31,9 @@ Date: 2026-08-24
 | Five reflection files were treated as five unknown calls | The model distinguishes 11 calls in 10 methods and resolves only their constant Android helper targets |
 | Packaged Binder methods or resource labels implied a live dial-transfer route | The model traces relevant static routes and reports zero app activation edges while keeping runtime reachability inconclusive |
 | A native library implied hidden Bluetooth transport | All packaged JNI roots are bounded to image/wallpaper work; whole-ELF and external binding limits remain explicit |
+| Non-opcode callbacks disappeared behind one `not_reproduced` label | Every row now has behavior or declaration evidence, with side effects and payload semantics still unclaimed |
+| Callback inventory exposed sensitive transport and platform values | Coverage emits privacy categories only, never the values themselves |
+| An eight-channel parser silently discarded the final motion value | The fixed-frame decoder consumes nine signed pairs while keeping every axis meaning unknown |
 | Backend errors could leak addresses or BlueZ paths | The final error boundary redacts identifiers, paths, and long payload hex |
 | Address selection required a sensitive argv value | Mode-0600 `--address-file` is the documented path; argv is marked legacy |
 | History silently replaced an existing file | Existing exports require `--force` |

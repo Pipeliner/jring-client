@@ -34,6 +34,7 @@ from .protocol import ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
 from .vendor_artifact_evidence import recovered_artifact_surface_evidence
+from .vendor_callback_surfaces import recovered_callback_behavior_surfaces
 from .vendor_coverage import (
     OFFLINE_REQUEST_CODEC_STATES,
     VendorPythonState,
@@ -265,6 +266,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     decompilation = recovered_decompilation_coverage()
     warning_audit = recovered_warning_audit()
     artifact = recovered_artifact_surface_evidence()
+    callback_surfaces = recovered_callback_behavior_surfaces()
     warning_scopes = {item.scope.value: item for item in warning_audit.scopes}
     return {
         "summary": {
@@ -291,6 +293,18 @@ def _protocol_coverage_payload() -> dict[str, object]:
             ),
             "offline_local_projections": sum(
                 entry.python_state is VendorPythonState.OFFLINE_LOCAL_PROJECTION
+                for entry in callbacks
+            ),
+            "offline_callback_behavior_evidence": sum(
+                entry.python_state is VendorPythonState.OFFLINE_BEHAVIOR_EVIDENCE
+                for entry in callbacks
+            ),
+            "offline_callback_declaration_evidence": sum(
+                entry.python_state is VendorPythonState.OFFLINE_DECLARATION_EVIDENCE
+                for entry in callbacks
+            ),
+            "unclassified_callbacks": sum(
+                entry.python_state is VendorPythonState.NOT_REPRODUCED
                 for entry in callbacks
             ),
             "live_vendor_operations": sum(
@@ -385,6 +399,17 @@ def _protocol_coverage_payload() -> dict[str, object]:
         "requests": [asdict(entry) for entry in requests],
         "callbacks": [asdict(entry) for entry in callbacks],
         "supplemental": {
+            "callback_behavior_surfaces": [
+                {
+                    **asdict(item),
+                    "maturity": item.maturity,
+                    "runnable": item.runnable,
+                    "python_callable": item.python_callable,
+                    "hardware_eligible": item.hardware_eligible,
+                    "hardware_verified": item.hardware_verified,
+                }
+                for item in callback_surfaces
+            ],
             "session_sequence": {
                 "interface_entries": False,
                 "maturity": session.maturity,
@@ -645,6 +670,15 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     print(f"Unclassified requests: {summary['unclassified_requests']}")
     print(f"Offline response codecs: {summary['offline_response_codecs']}")
     print(f"Offline local projections: {summary['offline_local_projections']}")
+    print(
+        "Offline callback behavior evidence: "
+        f"{summary['offline_callback_behavior_evidence']}"
+    )
+    print(
+        "Offline callback declaration evidence: "
+        f"{summary['offline_callback_declaration_evidence']}"
+    )
+    print(f"Unclassified callbacks: {summary['unclassified_callbacks']}")
     print(
         "Supplemental session transitions (not interface entries): "
         f"{summary['supplemental_session_transitions']}"

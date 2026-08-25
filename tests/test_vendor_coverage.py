@@ -5,6 +5,7 @@ import pytest
 
 from jring.vendor_coverage import (
     BEHAVIOR_EVIDENCE_LOCATORS,
+    CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS,
     CALLBACK_SEQUENCE_EVIDENCE_LOCATORS,
     OFFLINE_REQUEST_CODEC_STATES,
     REQUEST_SEQUENCE_EVIDENCE_LOCATORS,
@@ -333,6 +334,38 @@ def test_callback_coverage_distinguishes_unused_and_non_opcode_sources():
     assert by_name["onAuthSdkResult"].source == "android_network_ota_or_transport"
     assert by_name["onGetDeviceAction"].source == "bluetooth_opcode"
     assert by_name["onGetDataByDayEnd"].source == "local_timer_or_parser_projection"
+
+
+def test_all_non_opcode_callbacks_have_closed_behavior_or_declaration_evidence():
+    rows = static_vendor_callback_coverage()
+    by_name = {row.name: row for row in rows}
+    behavior = {
+        row.name
+        for row in rows
+        if row.python_state is VendorPythonState.OFFLINE_BEHAVIOR_EVIDENCE
+    }
+    declarations = {
+        row.name
+        for row in rows
+        if row.python_state is VendorPythonState.OFFLINE_DECLARATION_EVIDENCE
+    }
+
+    assert behavior == {
+        "onAuthDeviceResult", "onAuthSdkResult", "onCharacteristicChanged",
+        "onCharacteristicWrite", "onConnectStateChanged", "onDeviceConnectedWifi",
+        "onGetDeviceRssi", "onGetOtaInfo", "onGetOtaUpdate",
+        "onNotifyDialJsonContent", "onNotifyFtpStateInfo", "onNotifyNewMediaInfo",
+        "onOpenRawDataNotificationState", "onScanCallback",
+    }
+    assert declarations == {"onGetDeviceTime", "onSendWeather"}
+    assert set(CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS) == behavior | declarations
+    assert len(set(CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS.values())) == 16
+    assert all(
+        by_name[name].evidence_locator == locator
+        for name, locator in CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS.items()
+    )
+    assert all(row.python_state is not VendorPythonState.NOT_REPRODUCED for row in rows)
+    assert all(row.hardware_eligible is False for row in rows)
 
 
 def test_all_eighty_six_wire_callback_families_have_offline_response_codecs():

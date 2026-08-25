@@ -42,6 +42,9 @@ vendor implementation or hardware verification.
 | Runtime reviewer | Direct dial construction is absent but reflection, Binder, and resource tokens exist | Report activation as inconclusive | Never call the implementation dormant or unreachable |
 | Runtime reviewer | All owned reflection calls resolve to constant Android helper targets | Close only that bounded reflection route | Runtime-generated and exhaustive activation remain unresolved |
 | Runtime reviewer | Reviewed Binder, service, resource, and navigation paths never activate the standalone dial class | Report the bounded static no-edge result | Runtime reachability remains inconclusive |
+| Protocol contributor | Sixteen non-opcode callbacks previously have no Python state | Classify 14 dispatch surfaces and two undispatched declarations | Zero unclassified rows; no callback becomes runnable or hardware-eligible |
+| Privacy reviewer | Platform callbacks can contain raw GATT, scan, network, cloud, or file data | Expose only closed privacy categories | No callback values, identifiers, credentials, or paths enter coverage output |
+| Sensor user | A motion frame carries a ninth signed channel in its final byte pair | Decode all nine neutral channels | Never drop bytes 18–19 or invent axis meanings |
 
 Across every row, logs and errors omit Bluetooth addresses, cloud identifiers, frame
 bytes, raw measurements, and decompiled-source details. Simulation provenance remains

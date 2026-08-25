@@ -224,7 +224,7 @@ def test_dynamic_dial_activation_remains_inconclusive_across_all_surfaces():
     assert dynamic.binder_proxy_class_count == 13
     assert dynamic.binder_transact_file_count == 25
     assert dynamic.binder_on_transact_method_count == 23
-    assert dynamic.direct_owned_service_binding_call_observed is False
+    assert dynamic.direct_owned_service_binding_call_observed is True
     assert dynamic.relevant_binder_request_transaction_count == 9
     assert dynamic.app_relevant_binder_outbound_invoke_count == 0
     assert dynamic.relevant_callback_transaction_count == 7

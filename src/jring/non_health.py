@@ -67,8 +67,8 @@ _CAPABILITIES = (
         "static_apk", "offline_decoder", "cumulative_counter", False,
     ),
     NonHealthCapability(
-        "unknown_motion_channels", "Eight unknown motion channels", "sensor_candidates",
-        "eight signed 16-bit channels with unproven axes and gesture semantics",
+        "unknown_motion_channels", "Nine unknown motion channels", "sensor_candidates",
+        "nine signed 16-bit channels with unproven axes and gesture semantics",
         "static_apk", "offline_decoder", "unknown", False,
     ),
     NonHealthCapability(

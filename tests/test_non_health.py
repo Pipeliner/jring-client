@@ -25,6 +25,7 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert by_name["media_play_pause"].input_candidate is True
     assert by_name["cumulative_step_counter"].input_candidate is False
     assert by_name["unknown_motion_channels"].meaning == "unknown"
+    assert by_name["unknown_motion_channels"].label == "Nine unknown motion channels"
     assert all(item.hardware_verified is False for item in items)
     assert all(item.live_available is False for item in items)
     assert all(item.input_eligible is False for item in items)
