@@ -167,6 +167,12 @@ size overruns, and returned object representations omit the data bytes. A raw re
 constructor cannot make a live write; raw notification disable is not implemented from
 the APK because its descriptor state machine is statically unsafe.
 
+Given `jring protocol-coverage`, a person receives a local-only summary of all request
+and callback entries, offline codec counts, route/source totals, and zero live or
+hardware-verified vendor operations. `--json` returns every ledger entry in a schema-1
+success envelope without frame bytes. The command constructs no transport and rejects
+simulation, address, and timeout options because none apply.
+
 ### Safe step-to-input preview
 
 Given no ring, when a person runs
@@ -340,6 +346,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Complete request accounting | `test_static_vendor_operation_coverage_accounts_for_all_112_requests_once`, `test_only_seven_operations_have_offline_request_and_response_codecs`, `test_static_coverage_never_promotes_an_operation_to_hardware` |
 | Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_twenty_three_callback_families_have_offline_response_codecs` |
+| Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |

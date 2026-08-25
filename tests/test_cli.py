@@ -175,6 +175,42 @@ def test_input_actions_json_uses_common_envelope(capsys):
     ]
 
 
+def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
+    assert cli.main(["protocol-coverage"]) == 0
+    output = capsys.readouterr().out
+
+    assert "OFFLINE PROTOCOL COVERAGE — no ring contacted" in output
+    assert "Requests: 112" in output
+    assert "Callbacks: 105" in output
+    assert "Live vendor operations: 0" in output
+    assert "Hardware-verified vendor operations: 0" in output
+
+
+def test_protocol_coverage_json_accounts_for_every_entry(capsys):
+    assert cli.main(["protocol-coverage", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+
+    assert result["operation"] == "protocol_coverage"
+    assert result["source"] == "local"
+    assert result["ok"] is True
+    assert result["summary"]["request_total"] == 112
+    assert result["summary"]["callback_total"] == 105
+    assert result["summary"]["live_vendor_operations"] == 0
+    assert len(result["requests"]) == 112
+    assert len(result["callbacks"]) == 105
+    assert "frame" not in json.dumps(result).lower()
+
+
+def test_protocol_coverage_never_constructs_a_transport(monkeypatch, capsys):
+    def forbidden_transport(*_args, **_kwargs):
+        raise AssertionError("transport must not be constructed")
+
+    monkeypatch.setattr(cli, "BleakTransport", forbidden_transport)
+
+    assert cli.main(["protocol-coverage"]) == 0
+    assert "no ring contacted" in capsys.readouterr().out
+
+
 def test_unsupported_mapping_fails_before_opening_a_sink(monkeypatch, capsys):
     opened = False
 
@@ -247,6 +283,7 @@ def test_hardware_motion_input_fails_before_opening_a_sink(monkeypatch, capsys):
         (["--timeout", "1", "doctor"], "--timeout"),
         (["--timeout", "1", "input", "--simulate", "--map", "step=key:space"], "--timeout"),
         (["--simulate", "input-actions"], "--simulate"),
+        (["--simulate", "protocol-coverage"], "--simulate"),
     ],
 )
 def test_non_applicable_global_options_are_rejected(argv, option, capsys):

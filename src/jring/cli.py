@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections import Counter
 from contextlib import redirect_stderr
 import json
 import math
@@ -31,6 +32,10 @@ from .input import (
 from .protocol import ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import FakeTransport
+from .vendor_coverage import (
+    static_vendor_callback_coverage,
+    static_vendor_operation_coverage,
+)
 
 
 class ExitCode(IntEnum):
@@ -239,6 +244,52 @@ def _print_input_actions(inventory: dict[str, list[dict[str, object]]]) -> None:
     print("No hardware gesture or motion event is verified yet.")
 
 
+def _protocol_coverage_payload() -> dict[str, object]:
+    requests = static_vendor_operation_coverage()
+    callbacks = static_vendor_callback_coverage()
+    return {
+        "summary": {
+            "request_total": len(requests),
+            "callback_total": len(callbacks),
+            "offline_request_codecs": sum(
+                entry.python_state.startswith("offline_") for entry in requests
+            ),
+            "offline_response_codecs": sum(
+                entry.python_state == "offline_response_codec" for entry in callbacks
+            ),
+            "live_vendor_operations": sum(
+                entry.python_state == "live_vendor" for entry in requests
+            ),
+            "hardware_verified_vendor_operations": sum(
+                entry.hardware_eligible for entry in requests
+            ),
+            "request_routes": dict(sorted(Counter(
+                entry.route for entry in requests
+            ).items())),
+            "callback_sources": dict(sorted(Counter(
+                entry.source for entry in callbacks
+            ).items())),
+        },
+        "requests": [asdict(entry) for entry in requests],
+        "callbacks": [asdict(entry) for entry in callbacks],
+    }
+
+
+def _print_protocol_coverage(payload: dict[str, object]) -> None:
+    summary = payload["summary"]
+    print("OFFLINE PROTOCOL COVERAGE — no ring contacted")
+    print(f"Requests: {summary['request_total']}")
+    print(f"Callbacks: {summary['callback_total']}")
+    print(f"Offline request codecs: {summary['offline_request_codecs']}")
+    print(f"Offline response codecs: {summary['offline_response_codecs']}")
+    print(f"Live vendor operations: {summary['live_vendor_operations']}")
+    print(
+        "Hardware-verified vendor operations: "
+        f"{summary['hardware_verified_vendor_operations']}"
+    )
+    print("Static coverage never authorizes Bluetooth writes or subscriptions.")
+
+
 def _capability_payload(inventory: object) -> dict[str, object]:
     characteristics = [asdict(item) for item in inventory.characteristics]
     return {
@@ -289,6 +340,13 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.command == "protocol-coverage":
+        payload = _protocol_coverage_payload()
+        if args.json:
+            _print_json_success("protocol_coverage", "local", payload)
+        else:
+            _print_protocol_coverage(payload)
+        return ExitCode.OK
     if args.command == "input-actions":
         inventory = input_action_inventory()
         if args.json:
@@ -479,6 +537,11 @@ def build_parser() -> argparse.ArgumentParser:
         "input-actions", help="list local simulator events and allowlisted input actions"
     )
     _add_json_option(input_actions)
+    protocol_coverage = sub.add_parser(
+        "protocol-coverage",
+        help="inspect offline APK-to-Python parity without Bluetooth",
+    )
+    _add_json_option(protocol_coverage)
     input_command = sub.add_parser(
         "input", help="simulator-only preview or emission; live ring events are unavailable"
     )
@@ -597,6 +660,7 @@ def _print_json_error(
 
 _OPERATIONS = {
     "doctor": "doctor",
+    "protocol-coverage": "protocol_coverage",
     "input-actions": "input_actions",
     "input": "input",
     "capabilities": "capabilities",
@@ -609,7 +673,7 @@ _OPERATIONS = {
 
 def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
     operation = next((_OPERATIONS[value] for value in argv if value in _OPERATIONS), "cli")
-    if operation in {"doctor", "input_actions"}:
+    if operation in {"doctor", "input_actions", "protocol_coverage"}:
         source = "local"
     elif "--simulate" in argv:
         source = "simulator"
@@ -621,7 +685,7 @@ def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
 
 
 def _source_from_args(args: argparse.Namespace) -> str:
-    if args.command in {"doctor", "input-actions"}:
+    if args.command in {"doctor", "input-actions", "protocol-coverage"}:
         return "local"
     return "simulator" if getattr(args, "simulate", False) else "hardware"
 
@@ -685,6 +749,11 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         if ignored:
             option = sorted(ignored)[0].replace("_", "-")
             parser.error(f"--{option} is not supported by input-actions")
+    if args.command == "protocol-coverage":
+        ignored = provided & {"address", "address_file", "simulate", "timeout"}
+        if ignored:
+            option = sorted(ignored)[0].replace("_", "-")
+            parser.error(f"--{option} is not supported by protocol-coverage")
     if args.command == "discover":
         if simulate:
             parser.error("discover does not support simulation; it is a radio-active operation")
@@ -701,7 +770,9 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
     if args.command == "history" and provided & {"address", "address_file", "timeout"}:
         parser.error("history is simulator-only and does not accept hardware selection or --timeout")
     if (
-        args.command not in {"discover", "doctor", "input", "input-actions"}
+        args.command not in {
+            "discover", "doctor", "input", "input-actions", "protocol-coverage"
+        }
         and not simulate
         and not has_hardware
         and not guided_selection

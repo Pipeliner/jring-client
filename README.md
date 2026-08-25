@@ -15,6 +15,7 @@ python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e .
 jring doctor
+jring protocol-coverage
 jring status --simulate
 jring history --simulate --output history.jsonl
 jring input --simulate --map step=click:left
@@ -90,6 +91,18 @@ upgrade, and uninstall instructions, see [docs/INSTALL.md](docs/INSTALL.md). The
 repository does not currently publish to a package index or create GitHub releases.
 The tokenless, owner-gated release design and remaining PyPI trust step are documented
 in [docs/PUBLISHING.md](docs/PUBLISHING.md).
+
+Inspect the complete static interface accounting without Bluetooth, a ring, or optional
+dependencies:
+
+```sh
+jring protocol-coverage
+jring protocol-coverage --json
+```
+
+The report accounts for 112 requests and 105 callbacks, distinguishes offline codecs
+from absent and non-Bluetooth behavior, and always reports zero live or hardware-verified
+vendor operations. It contains no payload bytes and grants no write authority.
 
 Run `jring doctor` before touching hardware. It passively checks Python, Linux, Bleak,
 BlueZ, evdev, and `/dev/uinput`, explains exactly what is missing, and reports
