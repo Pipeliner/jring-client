@@ -226,6 +226,14 @@ their private input stays hidden and absence of a proven failure opcode remains 
 Eight single-frame behavior mutations are also composable with paired acknowledgements.
 Alarm batches are deliberately rejected by this factory because their multi-frame,
 source-sequential semantics require a separate state machine.
+A dedicated fake-only alarm batch simulator preserves the exact base/content frame
+order without exposing a live client method. Exact `0d`/`8d` callbacks are recorded
+only as uncorrelated per-frame observations: the recovered projection exposes no
+proven alarm ID, chunk ID, batch ID, or terminal marker, and the remaining body is
+uninterpreted. Privacy-safe callback multiplicity is preserved, but returned fake
+calls, callback counts, local quiet, and observation limits never establish batch
+success. An observed failure stops only future synthetic writes and taints reuse; no
+alarm data is retained in the result.
 All fake transaction and stream coordinators now share one pure main/raw GATT resolver.
 It checks that connection-scoped characteristic metadata is structurally consistent
 and refuses UUID ambiguity, missing response-write/notify properties, and CCCD metadata

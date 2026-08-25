@@ -286,8 +286,12 @@ only and hardware-ineligible.
 The three streaming static day queries are rejected by this factory and use their
 separate history collector, which cannot close on the first matching frame.
 Alarm batching is rejected rather than flattened: its base/content messages,
-per-alarm acknowledgements, and source non-atomic enqueue behavior need a dedicated
-batch state machine.
+uncorrelated per-frame callback observations, and source non-atomic enqueue behavior use a
+dedicated fake-only batch simulator. It preserves frame order, stops not-yet-invoked
+synthetic writes after an observed failure, and never upgrades callback count, local
+quiet, or a caller observation limit into batch success. The safer stop policy and
+atomic request validation are explicit divergences from source retained-state and
+partial-enqueue behavior.
 Shared sensor-session start/stop is also rejected: the generic encoder loses which of
 four interface wrappers initiated the frame, and opcode `25` is also a multi-sport
 projection rather than a proven singleton terminal.

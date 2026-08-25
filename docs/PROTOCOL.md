@@ -281,6 +281,18 @@ and real device support remain outside this model.
 Eight single-frame behavior mutations use the same fake-only path and paired ack
 parsers. Alarm remains excluded because collapsing its ordered base and content frames
 would falsely claim a single-response transaction contract.
+The separate alarm batch simulator emits the exact ordered synthetic frame plan only
+to the scripted fake MAIN route. Exact 20-byte `0d` and `8d` frames are success- and
+failure-shaped per-frame observations. The recovered projection exposes no proven
+alarm identifier, content-chunk index, batch identity, transaction token, or batch
+terminal; body bytes are uninterpreted and cannot correlate a callback. Inbound `1c`
+traffic is unrelated. Privacy-safe success/failure callback counts retain zero/one/many
+multiplicity. Accordingly, count equality, returned fake write calls, quiet, and the
+observation limit all leave delivery and high-level completion unknown. A clean
+`8d` observation stops future fake writes and taints reuse but remains unknown rather
+than claiming a correlated abort; invoked write uncertainty and post-write cleanup
+failure are uncertain. The result retains no alarm request, schedule, content, frame,
+or acknowledgement object and grants no live, owner, hardware, or input authority.
 The fake operation layer additionally accepts seven exact no-argument main queries and
 the typed screen-light request. Response matching retains `54`/`78` subcommands and EQ
 get/set discrimination. Wi-Fi scan remains outside the singleton engine because its

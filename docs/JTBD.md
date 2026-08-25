@@ -23,6 +23,9 @@ Desired outcomes:
   left as unknown implementation state.
 - Inspect statically proven request and response layouts offline with synthetic data,
   without making those codecs callable from a live client.
+- Exercise an ordered multi-frame alarm batch against a scripted fake while clearly
+  seeing that frame callbacks cannot prove an alarm, content chunk, or whole-batch
+  terminal and that no private schedule survives in the result.
 - Gain useful passive and read-only support while uncertain or destructive
   operations remain visibly gated.
 - Never confuse a UUID string, advertised property, static opcode, or simulated
