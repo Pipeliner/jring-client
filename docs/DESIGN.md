@@ -45,6 +45,9 @@ which UUID family applies to a particular ring firmware.
 ## Architecture and safety
 
 `jring.protocol` contains strict typed parsers and the simulator-only envelope.
+`jring.vendor_protocol` contains pure offline encoders for statically proven query
+layouts. Its request objects cannot claim hardware eligibility and are not accepted by
+any client transmission API.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`
@@ -122,6 +125,8 @@ no publishing step or repository-contents write permission.
   characteristic states when optional descriptor metadata is missing or malformed.
 - Vendor UUID inventory covers service and characteristic positions, labels meanings
   unknown, and cannot read, subscribe, pair, or write.
+- Static vendor request vectors are exact, bounded, synthetic, and transport-disconnected;
+  they always report `static_apk_only` and `hardware_eligible: false`.
 - Status collects battery, Device Information, and service inventory concurrently under
   one bounded deadline. Additive per-field states distinguish absence, malformed data,
   timeouts, and a service that was not advertised without exposing raw values.

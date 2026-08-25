@@ -55,6 +55,28 @@ Those distinctions are tracked in issue #16. A vendor encoder may be tested offl
 but it cannot reach `BleTransport.write` until every byte is classified and a bounded
 owner-ring canary independently confirms that exact operation.
 
+## Offline static request vectors
+
+`jring.vendor_protocol` independently encodes the lowest-ambiguity query frames found
+in the static SDK path. Each is exactly 20 bytes, zero-filled after the declared
+fields, and targets the SDK's `33f3` write characteristic. The module has no transport
+integration; every result is permanently marked `static_apk_only` and
+`hardware_eligible: false`.
+
+| Operation | Opcode | Declared fields | Decoder/hardware status |
+|---|---:|---|---|
+| Current sport query | `03` | none | Response not yet verified |
+| Battery query | `0b` | none | Response not yet verified |
+| Device information query | `0c` | none | Response not yet verified |
+| Band-function query | `20` | none | Response not yet verified |
+| Multiple-sport day query | `25` | unsigned one-byte day offset | Response not yet verified |
+| Oxygen day query | `40` | unsigned one-byte day offset | Response not yet verified |
+| Advanced-sensor day query | `55` | unsigned one-byte day offset | Response not yet verified |
+
+These are protocol facts and synthetic golden vectors, not captured owner frames.
+Health-related names describe the SDK operation; the repository contains no owner
+measurement or raw capture. An opcode match alone cannot activate a live operation.
+
 ## Required hardware evidence to advance
 
 Hardware evidence is owner-authorized and processed locally; autonomous work never
