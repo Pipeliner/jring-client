@@ -2,10 +2,25 @@ import inspect
 
 import pytest
 
-from jring.uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_SERVICE_FEF5
+from jring.uuids import (
+    SUOTA_GPIO_MAP,
+    SUOTA_L2CAP_PSM,
+    SUOTA_MEMORY_DEVICE,
+    SUOTA_MEMORY_INFO,
+    SUOTA_MTU,
+    SUOTA_PATCH_DATA,
+    SUOTA_PATCH_DATA_SIZE,
+    SUOTA_PATCH_LENGTH,
+    SUOTA_STATUS,
+    SUOTA_VERSION,
+    VENDOR_CHARACTERISTIC_33F3,
+    VENDOR_SERVICE_FEF5,
+    VENDOR_UUIDS,
+)
 from jring.vendor_ota_evidence import (
     FirmwareAndTransferEvidenceOperation,
     OfflineFirmwareAndTransferEvidence,
+    SuotaGattCharacteristicRole,
     evidence_for,
 )
 
@@ -81,6 +96,47 @@ def test_start_file_ota_models_mode_transition_and_separate_suota_service():
     assert frame.zero_ranges == ((2, 20),)
     assert frame.source_clears_queue_first is True
     assert evidence.secondary_gatt_service_uuid == VENDOR_SERVICE_FEF5
+
+
+def test_start_file_ota_has_closed_required_and_optional_suota_role_inventory():
+    evidence = evidence_for(FirmwareAndTransferEvidenceOperation.START_FILE_OTA)
+    roles = {item.role: item for item in evidence.secondary_gatt_characteristics}
+
+    assert {
+        role: (item.uuid, item.requirement, item.source_access)
+        for role, item in roles.items()
+    } == {
+        "memory_device": (SUOTA_MEMORY_DEVICE, "required", "control_write"),
+        "gpio_map": (SUOTA_GPIO_MAP, "required", "control_write"),
+        "memory_info": (SUOTA_MEMORY_INFO, "required", "status_read"),
+        "patch_length": (SUOTA_PATCH_LENGTH, "required", "control_write"),
+        "patch_data": (SUOTA_PATCH_DATA, "required", "chunk_write"),
+        "status": (SUOTA_STATUS, "required", "status_notify"),
+        "version": (SUOTA_VERSION, "optional", "metadata_read"),
+        "patch_data_size": (SUOTA_PATCH_DATA_SIZE, "optional", "metadata_read"),
+        "mtu": (SUOTA_MTU, "optional", "metadata_read"),
+        "l2cap_psm": (SUOTA_L2CAP_PSM, "optional", "metadata_read"),
+    }
+    assert sum(item.requirement == "required" for item in roles.values()) == 6
+    assert sum(item.requirement == "optional" for item in roles.values()) == 4
+    assert all(item.static_role_only for item in roles.values())
+    assert all(not item.runnable for item in roles.values())
+    assert all(not item.hardware_eligible for item in roles.values())
+    assert all(not item.hardware_verified for item in roles.values())
+    assert not hasattr(roles["patch_data"], "write")
+    assert not hasattr(roles["status"], "subscribe")
+
+
+def test_suota_roles_are_vendor_capability_metadata_without_transfer_authority():
+    evidence = evidence_for(FirmwareAndTransferEvidenceOperation.START_FILE_OTA)
+    characteristic_uuids = {
+        item.uuid for item in evidence.secondary_gatt_characteristics
+    }
+
+    assert characteristic_uuids <= VENDOR_UUIDS
+    assert VENDOR_SERVICE_FEF5 in VENDOR_UUIDS
+    assert evidence.runnable is False
+    assert evidence.hardware_eligible is False
 
 
 def test_start_file_ota_is_descriptive_only_and_lists_dangerous_side_effects():
@@ -201,6 +257,10 @@ def test_evidence_operations_and_models_are_closed():
         evidence_for("get_ota_info")
     with pytest.raises(TypeError):
         OfflineFirmwareAndTransferEvidence()
+    with pytest.raises(TypeError):
+        SuotaGattCharacteristicRole(
+            "arbitrary", "00000000-0000-0000-0000-000000000000", "required", "write"
+        )
 
 
 def test_module_has_no_runnable_io_or_transport_dependencies():

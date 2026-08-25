@@ -298,6 +298,57 @@ def test_band_functions_expand_twelve_bytes_lsb_first():
     assert result.static_app_mapping(1) is None
 
 
+def test_band_function_app_projection_covers_every_reviewed_direct_index():
+    result = parse_vendor_band_functions(bytes((0x20,)) + bytes(19))
+    expected = {
+        0: "social_notifications", 2: "weather", 3: "time", 4: "anti_lost",
+        5: "blood_pressure", 6: "heart_rate", 9: "ecg", 10: "temperature",
+        18: "automatic_interval", 19: "notifications", 20: "reminders",
+        21: "ecg_xt", 22: "blood_pressure_adjustment", 24: "sport",
+        25: "dial", 26: "wallpaper", 28: "blood_pressure_only",
+        29: "blood_oxygen", 30: "blood_pressure_and_oxygen",
+        31: "custom_dial", 32: "female_reminder", 34: "classic_bluetooth",
+        35: "vibration", 41: "distance_algorithm_v2", 42: "custom_alarm",
+        43: "distance_algorithm_v3", 44: "sms_auto_response",
+        45: "electronic_card", 47: "extended_notifications", 48: "chat_assistant",
+        49: "hide_call", 50: "hide_sms", 51: "hide_notifications",
+        52: "hide_alarm", 53: "hide_sedentary", 54: "hide_find_device",
+        55: "hide_quiet_mode", 56: "sport_from_app",
+        57: "hide_more_settings", 59: "battery_low_full_indicator",
+        60: "battery_data", 61: "sport_step", 62: "measurement",
+        63: "short_video", 65: "blood_pressure_oxygen_separate_mode",
+        68: "wifi", 69: "wear_mode", 70: "brightness", 78: "connect_watch",
+        79: "connect_bracelet", 80: "automatic_screen_wake",
+        81: "offline_oxygen", 82: "ai_transfer", 83: "advanced_sensor_offline",
+        84: "blood_sugar", 85: "device_serial", 86: "hrv",
+    }
+
+    assert len(expected) == 57
+    assert result.static_app_direct_projections == tuple(expected.items())
+    assert {
+        index: result.static_app_mapping(index) for index in range(96)
+        if result.static_app_mapping(index) is not None
+    } == expected
+
+
+def test_band_function_composites_preserve_surprising_reviewed_app_predicates():
+    enabled = bytearray(20)
+    enabled[0] = 0x20
+    for index in (20, 30, 33, 34, 40):
+        enabled[1 + (index // 8)] |= 1 << (index % 8)
+
+    result = parse_vendor_band_functions(bytes(enabled))
+
+    assert result.static_app_composite_projections == (
+        ("nateon_notifications", (30, 20), True),
+        ("viber_telegram_notifications", (20, 33), True),
+        ("multiple_contacts", (34, 40), True),
+    )
+    assert result.static_app_mapping(33) is None
+    assert result.static_app_mapping(40) is None
+    assert result.app_projection_scope == "reviewed_app_behavior_not_firmware_semantics"
+
+
 @pytest.mark.parametrize("index", [-1, 96, True, 1.5])
 def test_band_functions_reject_invalid_flag_indexes(index):
     result = parse_vendor_band_functions(bytes((0x20,)) + bytes(19))

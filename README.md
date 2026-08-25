@@ -67,9 +67,11 @@ jring status --select --active-scan
 ```
 
 The scan and connection are separate consent steps. The command shows temporary
-aliases and coarse identity cues, then asks a default-no confirmation before it can
-connect. It never auto-selects a sole result. This guided path is human-only and does
-not support `--json`; scripts should keep using the mode-0600 address file.
+aliases and a possible-JRing label explicitly identified as a client-side name
+heuristic, then asks a default-no confirmation before it can connect. It never
+auto-selects a sole result. Discovery JSON includes the same
+`likely_jring_basis=client_name_heuristic` boundary. This guided path is human-only and
+does not support `--json`; scripts should keep using the mode-0600 address file.
 
 Human-readable output is the default. Add `--json` to `status` or `discover` for
 automation. Both task-first options (`jring status --simulate`) and the original
@@ -162,7 +164,8 @@ Live ring input is not available yet. Inspect the local evidence and candidate b
 without Bluetooth first; this includes standard HID metadata, media/volume/shutter
 actions, the cumulative step counter, unknown motion channels, classic profile/RFCOMM
 evidence, classic metadata callbacks, the host volume-state request, and raw non-health
-framing:
+framing. It also exposes 15 closed general-use rows for already-decoded AI/speech,
+Wi-Fi, system-state, EQ/media/dial, touch, and screen-light surfaces:
 
 ```sh
 jring non-health-capabilities
@@ -210,10 +213,16 @@ generating desktop input.
 `jring capabilities --simulate` demonstrates the versioned non-health inventory. The
 offline `jring non-health-capabilities` view lists all 13 statically mapped device
 actions: six input candidates and seven blocked side-effecting actions. With
-the same local-only command, five supplemental general-use rows keep classic profile
-attachment, RFCOMM OTA transport, two classic metadata callbacks, and the host
-volume-state request visible without claiming that any is live or HID-compatible. With
-an explicitly selected device, `jring capabilities --address-file ...` enumerates only
+the same local-only command, five supplemental evidence rows keep classic profile
+attachment, an RFCOMM socket lifecycle reference, two classic metadata callbacks, and
+the host volume-state request visible without claiming that any is live or
+HID-compatible. The reviewed helper only constructs and closes the classic socket;
+actual OTA transfer uses GATT, and no RFCOMM connect, read, or write was observed. With
+the same view, 15 general-use rows link these static surfaces back to their recovered
+request/callback ledger names. Network names, credentials, media references, and
+AI/voice state are privacy-classified but never stored. Every row remains non-runnable,
+hardware-ineligible, and hardware-unverified. With an explicitly selected device,
+`jring capabilities --address-file ...` enumerates only
 standard service/characteristic/descriptor metadata. It never reads a HID Report Map
 or report value and never subscribes. A read property is only advertised metadata; no
 value was read. Repeated HID Report characteristics remain separate numbered metadata

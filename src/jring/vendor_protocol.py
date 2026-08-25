@@ -247,31 +247,66 @@ _STATIC_APP_FEATURE_INDEX = {
     2: "weather",
     3: "time",
     4: "anti_lost",
+    5: "blood_pressure",
+    6: "heart_rate",
+    9: "ecg",
+    10: "temperature",
     18: "automatic_interval",
     19: "notifications",
     20: "reminders",
+    21: "ecg_xt",
+    22: "blood_pressure_adjustment",
     24: "sport",
     25: "dial",
     26: "wallpaper",
+    28: "blood_pressure_only",
+    29: "blood_oxygen",
+    30: "blood_pressure_and_oxygen",
     31: "custom_dial",
     32: "female_reminder",
     34: "classic_bluetooth",
     35: "vibration",
+    41: "distance_algorithm_v2",
     42: "custom_alarm",
+    43: "distance_algorithm_v3",
     44: "sms_auto_response",
     45: "electronic_card",
+    47: "extended_notifications",
     48: "chat_assistant",
+    49: "hide_call",
+    50: "hide_sms",
+    51: "hide_notifications",
+    52: "hide_alarm",
+    53: "hide_sedentary",
+    54: "hide_find_device",
+    55: "hide_quiet_mode",
     56: "sport_from_app",
+    57: "hide_more_settings",
+    59: "battery_low_full_indicator",
+    60: "battery_data",
+    61: "sport_step",
+    62: "measurement",
     63: "short_video",
+    65: "blood_pressure_oxygen_separate_mode",
     68: "wifi",
     69: "wear_mode",
     70: "brightness",
     78: "connect_watch",
     79: "connect_bracelet",
     80: "automatic_screen_wake",
+    81: "offline_oxygen",
     82: "ai_transfer",
+    83: "advanced_sensor_offline",
+    84: "blood_sugar",
     85: "device_serial",
+    86: "hrv",
 }
+
+_STATIC_APP_FEATURE_COMPOSITES = (
+    ("nateon_notifications", (30, 20)),
+    ("viber_telegram_notifications", (20, 33)),
+    ("multiple_contacts", (34, 40)),
+)
 
 
 @dataclass(frozen=True)
@@ -288,6 +323,23 @@ class VendorBandFunctions:
     def static_app_mapping(self, index: int) -> str | None:
         self.enabled(index)
         return _STATIC_APP_FEATURE_INDEX.get(index)
+
+    @property
+    def static_app_direct_projections(self) -> tuple[tuple[int, str], ...]:
+        return tuple(_STATIC_APP_FEATURE_INDEX.items())
+
+    @property
+    def static_app_composite_projections(
+        self,
+    ) -> tuple[tuple[str, tuple[int, int], bool], ...]:
+        return tuple(
+            (label, indexes, all(self.enabled(index) for index in indexes))
+            for label, indexes in _STATIC_APP_FEATURE_COMPOSITES
+        )
+
+    @property
+    def app_projection_scope(self) -> str:
+        return "reviewed_app_behavior_not_firmware_semantics"
 
 
 @dataclass(frozen=True)

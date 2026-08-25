@@ -368,7 +368,11 @@ _SURFACES = (
             CallbackPrivacyClass.DERIVED_ADVERTISEMENT_IDENTIFIERS,
             CallbackPrivacyClass.SIGNAL_STRENGTH,
         ),
-        silence=("scan_filter_rejected", "callback_binder_dead"),
+        silence=(
+            "null_or_malformed_advertisement",
+            "scan_callback_exception",
+            "callback_binder_dead",
+        ),
         side_effects=(
             CallbackSideEffectClass.AUTO_CONNECT,
             CallbackSideEffectClass.OTA_START,

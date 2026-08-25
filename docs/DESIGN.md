@@ -53,8 +53,10 @@ objects omit device identifiers and raw bytes; ambiguous fields retain neutral n
 `jring.vendor_history` adds a pure per-request state machine for recovered history
 frames. It uses finite monotonic deadlines, distinguishes wire/device/local closure,
 and never turns an idle timeout into confirmed completeness or retains a raw frame.
-`jring.non_health` is an immutable, local-only evidence inventory; it exposes no frame,
-transport, parser, input sink, or authority to promote a static candidate.
+`jring.non_health` is an immutable, local-only evidence inventory. Its closed
+general-use rows link sanitized operation names to the recovered request and callback
+ledgers and classify privacy without retaining values. It exposes no frame, transport,
+parser, input sink, or authority to promote a static candidate.
 `jring.vendor_transport` is likewise pure: it models one typed vendor transaction,
 keeps notification-subscription readiness, modeled characteristic-write outcomes, and
 application responses distinct, provides generation tokens for a coordinator to bind,
@@ -86,6 +88,9 @@ throttling, and atomic delivery remain blockers.
 `jring.vendor_ota_evidence` are immutable behavior inventories. They accept no runtime
 address, UUID, payload, path, or network input and expose no execute method. Dynamic
 arbitrary writes and destructive SUOTA are documented without recreating their authority.
+The SUOTA model's closed UUID-role inventory is capability metadata only: six required
+transfer/status roles and four optional metadata roles remain non-runnable and
+hardware-ineligible.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`
@@ -213,8 +218,9 @@ broadcast behavior.
 an in-process selection candidate whose representation and public summary omit it.
 Aliases use a new cryptographic salt for each discovery call. A numbered choice is
 followed by a distinct default-no connection confirmation before `BleakTransport` is
-constructed. This interactive path has no JSON mode; non-interactive callers use the
-private address-file contract.
+constructed. The possible-JRing flag is only a client-side advertised-name substring
+heuristic and is labeled as such in human and discovery JSON output. This interactive
+path has no JSON mode; non-interactive callers use the private address-file contract.
 Diagnostics hash addresses with a per-process salt and omit raw health payloads.
 Readiness uses a bounded, read-only system D-Bus query for BlueZ daemon ownership,
 enumerates only local `hciN` adapter names from sysfs, and reads only each adapter's
@@ -234,8 +240,10 @@ created `uinput` device advertises only the code selected by its validated mappi
 Standard HID service `1812` is detected as a capability only; raw HID
 reports are neither parsed nor logged. Simulated `step` is the only motion source until
 hardware event frames are verified.
-The local non-health inventory separately exposes classic profile attachment, RFCOMM
-OTA transport, two classic metadata callbacks, and the host volume-state request.
+The local non-health inventory separately exposes classic profile attachment, an
+RFCOMM socket lifecycle reference, two classic metadata callbacks, and the host
+volume-state request. Static evidence contains socket construction and close only;
+actual OTA transfer uses GATT, with no observed RFCOMM connect, read, or write.
 These rows share no activation path with HID and remain non-live, non-input-eligible
 evidence.
 

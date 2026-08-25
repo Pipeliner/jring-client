@@ -11,7 +11,10 @@ from jring.uuids import (
     HID_REPORT,
     HUMAN_INTERFACE_DEVICE_SERVICE,
     REPORT_REFERENCE_DESCRIPTOR,
+    SUOTA_PATCH_DATA,
+    SUOTA_VERSION,
     VENDOR_CHARACTERISTIC_33F4,
+    VENDOR_SERVICE_FEF5,
     VENDOR_SERVICE_56FF,
 )
 
@@ -281,6 +284,45 @@ def test_vendor_inventory_is_metadata_only_even_for_writable_characteristic():
         async with JRingClient(transport) as client:
             inventory = await client.capability_inventory()
             assert len(inventory.vendor_gatt) == 2
+
+    run(scenario())
+
+
+def test_suota_uuid_roles_are_discoverable_only_as_vendor_metadata():
+    class MetadataOnlyTransport(FakeTransport):
+        async def read(self, _characteristic):
+            raise AssertionError("SUOTA inventory must not read values")
+
+        async def write(self, _characteristic, _data):
+            raise AssertionError("SUOTA inventory must not write")
+
+        async def subscribe(self, _characteristic, _callback):
+            raise AssertionError("SUOTA inventory must not subscribe")
+
+    transport = MetadataOnlyTransport(
+        {},
+        {VENDOR_SERVICE_FEF5},
+        gatt_metadata=(
+            GattCharacteristicMetadata(
+                VENDOR_SERVICE_FEF5, SUOTA_PATCH_DATA, ("write-without-response",), ()
+            ),
+            GattCharacteristicMetadata(
+                VENDOR_SERVICE_FEF5, SUOTA_VERSION, ("read",), ()
+            ),
+        ),
+    )
+
+    async def scenario():
+        async with JRingClient(transport) as client:
+            inventory = await client.capability_inventory()
+            assert {
+                (item.uuid, item.observed_as, item.meaning)
+                for item in inventory.vendor_gatt
+            } == {
+                (VENDOR_SERVICE_FEF5, "service", "unknown"),
+                (SUOTA_PATCH_DATA, "characteristic", "unknown"),
+                (SUOTA_VERSION, "characteristic", "unknown"),
+            }
 
     run(scenario())
 

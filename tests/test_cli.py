@@ -546,13 +546,40 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "device write request blocked" in output
     assert "Cumulative step counter" in output
     assert "Classic profile attachment" in output
-    assert "Classic RFCOMM OTA transport" in output
+    assert "Classic RFCOMM socket lifecycle reference" in output
     assert "Host volume-state request" in output
+    assert "General-use static codecs" in output
+    assert "Main-channel ChatGPT action" in output
+    assert "Offline speech-recognition mode" in output
+    assert "Wi-Fi SSID inventory" in output
+    assert "Device dial metadata" in output
+    assert "privacy: network_identifier" in output
+    assert "runnable: no; hardware eligible: no" in output
     assert "hardware verified: no; live available: no; input eligible: no" in output
     assert output.index("Standard HID metadata") < output.index("Static device actions")
     assert output.index("Static device actions") < output.index("Sensor-derived candidates")
     assert output.index("Standards metadata") < output.index("Classic Bluetooth evidence")
     assert output.index("Classic Bluetooth evidence") < output.index("Host integration")
+    assert output.index("Host integration") < output.index("General-use static codecs")
+    assert output.index("General-use static codecs") < output.index("Static device actions")
+
+
+def test_guided_selection_labels_name_match_as_client_heuristic(monkeypatch, capsys):
+    candidates = synthetic_selection_candidates()
+    monkeypatch.setattr("builtins.input", lambda _prompt: "q")
+
+    assert cli._choose_candidate(candidates) is None
+    output = capsys.readouterr().out
+    assert "possible JRing (client name heuristic)" in output
+
+
+def test_discovery_labels_name_match_as_client_heuristic(capsys):
+    cli._print_discovery(
+        [synthetic_selection_candidates()[0].public_summary()]
+    )
+
+    output = capsys.readouterr().out
+    assert "possible JRing (client name heuristic)" in output
 
 
 def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
@@ -563,11 +590,17 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     assert result["source"] == "local"
     assert result["ok"] is True
     assert result["live_ring_input"] == "unavailable"
-    assert len(result["capabilities"]) == 23
+    assert len(result["capabilities"]) == 38
     assert sum(
         item["group"] == "device_actions" for item in result["capabilities"]
     ) == 13
     assert all("evidence" in item for item in result["capabilities"])
+    assert sum(
+        item["group"] == "general_use" for item in result["capabilities"]
+    ) == 15
+    assert all(item["privacy_classes"] for item in result["capabilities"])
+    assert all(item["runnable"] is False for item in result["capabilities"])
+    assert all(item["hardware_eligible"] is False for item in result["capabilities"])
     assert all(item["input_eligible"] is False for item in result["capabilities"])
     serialized = json.dumps(result).lower()
     assert "payload_bytes" not in serialized

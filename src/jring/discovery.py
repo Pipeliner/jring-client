@@ -29,6 +29,7 @@ class SelectionCandidate:
         return {
             "alias": self.alias,
             "likely_jring": self.likely_jring,
+            "likely_jring_basis": "client_name_heuristic",
             "service_uuids": list(self.service_uuids),
             "rssi": self.rssi,
         }

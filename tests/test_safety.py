@@ -46,4 +46,5 @@ def test_aliases_change_between_process_seeds_and_hide_addresses():
     assert "AA:BB" not in first.alias
     assert "AA:BB" not in repr(first)
     assert "AA:BB" not in str(first.public_summary())
+    assert first.public_summary()["likely_jring_basis"] == "client_name_heuristic"
     assert first.connection_address() == "AA:BB:CC:DD:EE:FF"

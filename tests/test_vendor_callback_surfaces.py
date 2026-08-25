@@ -135,6 +135,12 @@ def test_result_meaning_silence_and_side_effects_are_operation_specific():
     assert scan.result_semantics is (
         CallbackResultSemantics.SCAN_SELECTION_WITH_DERIVED_IDENTIFIERS
     )
+    assert "scan_filter_rejected" not in scan.silence_reasons
+    assert {
+        "null_or_malformed_advertisement",
+        "scan_callback_exception",
+        "callback_binder_dead",
+    } <= set(scan.silence_reasons)
     assert CallbackSideEffectClass.AUTO_CONNECT in scan.side_effect_classes
 
 

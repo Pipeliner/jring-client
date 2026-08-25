@@ -210,6 +210,13 @@ below 10% (low notification). Likewise, device-state bits 0–2 remain neutral f
 while app-projection properties show their storage into snooze-repeat, snooze, and
 alarm-enabled state. These labels describe this app's behavior, not firmware semantics.
 
+The 96-bit band-function response now distinguishes app consumption from raw flag
+availability. The reviewed app directly projects 57 indices and evaluates three
+two-bit AND predicates; indices 33 and 40 are composite-only. Labels such as extended
+notifications and advanced-sensor offline describe observed app branches, while raw
+firmware meaning remains unverified. A no-op iteration over every flag is not counted
+as consumption.
+
 The app-use evidence answers a different question: what this APK directly references,
 not what the bundled SDK exposes. It partitions all 112 request rows into 51 direct
 app interface targets (152 invoke sites), 43 uninvoked SDK wire entries, 14 uninvoked
@@ -520,8 +527,10 @@ composite OTA-info and SUOTA workflows. The local inventory documents persisted 
 identifiers, active scanning, unsafe SDK logging, dynamic UUID state, and arbitrary
 characteristic-write authority while granting none of it to Python.
 The owned Android-Bluetooth reference inventory also includes two direct RFCOMM socket
-API methods in one embedded-SDK OTA helper (creation and close). They are classic
-transport plumbing, not BLE request rows, and do not establish activation or support.
+API methods in one embedded-SDK OTA helper (creation and close). No RFCOMM connect,
+read, or write was observed, while the actual OTA transfer path uses GATT. This is a
+classic socket lifecycle reference, not evidence of an RFCOMM OTA transport, and does
+not establish activation or support.
 
 OTA evidence separates the ordinary `33f3` mode/query frames from cache, plaintext
 metadata fetch, local firmware files, and the hardware-specific `fef5` SUOTA state
@@ -531,6 +540,13 @@ hardware start, not the download branch. The model records missing authenticity/
 no-response firmware writes, callback gaps, and reboot/disconnect side effects. The
 model exposes reconstructible field evidence but no runnable byte object, encoder,
 parser, file/network access, or transport plan.
+
+The closed SUOTA inventory now records the ten characteristic UUID roles observed by
+the reviewed local implementation. Memory-device, GPIO-map, memory-info, patch-length,
+patch-data, and status are its six required transfer/status roles; version,
+patch-data-size, MTU, and L2CAP PSM are four optional metadata roles. They are included
+in vendor capability discovery as metadata only. The inventory never reads,
+subscribes, writes, establishes model eligibility, or authorizes a transfer.
 
 Warning-focused comparison preserves the historical structured/fallback GPIO-selector
 divergence while a private, fingerprinted instruction review now confirms only its local
@@ -587,7 +603,10 @@ and side-effect classes. In particular, Android write completion latches regardl
 callback/status; RSSI drops Android status; OTA update values are phase/detail rather
 than a percentage; raw-enable success means local GATT queue submission acceptance,
 not descriptor completion; and scan callbacks may trigger automatic connect/OTA paths.
-These are static behavior facts, not live callback adapters or hardware-support claims.
+The reviewed scan invocation disables filtering, so its silence conditions are null or
+malformed advertisement data, callback exceptions, or a dead callback Binder—not scan
+filter rejection. These are static behavior facts, not live callback adapters or
+hardware-support claims.
 
 Manifest and receiver review finds a required BLE feature and one private connected-
 device foreground service, but no app-owned static receiver or static Android Bluetooth

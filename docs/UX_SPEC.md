@@ -135,11 +135,16 @@ HID reports.
 
 Given no ring, `jring non-health-capabilities` starts with the boundary that live ring
 input is unavailable, then lists standard HID metadata, statically classified device
-actions, cumulative-step and unknown-motion candidates, classic profile/RFCOMM
-evidence, two classic metadata callbacks, the host volume-state request, and raw
-non-health framing.
-Every item carries evidence, maturity, neutral meaning, hardware-verification, live,
-candidate, and input-eligibility states. All live and input-eligible states are false.
+actions, cumulative-step and unknown-motion candidates, classic profile attachment,
+an RFCOMM socket lifecycle reference, two classic metadata callbacks, the host
+volume-state request, and raw
+non-health framing. A separate general-use section lists the 15 already-decoded
+AI/speech, Wi-Fi, device-system, EQ/media/dial, touch, and screen-light surfaces.
+Every item carries evidence, maturity, neutral meaning, privacy classes, recovered
+request/callback operation names, runnable/hardware-eligibility, hardware-verification,
+live, candidate, and input-eligibility states. All runnable, hardware-eligible,
+hardware-verified, live, and input-eligible states are false. Every operation link
+must still exist in the recovered codec or callback-behavior ledger.
 The command is local-only: it rejects simulation and device selectors and constructs
 neither a BLE transport nor an input sink.
 
@@ -487,7 +492,9 @@ payload hex, and BlueZ D-Bus paths and never show a traceback.
 
 Given a terminal user who runs `jring status --select --active-scan`, the client first
 states that an active scan sends radio requests and has not connected. Results use
-per-process aliases plus only a possible-JRing classification and coarse signal strength.
+per-process aliases plus only a possible-JRing classification and coarse signal
+strength. The classification is explicitly labeled as a client-side name heuristic,
+not device identity evidence.
 Names and addresses never appear.
 
 Choosing a numbered alias does not connect. The client repeats the alias and asks a

@@ -181,7 +181,11 @@ def _print_discovery(results: list[dict[str, object]]) -> None:
         return
     print(f"Found {len(results)} nearby Bluetooth device(s):")
     for item in results:
-        likelihood = "possible JRing" if item["likely_jring"] else "unidentified"
+        likelihood = (
+            "possible JRing (client name heuristic)"
+            if item["likely_jring"]
+            else "unidentified (client name heuristic)"
+        )
         rssi = item["rssi"] if item["rssi"] is not None else "unknown"
         print(f"- {item['alias']}: {likelihood}, signal {rssi} dBm")
     print("Addresses stay hidden during discovery. Use BlueZ to identify your ring,")
@@ -194,7 +198,11 @@ def _choose_candidate(candidates: list[SelectionCandidate]) -> str | None:
         raise UnavailableError("no nearby Bluetooth devices found; no connection attempted")
     print(f"Found {len(candidates)} nearby Bluetooth device(s):")
     for index, candidate in enumerate(candidates, start=1):
-        likelihood = "possible JRing" if candidate.likely_jring else "unidentified"
+        likelihood = (
+            "possible JRing (client name heuristic)"
+            if candidate.likely_jring
+            else "unidentified (client name heuristic)"
+        )
         print(
             f"{index}. {candidate.alias}: {likelihood}, "
             f"signal {_signal_strength(candidate.rssi)}"
@@ -969,6 +977,7 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
         ("standard_metadata", "Standards metadata"),
         ("classic_bluetooth", "Classic Bluetooth evidence"),
         ("host_integration", "Host integration"),
+        ("general_use", "General-use static codecs"),
         ("device_actions", "Static device actions"),
         ("sensor_candidates", "Sensor-derived candidates"),
         ("raw_channel", "Raw non-health framing"),
@@ -983,7 +992,8 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
             print(
                 f"  evidence: {item['evidence']}; maturity: {item['maturity']}; "
                 f"input candidate: {candidate}; hardware verified: no; "
-                "live available: no; input eligible: no"
+                "live available: no; input eligible: no; runnable: no; "
+                f"hardware eligible: no; privacy: {', '.join(item['privacy_classes'])}"
             )
     print("This inventory never authorizes Bluetooth writes, subscriptions, or input.")
 

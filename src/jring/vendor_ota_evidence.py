@@ -11,7 +11,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from .uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_SERVICE_FEF5
+from .uuids import (
+    SUOTA_GPIO_MAP,
+    SUOTA_L2CAP_PSM,
+    SUOTA_MEMORY_DEVICE,
+    SUOTA_MEMORY_INFO,
+    SUOTA_MTU,
+    SUOTA_PATCH_DATA,
+    SUOTA_PATCH_DATA_SIZE,
+    SUOTA_PATCH_LENGTH,
+    SUOTA_STATUS,
+    SUOTA_VERSION,
+    VENDOR_CHARACTERISTIC_33F3,
+    VENDOR_SERVICE_FEF5,
+)
 
 
 class FirmwareAndTransferEvidenceOperation(str, Enum):
@@ -61,6 +74,46 @@ class OtaBlocker:
     observation: str
 
 
+@dataclass(frozen=True, init=False, repr=False)
+class SuotaGattCharacteristicRole:
+    """Sanitized static role metadata, never a characteristic handle or action."""
+
+    role: str
+    uuid: str
+    requirement: str
+    source_access: str
+    static_role_only: bool = True
+    runnable: bool = False
+    hardware_eligible: bool = False
+    hardware_verified: bool = False
+
+    def __init__(self) -> None:
+        raise TypeError("SUOTA characteristic roles use a closed static inventory")
+
+    @classmethod
+    def _create(
+        cls,
+        *,
+        role: str,
+        uuid: str,
+        requirement: str,
+        source_access: str,
+    ) -> "SuotaGattCharacteristicRole":
+        item = object.__new__(cls)
+        object.__setattr__(item, "role", role)
+        object.__setattr__(item, "uuid", uuid)
+        object.__setattr__(item, "requirement", requirement)
+        object.__setattr__(item, "source_access", source_access)
+        return item
+
+    def __repr__(self) -> str:
+        return (
+            "SuotaGattCharacteristicRole("
+            f"role={self.role!r}, requirement={self.requirement!r}, "
+            "runnable=False, hardware_eligible=False, hardware_verified=False)"
+        )
+
+
 _SAFETY = OfflineFirmwareAndTransferSafety()
 
 
@@ -73,6 +126,7 @@ class OfflineFirmwareAndTransferEvidence:
     blockers: tuple[OtaBlocker, ...]
     dangerous_side_effects: tuple[str, ...]
     secondary_gatt_service_uuid: str | None
+    secondary_gatt_characteristics: tuple[SuotaGattCharacteristicRole, ...]
     relationship_code: str | None
 
     def __init__(self) -> None:
@@ -89,6 +143,9 @@ class OfflineFirmwareAndTransferEvidence:
         blockers: tuple[OtaBlocker, ...],
         dangerous_side_effects: tuple[str, ...],
         secondary_gatt_service_uuid: str | None = None,
+        secondary_gatt_characteristics: tuple[
+            SuotaGattCharacteristicRole, ...
+        ] = (),
         relationship_code: str | None = None,
     ) -> "OfflineFirmwareAndTransferEvidence":
         evidence = object.__new__(cls)
@@ -100,6 +157,11 @@ class OfflineFirmwareAndTransferEvidence:
         object.__setattr__(evidence, "dangerous_side_effects", dangerous_side_effects)
         object.__setattr__(
             evidence, "secondary_gatt_service_uuid", secondary_gatt_service_uuid
+        )
+        object.__setattr__(
+            evidence,
+            "secondary_gatt_characteristics",
+            secondary_gatt_characteristics,
         )
         object.__setattr__(evidence, "relationship_code", relationship_code)
         return evidence
@@ -155,6 +217,36 @@ def _callback(name: str, source: str, observation: str) -> OtaCallbackEvidence:
 
 def _blocker(code: str, boundary: str, observation: str) -> OtaBlocker:
     return OtaBlocker(code, boundary, observation)
+
+
+def _suota_role(
+    role: str,
+    uuid: str,
+    requirement: str,
+    source_access: str,
+) -> SuotaGattCharacteristicRole:
+    return SuotaGattCharacteristicRole._create(
+        role=role,
+        uuid=uuid,
+        requirement=requirement,
+        source_access=source_access,
+    )
+
+
+_SUOTA_CHARACTERISTIC_ROLES = (
+    _suota_role("memory_device", SUOTA_MEMORY_DEVICE, "required", "control_write"),
+    _suota_role("gpio_map", SUOTA_GPIO_MAP, "required", "control_write"),
+    _suota_role("memory_info", SUOTA_MEMORY_INFO, "required", "status_read"),
+    _suota_role("patch_length", SUOTA_PATCH_LENGTH, "required", "control_write"),
+    _suota_role("patch_data", SUOTA_PATCH_DATA, "required", "chunk_write"),
+    _suota_role("status", SUOTA_STATUS, "required", "status_notify"),
+    _suota_role("version", SUOTA_VERSION, "optional", "metadata_read"),
+    _suota_role(
+        "patch_data_size", SUOTA_PATCH_DATA_SIZE, "optional", "metadata_read"
+    ),
+    _suota_role("mtu", SUOTA_MTU, "optional", "metadata_read"),
+    _suota_role("l2cap_psm", SUOTA_L2CAP_PSM, "optional", "metadata_read"),
+)
 
 
 _GET_INFO_FRAME = MainChannelFrameEvidence(
@@ -336,6 +428,7 @@ _START_FILE = OfflineFirmwareAndTransferEvidence._create(
     operation=FirmwareAndTransferEvidenceOperation.START_FILE_OTA,
     main_channel_frame=_START_FILE_FRAME,
     secondary_gatt_service_uuid=VENDOR_SERVICE_FEF5,
+    secondary_gatt_characteristics=_SUOTA_CHARACTERISTIC_ROLES,
     phases=(
         _phase(
             "resolve_current_device",
