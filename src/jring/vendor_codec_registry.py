@@ -35,6 +35,8 @@ class CodecLocator:
     kind: CodecBindingKind
     targets: tuple[CodecSymbol, ...]
     limitations: tuple[str, ...] = ()
+    source_pre_enqueue_effects: tuple[str, ...] = ()
+    source_effects_reproduced: bool | None = None
 
     @property
     def maturity(self) -> str:
@@ -57,8 +59,16 @@ def _locator(
     kind: CodecBindingKind,
     *targets: CodecSymbol,
     limitations: tuple[str, ...] = (),
+    source_pre_enqueue_effects: tuple[str, ...] = (),
+    source_effects_reproduced: bool | None = None,
 ) -> CodecLocator:
-    return CodecLocator(kind, tuple(targets), limitations)
+    return CodecLocator(
+        kind,
+        tuple(targets),
+        limitations,
+        source_pre_enqueue_effects,
+        source_effects_reproduced,
+    )
 
 
 def _direct(module: str, qualname: str) -> CodecLocator:
@@ -205,6 +215,18 @@ for _name, _qualname in {
 }.items():
     _REQUESTS[_name] = _direct(_VPS, _qualname)
 
+_REQUESTS["setDeviceDialState"] = _locator(
+    CodecBindingKind.DIRECT_CALLABLE,
+    _symbol(_VPS, "encode_device_dial_state"),
+    limitations=("source_queue_and_retained_state_mutation_not_reproduced",),
+    source_pre_enqueue_effects=(
+        "set_internal_mode_flag",
+        "clear_ordinary_command_queue",
+        "clear_current_retained_frame",
+    ),
+    source_effects_reproduced=False,
+)
+
 for _name, _qualname in {
     "sendVibrationSignal": "VibrationRequest",
     "setAlarm": "AlarmBatchRequest",
@@ -218,6 +240,16 @@ for _name, _qualname in {
 }.items():
     _REQUESTS[_name] = _factory(_VBS, _qualname)
 
+_REQUESTS["setAlarm"] = _locator(
+    CodecBindingKind.STATEFUL_FACTORY,
+    _symbol(_VBS, "AlarmBatchRequest"),
+    limitations=(
+        "source_retained_list_not_reproduced",
+        "source_sequential_enqueue_not_atomic",
+        "byte_exact_for_observed_boolean_app_subset",
+    ),
+)
+
 for _name, _qualname in {
     "setDeviceInfo": "encode_device_settings",
     "setHourFormat": "encode_hour_format",
@@ -227,6 +259,15 @@ for _name, _qualname in {
     "setDeviceName": "encode_device_name",
 }.items():
     _REQUESTS[_name] = _direct(_VS, _qualname)
+
+_REQUESTS["setLanguage"] = _locator(
+    CodecBindingKind.DIRECT_CALLABLE,
+    _symbol(_VS, "encode_language"),
+    limitations=(
+        "source_no_argument_host_locale_derived",
+        "python_requires_explicit_canonical_tag",
+    ),
+)
 
 for _name, _mode in {
     "setBloodPressureMode": "SensorSessionMode.MODE_1",

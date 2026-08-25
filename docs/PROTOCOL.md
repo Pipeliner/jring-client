@@ -451,6 +451,15 @@ fallbacks are absent, host locale is never inferred, and private codes/text/sche
 are hidden from representations. The shared `23` sensor selector is modeled as one
 neutral session with an identity-free stop rather than four independent toggles.
 
+The registry keeps three source/Python differences operation-specific. The source
+language wrapper takes no argument and derives its value from the host locale; Python
+requires an explicit canonical tag. The source alarm wrapper walks retained mutable
+state and enqueues frames sequentially, so partial progress is possible; Python accepts
+an explicit atomic batch and is byte-exact only for the app's observed boolean field
+subset. The source dial-state wrapper sets a mode flag, clears the ordinary queue and
+current retained frame, then appends its command; Python emits the exact frame without
+reproducing any of those state mutations.
+
 These encoders do not reproduce raw-frame logging, retained stale alarms, partial
 sends, queue clearing, write retries, or ignored arguments. Health calibration,
 reproductive schedules, sensor starts, device reset, identifiers, and personal text

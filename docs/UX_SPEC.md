@@ -206,6 +206,10 @@ do not appear in representations. All 26 mutation families remain static-only,
 hardware-ineligible, absent from the client/transport, and unavailable as live writes;
 health, reproductive, reset, identifier, and private-text operations retain their risk
 boundaries.
+The evidence view must identify the source language default, the alarm wrapper's
+retained sequential/non-atomic pipeline, and the dial wrapper's pre-enqueue queue/state
+clears. Exact wire bytes must never be presented as reproduction of those omitted
+behaviors.
 
 Given any of the 46 additional main-command codecs, the request reports a closed
 operation identity plus privacy/risk or wire-parity metadata. Wi-Fi scanning is an

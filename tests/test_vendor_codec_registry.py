@@ -81,6 +81,30 @@ def test_shared_and_stateful_codecs_are_not_misrepresented_as_direct():
         )
 
 
+def test_dial_alarm_and_language_expose_source_behavior_divergences():
+    dial = REQUEST_CODEC_LOCATORS["setDeviceDialState"]
+    assert dial.source_pre_enqueue_effects == (
+        "set_internal_mode_flag",
+        "clear_ordinary_command_queue",
+        "clear_current_retained_frame",
+    )
+    assert dial.source_effects_reproduced is False
+
+    alarm = REQUEST_CODEC_LOCATORS["setAlarm"]
+    assert alarm.kind is CodecBindingKind.STATEFUL_FACTORY
+    assert {
+        "source_retained_list_not_reproduced",
+        "source_sequential_enqueue_not_atomic",
+        "byte_exact_for_observed_boolean_app_subset",
+    } <= set(alarm.limitations)
+
+    language = REQUEST_CODEC_LOCATORS["setLanguage"]
+    assert {
+        "source_no_argument_host_locale_derived",
+        "python_requires_explicit_canonical_tag",
+    } <= set(language.limitations)
+
+
 def test_coverage_rows_link_back_to_registry_entries():
     requests = {
         row.name: row for row in static_vendor_operation_coverage()
