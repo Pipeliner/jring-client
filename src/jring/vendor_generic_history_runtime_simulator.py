@@ -370,7 +370,7 @@ class FakeVendorGenericHistorySimulator:
                     break
                 else:
                     reason = GenericHistorySimulationReason.LIMIT_REACHED
-        except (ConnectionError, LookupError, OSError, TimeoutError):
+        except (ConnectionError, LookupError, OSError, TimeoutError, asyncio.TimeoutError):
             reason = (
                 GenericHistorySimulationReason.WRITE_FAILURE
                 if subscribed else GenericHistorySimulationReason.PREFLIGHT_FAILURE
@@ -461,11 +461,11 @@ class FakeVendorGenericHistorySimulator:
                     self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F4),
                     timeout=timeout,
                 )
-            except (ConnectionError, OSError, TimeoutError):
+            except (ConnectionError, OSError, TimeoutError, asyncio.TimeoutError):
                 succeeded = False
         try:
             await asyncio.wait_for(self._transport.close(), timeout=timeout)
-        except (OSError, TimeoutError):
+        except (OSError, TimeoutError, asyncio.TimeoutError):
             succeeded = False
         return succeeded
 

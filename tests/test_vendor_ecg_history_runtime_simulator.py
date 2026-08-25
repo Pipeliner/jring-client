@@ -9,7 +9,7 @@ from jring.vendor_ecg_history_runtime_simulator import (
     FakeVendorEcgHistorySimulator,
 )
 from jring.vendor_main_commands import EcgHistoryRequest
-from jring.vendor_runtime_fake import ScriptedVendorFakeTransport
+from jring.vendor_runtime_fake import ScriptGate, ScriptedVendorFakeTransport
 
 
 def run(coro):
@@ -318,3 +318,77 @@ def test_collector_accepts_only_exact_closed_fake_and_request_types():
             request=EcgHistoryRequest(0, 0),
             frame_limit=4_097,
         ))
+
+
+def test_ecg_setup_and_cleanup_stages_are_bounded():
+    connect_blocked = ScriptedVendorFakeTransport.vendor_route(
+        connect_gate=ScriptGate.blocked()
+    )
+    result = run(FakeVendorEcgHistorySimulator(connect_blocked).collect(
+        request=EcgHistoryRequest(0, 0),
+        stage_timeout=0.01,
+    ))
+    assert result.reason is EcgHistorySimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is EcgHistoryCollectionCompleteness.ABORTED
+
+    cleanup_blocked = ScriptedVendorFakeTransport.vendor_route(
+        unsubscribe_gate=ScriptGate.blocked()
+    )
+    cleanup_blocked.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, _metadata()
+    )
+    result = run(FakeVendorEcgHistorySimulator(cleanup_blocked).collect(
+        request=EcgHistoryRequest(0, 0),
+        frame_limit=1,
+        stage_timeout=0.01,
+    ))
+    assert result.reason is EcgHistorySimulationReason.CLEANUP_FAILURE
+    assert result.cleanup_succeeded is False
+
+
+def test_ecg_concurrent_collection_is_rejected_and_reuse_is_safe():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(connect_gate=gate)
+    simulator = FakeVendorEcgHistorySimulator(transport)
+    request = EcgHistoryRequest(0, 0)
+
+    async def scenario():
+        first = asyncio.create_task(simulator.collect(
+            request=request, quiet_timeout=0.01, stage_timeout=0.1
+        ))
+        await gate.wait_until_entered()
+        with pytest.raises(RuntimeError, match="already in progress"):
+            await simulator.collect(request=request)
+        gate.release()
+        first_result = await first
+        second_result = await simulator.collect(
+            request=request, quiet_timeout=0.01
+        )
+        return first_result, second_result
+
+    first_result, second_result = run(scenario())
+    assert first_result.reason is EcgHistorySimulationReason.LOCAL_QUIET
+    assert second_result.reason is EcgHistorySimulationReason.LOCAL_QUIET
+
+
+def test_ecg_cancellation_during_write_cleans_up_and_releases_single_flight():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(write_gate=gate)
+    simulator = FakeVendorEcgHistorySimulator(transport)
+    request = EcgHistoryRequest(0, 0)
+
+    async def scenario():
+        task = asyncio.create_task(simulator.collect(
+            request=request, stage_timeout=0.1
+        ))
+        await gate.wait_until_entered()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        gate.release()
+        return await simulator.collect(request=request, quiet_timeout=0.01)
+
+    reused = run(scenario())
+    assert transport.unsubscribe_count == 2
+    assert transport.close_count == 2
+    assert reused.reason is EcgHistorySimulationReason.LOCAL_QUIET

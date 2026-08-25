@@ -361,6 +361,13 @@ Every transport stage is bounded, one collector cannot run concurrently, and ret
 old callbacks cannot enter a reused attempt. Plain-language guidance says both that the
 run was synthetic and whether locally stopped or aborted values may be incomplete.
 
+Given an exact fake Wi-Fi scan request, the advertised count and complete assembled
+entries reproduce their callback counts without performing host networking. Count
+equality is a local diagnostic, not a terminal; quiet and limits remain unknown.
+Invalid text, fragment-order errors, overflow, disconnect, or transport failure abort.
+Stages and cleanup are bounded, cancellation cleans up, concurrent use is rejected,
+and private SSIDs appear only through an explicitly named local-test accessor.
+
 Given an exact fake ECG-history request, one descriptor must precede arrival-ordered
 event and sample callbacks, and each packed sample frame projects one callback carrying
 twelve values. The
@@ -371,6 +378,8 @@ disconnect, and setup or cleanup failures abort. Live ECG traffic cannot refresh
 history deadline, while samples, metadata fields, and device timestamps remain hidden
 from representations and are available only to focused synthetic tests. Aborted
 streams explicitly instruct callers to discard any partial parsed values.
+Setup/write/cleanup deadlines, cancellation cleanup, single-flight rejection, inert old
+callbacks, and drained queues keep repeated fake attempts bounded and isolated.
 
 Given the offline vendor transaction model, no write intent exists before matching
 generation-bound notification-subscription readiness. That readiness does not claim a

@@ -488,6 +488,9 @@ timestamps are hidden from result representations, and the collector accepts onl
 closed scripted fake—not the live client or transport. If a stream aborts after an
 accepted frame, its partial parsed values are explicitly marked for discard.
 
+Every setup, write, and cleanup stage is bounded; cancellation performs cleanup,
+concurrent use is rejected, and a retained old callback cannot enter a reused attempt.
+
 ## Static device and configuration events
 
 Strict offline parsers now also cover device-test and chat-action events, redacted
@@ -509,6 +512,13 @@ SMS metadata, Wi-Fi addresses, and SSID fragments are decoded without exposing t
 contents in representations or coverage output. Wi-Fi fragments use a bounded,
 entry-keyed assembler; no parser starts host networking or copies private values into
 logs. Explicit local SSID access is opt-in after a complete sequence.
+
+The fake-only Wi-Fi collector accepts the exact scan action on the scripted main route.
+One advertised count must precede bounded, ordered fragments; complete strict-UTF-8
+entries reproduce one callback each. Advertised-count equality is diagnostic only and
+never closes the stream as success. Quiet and caller limits remain unknown; malformed
+ordering, overflow, disconnect, and transport failures abort. All stages are bounded,
+concurrent use is rejected, old callbacks are inert, and raw queues are drained.
 
 ### Intentional decoder hardening divergences
 

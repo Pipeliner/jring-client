@@ -10,7 +10,7 @@ from jring.vendor_main_commands import (
     NoArgumentMainCommand,
     NoArgumentMainCommandRequest,
 )
-from jring.vendor_runtime_fake import ScriptedVendorFakeTransport
+from jring.vendor_runtime_fake import ScriptGate, ScriptedVendorFakeTransport
 from jring.vendor_wifi_runtime_simulator import (
     FakeVendorWifiScanSimulator,
     WifiScanCompleteness,
@@ -232,3 +232,100 @@ def test_frame_limit_has_a_conservative_memory_bound():
 
     with pytest.raises(ValueError, match="between 1 and 4096"):
         run(simulator.collect(request=_request(), frame_limit=4097))
+
+
+def test_setup_and_cleanup_stages_are_bounded():
+    connect_blocked = ScriptedVendorFakeTransport.vendor_route(
+        connect_gate=ScriptGate.blocked()
+    )
+    result = run(FakeVendorWifiScanSimulator(connect_blocked).collect(
+        request=_request(),
+        stage_timeout=0.01,
+    ))
+    assert result.reason is WifiScanSimulationReason.PREFLIGHT_FAILURE
+    assert result.completeness is WifiScanCompleteness.ABORTED
+
+    cleanup_blocked = ScriptedVendorFakeTransport.vendor_route(
+        unsubscribe_gate=ScriptGate.blocked()
+    )
+    cleanup_blocked.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, _count(0)
+    )
+    result = run(FakeVendorWifiScanSimulator(cleanup_blocked).collect(
+        request=_request(),
+        frame_limit=1,
+        stage_timeout=0.01,
+    ))
+    assert result.reason is WifiScanSimulationReason.CLEANUP_FAILURE
+    assert result.cleanup_succeeded is False
+
+
+def test_concurrent_collection_is_rejected_and_sequential_reuse_is_safe():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(connect_gate=gate)
+    simulator = FakeVendorWifiScanSimulator(transport)
+
+    async def scenario():
+        first = asyncio.create_task(simulator.collect(
+            request=_request(), quiet_timeout=0.01, stage_timeout=0.1
+        ))
+        await gate.wait_until_entered()
+        with pytest.raises(RuntimeError, match="already in progress"):
+            await simulator.collect(request=_request())
+        gate.release()
+        first_result = await first
+        second_result = await simulator.collect(
+            request=_request(), quiet_timeout=0.01
+        )
+        return first_result, second_result
+
+    first_result, second_result = run(scenario())
+    assert first_result.reason is WifiScanSimulationReason.LOCAL_QUIET
+    assert second_result.reason is WifiScanSimulationReason.LOCAL_QUIET
+
+
+def test_cleanup_deactivates_callback_drains_queue_and_bounds_large_frames():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _count(1))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, bytes((0x54, 0x0A)) + bytes(100_000))
+
+    transport.before_write = emit
+    result = run(FakeVendorWifiScanSimulator(transport).collect(
+        request=_request(), frame_limit=1
+    ))
+    callback = transport.subscription_calls[0].callback
+    retained_queues = [
+        cell.cell_contents
+        for cell in (callback.__closure__ or ())
+        if isinstance(cell.cell_contents, asyncio.Queue)
+    ]
+
+    assert result.reason is WifiScanSimulationReason.LIMIT_REACHED
+    assert len(retained_queues) == 1
+    assert retained_queues[0].qsize() == 0
+    transport.emit_stale(0, _fragment(0x81, -40, b"Private"))
+    assert retained_queues[0].qsize() == 0
+
+
+def test_cancellation_during_write_cleans_up_once_and_releases_single_flight():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(write_gate=gate)
+    simulator = FakeVendorWifiScanSimulator(transport)
+
+    async def scenario():
+        task = asyncio.create_task(simulator.collect(
+            request=_request(), stage_timeout=0.1
+        ))
+        await gate.wait_until_entered()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        gate.release()
+        return await simulator.collect(request=_request(), quiet_timeout=0.01)
+
+    reused = run(scenario())
+    assert transport.unsubscribe_count == 2
+    assert transport.close_count == 2
+    assert reused.reason is WifiScanSimulationReason.LOCAL_QUIET

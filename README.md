@@ -168,6 +168,19 @@ quiet and caller limits; it never emits a synthetic wire-end event.
 After accepted oxygen or advanced-sensor data followed by local quiet, it does reproduce
 the source's single local end projection with a hidden last-sample timestamp, while
 leaving completeness unknown.
+
+The internal streaming simulators are deliberately separate from the live client:
+
+| Fake-only collector | What it can reproduce | Honest stopping state |
+|---|---|---|
+| Generic day history | Typed sample/end callback multiplicity | Wire/metadata completion only when explicit; otherwise unknown or aborted |
+| Wi-Fi scan | Advertised count and locally assembled SSID callbacks | Count equality is diagnostic; quiet/limit remain unknown |
+| ECG history | Metadata, event, and one packed-sample callback per frame | No proven terminal; quiet/limit remain unknown |
+
+They accept only the scripted fake transport, retain no raw notification frames after
+cleanup, and never contact a Linux Bluetooth device. Private Wi-Fi/health values are
+available only through explicitly named local-test accessors and never appear in result
+representations.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke

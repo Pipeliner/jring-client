@@ -151,6 +151,7 @@ class FakeVendorWifiScanSimulator:
         if type(transport) is not ScriptedVendorFakeTransport:
             raise TypeError("transport must be the exact ScriptedVendorFakeTransport type")
         self._transport = transport
+        self._collecting = False
 
     async def collect(
         self,
@@ -159,6 +160,30 @@ class FakeVendorWifiScanSimulator:
         frame_limit: int = 64,
         quiet_timeout: float = 0.05,
         overall_timeout: float = 5.0,
+        stage_timeout: float = 5.0,
+    ) -> WifiScanSimulationResult:
+        if self._collecting:
+            raise RuntimeError("Wi-Fi scan collection is already in progress")
+        self._collecting = True
+        try:
+            return await self._collect(
+                request=request,
+                frame_limit=frame_limit,
+                quiet_timeout=quiet_timeout,
+                overall_timeout=overall_timeout,
+                stage_timeout=stage_timeout,
+            )
+        finally:
+            self._collecting = False
+
+    async def _collect(
+        self,
+        *,
+        request: NoArgumentMainCommandRequest,
+        frame_limit: int,
+        quiet_timeout: float,
+        overall_timeout: float,
+        stage_timeout: float,
     ) -> WifiScanSimulationResult:
         if (
             type(request) is not NoArgumentMainCommandRequest
@@ -171,6 +196,7 @@ class FakeVendorWifiScanSimulator:
             raise ValueError("frame_limit must be between 1 and 4096")
         quiet = _positive_number(quiet_timeout, "quiet_timeout")
         overall = _positive_number(overall_timeout, "overall_timeout")
+        stage = _positive_number(stage_timeout, "stage_timeout")
 
         queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=frame_limit + 1)
         assembler = VendorWifiSsidAssembler()
@@ -183,29 +209,39 @@ class FakeVendorWifiScanSimulator:
         command_written = False
         subscribed = False
         overflowed = False
+        receiving = True
         reason = WifiScanSimulationReason.LOCAL_QUIET
         completeness = WifiScanCompleteness.UNKNOWN
 
         def receive(data: bytes) -> None:
             nonlocal overflowed
+            if not receiving:
+                return
+            bounded = data if len(data) <= 20 else data[:21]
             try:
-                queue.put_nowait(bytes(data))
+                queue.put_nowait(bytes(bounded))
             except asyncio.QueueFull:
                 overflowed = True
 
         try:
-            await self._transport.connect()
-            if not await self._preflight():
+            await asyncio.wait_for(self._transport.connect(), timeout=stage)
+            if not await asyncio.wait_for(self._preflight(), timeout=stage):
                 reason = WifiScanSimulationReason.PREFLIGHT_FAILURE
                 completeness = WifiScanCompleteness.ABORTED
             else:
-                await self._transport.subscribe(VENDOR_CHARACTERISTIC_33F4, receive)
+                await asyncio.wait_for(
+                    self._transport.subscribe(VENDOR_CHARACTERISTIC_33F4, receive),
+                    timeout=stage,
+                )
                 subscribed = True
                 frame = request.frames()[0]
                 write_issued = True
-                await self._transport.write_with_response(
-                    VENDOR_CHARACTERISTIC_33F3,
-                    frame.synthetic_bytes_for_test(),
+                await asyncio.wait_for(
+                    self._transport.write_with_response(
+                        VENDOR_CHARACTERISTIC_33F3,
+                        frame.synthetic_bytes_for_test(),
+                    ),
+                    timeout=stage,
                 )
                 command_written = True
                 loop = asyncio.get_running_loop()
@@ -290,14 +326,24 @@ class FakeVendorWifiScanSimulator:
                     quiet_deadline = loop.time() + quiet
                 else:
                     reason = WifiScanSimulationReason.LIMIT_REACHED
-        except (ConnectionError, LookupError, OSError, ProtocolError):
+        except (
+            ConnectionError,
+            LookupError,
+            OSError,
+            ProtocolError,
+            TimeoutError,
+            asyncio.TimeoutError,
+        ):
             reason = (
                 WifiScanSimulationReason.WRITE_FAILURE
                 if subscribed else WifiScanSimulationReason.PREFLIGHT_FAILURE
             )
             completeness = WifiScanCompleteness.ABORTED
         finally:
-            cleanup_succeeded = await self._cleanup(subscribed)
+            receiving = False
+            while not queue.empty():
+                queue.get_nowait()
+            cleanup_succeeded = await self._cleanup(subscribed, timeout=stage)
 
         if not cleanup_succeeded:
             reason = WifiScanSimulationReason.CLEANUP_FAILURE
@@ -351,16 +397,19 @@ class FakeVendorWifiScanSimulator:
             and uuid16(0x2902) in rx[0].descriptor_uuids
         )
 
-    async def _cleanup(self, subscribed: bool) -> bool:
+    async def _cleanup(self, subscribed: bool, *, timeout: float) -> bool:
         succeeded = True
         if subscribed and self._transport.connected:
             try:
-                await self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F4)
-            except (ConnectionError, OSError):
+                await asyncio.wait_for(
+                    self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F4),
+                    timeout=timeout,
+                )
+            except (ConnectionError, OSError, TimeoutError, asyncio.TimeoutError):
                 succeeded = False
         try:
-            await self._transport.close()
-        except OSError:
+            await asyncio.wait_for(self._transport.close(), timeout=timeout)
+        except (OSError, TimeoutError, asyncio.TimeoutError):
             succeeded = False
         return succeeded
 

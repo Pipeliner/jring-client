@@ -147,6 +147,7 @@ class FakeVendorEcgHistorySimulator:
         if type(transport) is not ScriptedVendorFakeTransport:
             raise TypeError("transport must be the exact ScriptedVendorFakeTransport type")
         self._transport = transport
+        self._collecting = False
 
     async def collect(
         self,
@@ -155,6 +156,30 @@ class FakeVendorEcgHistorySimulator:
         frame_limit: int = 64,
         quiet_timeout: float = 0.05,
         overall_timeout: float = 5.0,
+        stage_timeout: float = 5.0,
+    ) -> EcgHistorySimulationResult:
+        if self._collecting:
+            raise RuntimeError("ECG history collection is already in progress")
+        self._collecting = True
+        try:
+            return await self._collect(
+                request=request,
+                frame_limit=frame_limit,
+                quiet_timeout=quiet_timeout,
+                overall_timeout=overall_timeout,
+                stage_timeout=stage_timeout,
+            )
+        finally:
+            self._collecting = False
+
+    async def _collect(
+        self,
+        *,
+        request: EcgHistoryRequest,
+        frame_limit: int,
+        quiet_timeout: float,
+        overall_timeout: float,
+        stage_timeout: float,
     ) -> EcgHistorySimulationResult:
         if type(request) is not EcgHistoryRequest:
             raise TypeError("request must be the exact EcgHistoryRequest type")
@@ -166,6 +191,7 @@ class FakeVendorEcgHistorySimulator:
             raise ValueError(f"frame_limit must be at most {_MAX_FRAME_LIMIT}")
         quiet = _positive_number(quiet_timeout, "quiet_timeout")
         overall = _positive_number(overall_timeout, "overall_timeout")
+        stage = _positive_number(stage_timeout, "stage_timeout")
 
         queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=frame_limit + 1)
         parsed: list[ParsedEcgFrame] = []
@@ -193,17 +219,23 @@ class FakeVendorEcgHistorySimulator:
                 overflowed = True
 
         try:
-            await self._transport.connect()
-            if not await self._preflight():
+            await asyncio.wait_for(self._transport.connect(), timeout=stage)
+            if not await asyncio.wait_for(self._preflight(), timeout=stage):
                 reason = EcgHistorySimulationReason.PREFLIGHT_FAILURE
                 completeness = EcgHistoryCollectionCompleteness.ABORTED
             else:
-                await self._transport.subscribe(VENDOR_CHARACTERISTIC_33F4, receive)
+                await asyncio.wait_for(
+                    self._transport.subscribe(VENDOR_CHARACTERISTIC_33F4, receive),
+                    timeout=stage,
+                )
                 subscribed = True
                 write_issued = True
-                await self._transport.write_with_response(
-                    VENDOR_CHARACTERISTIC_33F3,
-                    request.frames()[0].synthetic_bytes_for_test(),
+                await asyncio.wait_for(
+                    self._transport.write_with_response(
+                        VENDOR_CHARACTERISTIC_33F3,
+                        request.frames()[0].synthetic_bytes_for_test(),
+                    ),
+                    timeout=stage,
                 )
                 command_written = True
                 loop = asyncio.get_running_loop()
@@ -293,7 +325,7 @@ class FakeVendorEcgHistorySimulator:
                     quiet_deadline = loop.time() + quiet
                 else:
                     reason = EcgHistorySimulationReason.LIMIT_REACHED
-        except (ConnectionError, LookupError, OSError):
+        except (ConnectionError, LookupError, OSError, TimeoutError, asyncio.TimeoutError):
             reason = (
                 EcgHistorySimulationReason.WRITE_FAILURE
                 if write_issued
@@ -302,12 +334,12 @@ class FakeVendorEcgHistorySimulator:
             completeness = EcgHistoryCollectionCompleteness.ABORTED
         finally:
             receiving = False
-            cleanup_succeeded = await self._cleanup(subscribed)
             while True:
                 try:
                     queue.get_nowait()
                 except asyncio.QueueEmpty:
                     break
+            cleanup_succeeded = await self._cleanup(subscribed, timeout=stage)
 
         if not cleanup_succeeded:
             reason = EcgHistorySimulationReason.CLEANUP_FAILURE
@@ -361,16 +393,19 @@ class FakeVendorEcgHistorySimulator:
             and uuid16(0x2902) in rx[0].descriptor_uuids
         )
 
-    async def _cleanup(self, subscribed: bool) -> bool:
+    async def _cleanup(self, subscribed: bool, *, timeout: float) -> bool:
         succeeded = True
         if subscribed and self._transport.connected:
             try:
-                await self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F4)
-            except (ConnectionError, OSError):
+                await asyncio.wait_for(
+                    self._transport.unsubscribe(VENDOR_CHARACTERISTIC_33F4),
+                    timeout=timeout,
+                )
+            except (ConnectionError, OSError, TimeoutError, asyncio.TimeoutError):
                 succeeded = False
         try:
-            await self._transport.close()
-        except OSError:
+            await asyncio.wait_for(self._transport.close(), timeout=timeout)
+        except (OSError, TimeoutError, asyncio.TimeoutError):
             succeeded = False
         return succeeded
 
