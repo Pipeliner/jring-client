@@ -323,11 +323,17 @@ _CAPABILITIES = (
         callbacks=("onRecvDeviceVoiceCommandConfirm",),
     ),
     _capability(
-        "wifi_state", "Wi-Fi state", "general_use",
-        "offline decoder preserves a neutral device Wi-Fi state code; no network access is performed",
-        "static_apk", "offline_decoder", "network_state", False,
-        privacy=("network_state",),
+        "wifi_state", "Wi-Fi callback state-code candidate", "general_use",
+        "scripted fake only; exact 54/04 projects one private neutral callback code "
+        "with zero writes; address material is discarded and there is no credential "
+        "processing, host or ring networking, or radio change; code meaning and request "
+        "relationship are unknown; does not report whether Wi-Fi is enabled, connected, "
+        "joined, current, or internet-reachable; not an acknowledgement, terminal, "
+        "live hardware, or input",
+        "static_apk", "offline_decoder", "unknown", False,
+        privacy=("network_state", "network_identifier"),
         callbacks=("onGetWifiState",),
+        scripted_fake_decoder_available=True,
     ),
     _capability(
         "wifi_ssid_inventory", "Wi-Fi SSID inventory", "general_use",

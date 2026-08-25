@@ -549,6 +549,12 @@ cumulative-step, Classic info/name, redacted App-ID, host-volume-request, exact
 `78/00` and `78/01` unknown-motion callback projections, and exact `78/09` touch-mode
 setting projections executable in an offline transport scenario. Exact opcode `4E`
 is also executable only as a private, passive main-chat action-code candidate.
+Exact `54/04` is separately executable only as a private, passive Wi-Fi callback
+state-code candidate. Its trailing address material is discarded; the collector does
+no credential processing, host/ring networking, radio change, or write. The code does
+not report whether Wi-Fi is enabled, connected, joined, current, or internet-reachable,
+and grants no acknowledgement, terminal, live, hardware, or input meaning. Other and
+selectorless `54` traffic remain unrelated.
 Classic info retains only two neutral bytes; Classic name and App-ID content are
 structurally redacted. It subscribes to the exact connection-scoped fake
 `33f4` target and performs zero writes. A transport-wide fake lease rejects
@@ -570,7 +576,7 @@ Selectorless and unknown `45` traffic is unrelated.
 Exact `4E` frames preserve per-frame multiplicity. The fake run owns no request and
 the protocol relationship to `setAiChatState` or `setChatgptContent` remains unknown.
 They prove no ChatGPT/content execution or content retention, acknowledgement,
-terminal, or input meaning. `4F` and shared `54` traffic are not chat actions.
+terminal, or input meaning. `4F` and all `54` traffic are not chat actions.
 Classic decoding does not establish profile
 attachment, bonding, RFCOMM, HID, or live support. No decoded event is live,
 hardware-verified, or input-eligible. Ordinary dataclass/JSON serialization excludes

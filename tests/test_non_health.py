@@ -112,6 +112,24 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert by_name["touch_mode"].scripted_fake_decoder_available is True
     assert by_name["touch_mode"].privacy_classes == ("touch_setting",)
     assert by_name["touch_mode"].input_eligible is False
+    wifi_state = by_name["wifi_state"]
+    assert wifi_state.label == "Wi-Fi callback state-code candidate"
+    assert wifi_state.meaning == "unknown"
+    assert wifi_state.scripted_fake_decoder_available is True
+    assert wifi_state.privacy_classes == (
+        "network_state",
+        "network_identifier",
+    )
+    assert "exact 54/04" in wifi_state.description
+    assert "zero writes" in wifi_state.description
+    assert "address material is discarded" in wifi_state.description
+    assert "no credential" in wifi_state.description
+    assert (
+        "does not report whether Wi-Fi is enabled, connected, joined, current, or "
+        "internet-reachable"
+    ) in wifi_state.description
+    assert wifi_state.scripted_fake_transaction_available is False
+    assert wifi_state.input_eligible is False
     unknown_motion = by_name["unknown_motion_channels"]
     assert unknown_motion.scripted_fake_decoder_available is True
     assert unknown_motion.request_operations == ("setGSensorIndState",)
@@ -224,6 +242,12 @@ def test_general_use_rows_are_closed_privacy_aware_ledger_projections():
         "onGetAiCommandType",
     )
     assert rows["raw_voice_command_confirmation"].request_operations == ()
+    assert rows["wifi_state"].scripted_fake_decoder_available is True
+    assert rows["wifi_state"].meaning == "unknown"
+    assert rows["wifi_state"].privacy_classes == (
+        "network_state",
+        "network_identifier",
+    )
     assert rows["wifi_ssid_inventory"].privacy_classes == (
         "network_identifier",
     )

@@ -1122,6 +1122,13 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "No request is owned by this fake run" in output
     assert "protocol relationship to nearby requests is unknown" in output
     assert "does not execute ChatGPT or parse or retain prompt" in output
+    assert "Exact 54/04 projects one private Wi-Fi callback state code" in output
+    assert "Private address material is discarded" in output
+    assert "no credential processing, host or ring networking, or radio change" in output
+    assert (
+        "does not report whether Wi-Fi is enabled, connected, joined, current, or "
+        "internet-reachable"
+    ) in output
     assert "device-system scripted fake transaction" in output
     assert "one synthetic 54/11 query write" in output
     assert "one exact 54/12 fake response" in output
@@ -1244,6 +1251,25 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     assert wifi["live_available"] is False
     assert wifi["hardware_eligible"] is False
     assert wifi["input_eligible"] is False
+    wifi_state = next(
+        item
+        for item in result["capabilities"]
+        if item["name"] == "wifi_state"
+    )
+    assert wifi_state["label"] == "Wi-Fi callback state-code candidate"
+    assert wifi_state["scripted_fake_decoder_available"] is True
+    assert wifi_state["meaning"] == "unknown"
+    assert wifi_state["privacy_classes"] == [
+        "network_state",
+        "network_identifier",
+    ]
+    assert wifi_state["scripted_fake_transaction_available"] is False
+    assert "exact 54/04" in wifi_state["description"]
+    assert "zero writes" in wifi_state["description"]
+    assert (
+        "does not report whether Wi-Fi is enabled, connected, joined, current, or "
+        "internet-reachable"
+    ) in wifi_state["description"]
     touch = next(
         item for item in result["capabilities"] if item["name"] == "touch_mode"
     )

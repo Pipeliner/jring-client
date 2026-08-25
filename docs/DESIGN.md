@@ -444,12 +444,19 @@ actual OTA transfer uses GATT, with no observed RFCOMM connect, read, or write.
 These rows share no activation path with HID and remain non-live, non-input-eligible
 evidence.
 
-`FakeVendorMainEventSimulator` is the zero-write runtime boundary for nine passive
+`FakeVendorMainEventSimulator` is the zero-write runtime boundary for ten passive
 MAIN event kinds: device actions (`06`/`22`), cumulative steps (`51`), Classic info
 and redacted name metadata (`45/00` and `45/01`), redacted App-ID (`45/02`), the
 host volume-state request (`49`), exact private unknown-motion callback projections
 (`78/00` and `78/01`), an exact passive main-chat action candidate (`4E`), and an
 exact touch-mode setting projection (`78/09`). It
+also accepts exact `54/04` only as a private Wi-Fi callback state-code candidate. The
+parser discards address material, and fixed output fields deny credential processing,
+host/ring networking or radio changes, and say that the code does not report whether
+Wi-Fi is enabled, connected, joined, current, or internet-reachable. They also deny
+acknowledgement, terminal, live, hardware, and input authority. Other
+`54` selectors and selectorless `54` traffic are unrelated.
+It
 accepts only the exact scripted fake and an
 instance-bound MAIN response target. Every fake coordinator shares one transport-wide
 lifecycle lease and may claim only a disconnected fake; a caller-owned connection or a

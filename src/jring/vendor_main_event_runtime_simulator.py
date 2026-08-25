@@ -1,7 +1,7 @@
 """Bounded fake-only collector for passive events on the vendor MAIN route.
 
-The collector subscribes but never writes.  It recognizes seven statically
-discriminated notification opcodes across nine event kinds and does not treat local
+The collector subscribes but never writes.  It recognizes eight statically
+discriminated notification opcodes across ten event kinds and does not treat local
 quiet or a caller limit as a wire terminal.  Shared opcode ``0x78`` is accepted only
 for exact motion-candidate selectors ``0x00``/``0x01`` and touch-setting selector
 ``0x09``; every other selector stays unrelated.
@@ -37,6 +37,7 @@ from .vendor_protocol import (
     parse_vendor_phone_volume_request,
     parse_vendor_step_counter,
     parse_vendor_touch_mode,
+    parse_vendor_wifi_state,
 )
 from .vendor_runtime_fake import ScriptedVendorFakeTransport
 
@@ -51,6 +52,7 @@ class MainEventKind(str, Enum):
     TOUCH_MODE_SETTING_PROJECTION = "touch_mode_setting_projection"
     UNKNOWN_MOTION_CHANNEL_PROJECTION = "unknown_motion_channel_projection"
     MAIN_CHAT_ACTION_PROJECTION = "main_chat_action_projection"
+    WIFI_CALLBACK_STATE_CODE_CANDIDATE = "wifi_callback_state_code_candidate"
 
 
 class MainEventSimulationReason(str, Enum):
@@ -403,6 +405,150 @@ class MainChatActionProjection:
         )
 
 
+class WifiCallbackStateCodeProjection:
+    """Redacted holder for one passive exact 54/04 callback code candidate."""
+
+    __slots__ = ("_state_code",)
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("Wi-Fi callback state-code projections are decoder-owned")
+
+    @classmethod
+    def _create(cls, state_code: int) -> "WifiCallbackStateCodeProjection":
+        if type(state_code) is not int or not 0 <= state_code <= 0xFF:
+            raise ValueError("Wi-Fi callback state code must fit one unsigned byte")
+        projection = object.__new__(cls)
+        object.__setattr__(projection, "_state_code", state_code)
+        return projection
+
+    def __setattr__(self, _name: str, _value: object) -> None:
+        raise AttributeError("Wi-Fi callback state-code projections are immutable")
+
+    def __copy__(self) -> "WifiCallbackStateCodeProjection":
+        return self
+
+    def __deepcopy__(
+        self, _memo: dict[int, object]
+    ) -> "WifiCallbackStateCodeProjection":
+        return self
+
+    @property
+    def projection_role(self) -> str:
+        return "passive_wifi_callback_state_code_candidate"
+
+    @property
+    def state_code_meaning(self) -> str:
+        return "unknown"
+
+    @property
+    def protocol_request_relationship(self) -> str:
+        return "unknown"
+
+    @property
+    def fake_attempt_request_owned(self) -> bool:
+        return False
+
+    @property
+    def address_material_redacted(self) -> bool:
+        return True
+
+    @property
+    def network_identifier_retained(self) -> bool:
+        return False
+
+    @property
+    def credentials_processed(self) -> bool:
+        return False
+
+    @property
+    def host_network_action_performed(self) -> bool:
+        return False
+
+    @property
+    def ring_network_action_performed(self) -> bool:
+        return False
+
+    @property
+    def radio_state_changed(self) -> bool:
+        return False
+
+    @property
+    def wifi_enabled_state(self) -> str:
+        return "unknown"
+
+    @property
+    def wifi_connection_state(self) -> str:
+        return "unknown"
+
+    @property
+    def internet_reachability(self) -> str:
+        return "unknown"
+
+    @property
+    def transport_write_invoked(self) -> bool:
+        return False
+
+    @property
+    def setter_causation_observed(self) -> bool:
+        return False
+
+    @property
+    def acknowledgement_observed(self) -> bool:
+        return False
+
+    @property
+    def wire_terminal_observed(self) -> bool:
+        return False
+
+    @property
+    def simulation_only(self) -> bool:
+        return True
+
+    @property
+    def live_available(self) -> bool:
+        return False
+
+    @property
+    def ring_contacted(self) -> bool:
+        return False
+
+    @property
+    def hardware_verified(self) -> bool:
+        return False
+
+    @property
+    def host_input_emitted(self) -> bool:
+        return False
+
+    @property
+    def input_eligible(self) -> bool:
+        return False
+
+    def state_code_for_test(self) -> int:
+        """Return the private synthetic callback code only to focused tests."""
+
+        return self._state_code
+
+    def __repr__(self) -> str:
+        return (
+            "WifiCallbackStateCodeProjection(state_code=<redacted>, "
+            "projection_role='passive_wifi_callback_state_code_candidate', "
+            "state_code_meaning='unknown', "
+            "protocol_request_relationship='unknown', "
+            "fake_attempt_request_owned=False, address_material_redacted=True, "
+            "network_identifier_retained=False, credentials_processed=False, "
+            "host_network_action_performed=False, "
+            "ring_network_action_performed=False, radio_state_changed=False, "
+            "wifi_enabled_state='unknown', wifi_connection_state='unknown', "
+            "internet_reachability='unknown', transport_write_invoked=False, "
+            "setter_causation_observed=False, acknowledgement_observed=False, "
+            "wire_terminal_observed=False, simulation_only=True, "
+            "live_available=False, ring_contacted=False, "
+            "hardware_verified=False, host_input_emitted=False, "
+            "input_eligible=False)"
+        )
+
+
 DecodedMainEvent = (
     VendorDeviceAction
     | VendorStepCounter
@@ -412,6 +558,7 @@ DecodedMainEvent = (
     | TouchModeSettingProjection
     | UnknownMotionChannelProjection
     | MainChatActionProjection
+    | WifiCallbackStateCodeProjection
 )
 
 
@@ -425,6 +572,9 @@ _EVENT_VALUE_TYPES = MappingProxyType({
     MainEventKind.TOUCH_MODE_SETTING_PROJECTION: TouchModeSettingProjection,
     MainEventKind.UNKNOWN_MOTION_CHANNEL_PROJECTION: UnknownMotionChannelProjection,
     MainEventKind.MAIN_CHAT_ACTION_PROJECTION: MainChatActionProjection,
+    MainEventKind.WIFI_CALLBACK_STATE_CODE_CANDIDATE: (
+        WifiCallbackStateCodeProjection
+    ),
 })
 _EVENT_45_KINDS = MappingProxyType({
     MainEventKind.CLASSIC_NAME: Static45Notification.CLASSIC_NAME,
@@ -495,6 +645,15 @@ class MainEventSimulationResult:
     chat_execution_observed: bool = field(default=False, init=False)
     chat_content_handled: bool = field(default=False, init=False)
     host_input_emitted: bool = field(default=False, init=False)
+    address_material_redacted: bool = field(default=True, init=False)
+    network_identifier_retained: bool = field(default=False, init=False)
+    credentials_processed: bool = field(default=False, init=False)
+    host_network_action_performed: bool = field(default=False, init=False)
+    ring_network_action_performed: bool = field(default=False, init=False)
+    radio_state_changed: bool = field(default=False, init=False)
+    wifi_enabled_state: str = field(default="unknown", init=False)
+    wifi_connection_state: str = field(default="unknown", init=False)
+    internet_reachability: str = field(default="unknown", init=False)
     decoded_values_redacted: bool = field(default=True, init=False)
     event_storage_serialized: bool = field(default=False, init=False)
     hardware_eligible: bool = field(default=False, init=False)
@@ -539,6 +698,11 @@ class MainEventSimulationResult:
             "touch_sensor_event_observed=False, motion_sensor_event_promoted=False, "
             "chat_execution_observed=False, chat_content_handled=False, "
             "host_input_emitted=False, "
+            "address_material_redacted=True, network_identifier_retained=False, "
+            "credentials_processed=False, host_network_action_performed=False, "
+            "ring_network_action_performed=False, radio_state_changed=False, "
+            "wifi_enabled_state='unknown', wifi_connection_state='unknown', "
+            "internet_reachability='unknown', "
             "decoded_values_redacted=True, event_storage_serialized=False, "
             "hardware_eligible=False, "
             "hardware_verified=False, input_eligible=False)"
@@ -546,7 +710,7 @@ class MainEventSimulationResult:
 
 
 _MAX_EVENT_LIMIT = 4_096
-_MATCHING_OPCODES = frozenset((0x06, 0x22, 0x45, 0x49, 0x4E, 0x51, 0x78))
+_MATCHING_OPCODES = frozenset((0x06, 0x22, 0x45, 0x49, 0x4E, 0x51, 0x54, 0x78))
 _STATIC_45_EVENTS = MappingProxyType({
     0x00: (MainEventKind.CLASSIC_INFO, Static45Notification.CLASSIC_INFO),
     0x01: (MainEventKind.CLASSIC_NAME, Static45Notification.CLASSIC_NAME),
@@ -824,6 +988,9 @@ class FakeVendorMainEventSimulator:
         if data[0] == 0x78:
             if len(data) < 2 or data[1] not in {0x00, 0x01, 0x09}:
                 return "unrelated"
+        if data[0] == 0x54:
+            if len(data) < 2 or data[1] != 0x04:
+                return "unrelated"
         return "accepted" if len(data) == 20 else "malformed"
 
     @staticmethod
@@ -850,6 +1017,12 @@ class FakeVendorMainEventSimulator:
             return MainPassiveEvent(
                 event_kind,
                 parse_vendor_45_notification(data, expected_kind=parser_kind),
+            )
+        if opcode == 0x54:
+            parsed_wifi = parse_vendor_wifi_state(data)
+            return MainPassiveEvent(
+                MainEventKind.WIFI_CALLBACK_STATE_CODE_CANDIDATE,
+                WifiCallbackStateCodeProjection._create(parsed_wifi.state_code),
             )
         if opcode == 0x78:
             if data[1] in {0x00, 0x01}:
@@ -919,4 +1092,5 @@ __all__ = [
     "MainPassiveEvent",
     "TouchModeSettingProjection",
     "UnknownMotionChannelProjection",
+    "WifiCallbackStateCodeProjection",
 ]

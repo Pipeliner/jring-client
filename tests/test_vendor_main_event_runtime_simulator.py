@@ -16,6 +16,7 @@ from jring.vendor_main_event_runtime_simulator import (
     MainEventKind,
     MainEventSimulationReason,
     UnknownMotionChannelProjection,
+    WifiCallbackStateCodeProjection,
 )
 from jring.vendor_runtime_fake import ScriptGate, ScriptedVendorFakeTransport
 from jring.vendor_protocol import Static45Notification, StaticQuery, encode_day_query
@@ -32,6 +33,7 @@ def _frame(opcode: int, body: bytes = b"") -> bytes:
 def test_closed_private_projection_types_are_explicit_module_exports():
     assert "MainChatActionProjection" in main_event_runtime.__all__
     assert "UnknownMotionChannelProjection" in main_event_runtime.__all__
+    assert "WifiCallbackStateCodeProjection" in main_event_runtime.__all__
 
 
 def test_collects_only_closed_passive_main_events_without_any_write():
@@ -360,6 +362,185 @@ def test_chat_content_and_ai_state_opcodes_are_unrelated_to_chat_action(opcode):
     assert result.reason is MainEventSimulationReason.LOCAL_QUIET
     assert result.event_count == 0
     assert result.unrelated_frame_count == 1
+    assert transport.write_count == 0
+
+
+def test_collects_exact_wifi_callback_code_without_network_or_write():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    private_code = 0xA7
+    private_address_canary = bytes((192, 168, 77, 88)) + b"PRIVATE-NETWK"
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((0x54, 0x04, private_code)) + private_address_canary,
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=1,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LIMIT_REACHED
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.event_kinds == (MainEventKind.WIFI_CALLBACK_STATE_CODE_CANDIDATE,)
+    event = result.events_for_test()[0]
+    projection = event.value_for_test()
+    assert projection.state_code_for_test() == private_code
+    assert projection.projection_role == "passive_wifi_callback_state_code_candidate"
+    assert projection.state_code_meaning == "unknown"
+    assert projection.protocol_request_relationship == "unknown"
+    assert projection.fake_attempt_request_owned is False
+    assert projection.address_material_redacted is True
+    assert projection.network_identifier_retained is False
+    assert projection.credentials_processed is False
+    assert projection.host_network_action_performed is False
+    assert projection.ring_network_action_performed is False
+    assert projection.radio_state_changed is False
+    assert projection.wifi_enabled_state == "unknown"
+    assert projection.wifi_connection_state == "unknown"
+    assert projection.internet_reachability == "unknown"
+    assert projection.transport_write_invoked is False
+    assert projection.setter_causation_observed is False
+    assert projection.acknowledgement_observed is False
+    assert projection.wire_terminal_observed is False
+    assert projection.simulation_only is True
+    assert projection.live_available is False
+    assert projection.ring_contacted is False
+    assert projection.hardware_verified is False
+    assert projection.host_input_emitted is False
+    assert projection.input_eligible is False
+    assert InputMapper(()).action_for(event) is None
+    payload = asdict(result)
+    assert payload["network_identifier_retained"] is False
+    assert payload["credentials_processed"] is False
+    assert payload["host_network_action_performed"] is False
+    assert payload["ring_network_action_performed"] is False
+    assert payload["radio_state_changed"] is False
+    assert payload["wifi_enabled_state"] == "unknown"
+    assert payload["wifi_connection_state"] == "unknown"
+    assert payload["internet_reachability"] == "unknown"
+    rendered = (
+        repr(projection),
+        repr(event),
+        repr(result),
+        json.dumps(asdict(event), default=str, sort_keys=True),
+        json.dumps(payload, default=str, sort_keys=True),
+    )
+    assert all("167" not in value and "0xa7" not in value.lower() for value in rendered)
+    assert all(private_address_canary.decode("latin1") not in value for value in rendered)
+    assert not hasattr(projection, "address")
+    assert not hasattr(projection, "raw_frame")
+    assert not hasattr(projection, "credentials")
+    for cloned in (copy(event), deepcopy(event)):
+        assert cloned.value_for_test().state_code_for_test() == private_code
+        assert "167" not in json.dumps(asdict(cloned), default=str)
+    for cloned in (copy(result), deepcopy(result)):
+        assert cloned.events_for_test()[0].value_for_test().state_code_for_test() == private_code
+        assert "167" not in json.dumps(asdict(cloned), default=str)
+    assert replace(event, _decoded_value=projection).value_for_test() is projection
+    replaced = replace(result, _decoded_events=result.events_for_test())
+    assert replaced.events_for_test()[0].value_for_test() is projection
+    with pytest.raises((TypeError, ValueError), match="_decoded_value"):
+        replace(event)
+    with pytest.raises((TypeError, ValueError), match="_decoded_events"):
+        replace(result)
+    assert transport.write_count == 0
+    assert transport.targeted_write_count == 0
+    assert transport.generic_write_count == 0
+    assert transport.write_with_response_count == 0
+
+
+def test_wifi_callback_projection_is_decoder_owned_immutable_and_bounded():
+    with pytest.raises(TypeError, match="decoder-owned"):
+        WifiCallbackStateCodeProjection(7)
+    for value in (-1, 256, True, 1.0, "7"):
+        with pytest.raises((TypeError, ValueError), match="unsigned byte"):
+            WifiCallbackStateCodeProjection._create(value)
+    projection = WifiCallbackStateCodeProjection._create(7)
+    with pytest.raises(AttributeError, match="immutable"):
+        projection._state_code = 8
+
+
+@pytest.mark.parametrize(
+    "selector",
+    (0x01, 0x02, 0x05, 0x06, 0x08, 0x09, 0x0A, 0x12, 0x13, 0x14, 0xFF),
+)
+def test_other_54_selectors_remain_unrelated_to_wifi_callback(selector):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        _frame(0x54, bytes((selector, 0xA7))),
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(quiet_timeout=0.01))
+
+    assert result.reason is MainEventSimulationReason.LOCAL_QUIET
+    assert result.event_count == 0
+    assert result.unrelated_frame_count == 1
+    assert transport.write_count == 0
+
+
+def test_selectorless_54_is_unrelated_and_does_not_rollback_wifi_projection():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x54, bytes((0x04, 7))))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, b"\x54")
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=2,
+        quiet_timeout=0.01,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LOCAL_QUIET
+    assert result.event_kinds == (MainEventKind.WIFI_CALLBACK_STATE_CODE_CANDIDATE,)
+    assert result.unrelated_frame_count == 1
+
+
+@pytest.mark.parametrize("length", (19, 21))
+def test_malformed_exact_wifi_callback_rolls_back_prior_event(length):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x06, bytes((16,))))
+        fake.emit(
+            VENDOR_CHARACTERISTIC_33F4,
+            (bytes((0x54, 0x04, 7)) + bytes(18))[:length],
+        )
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=3,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.MALFORMED_EVENT
+    assert result.completeness is MainEventCollectionCompleteness.ABORTED
+    assert result.events_for_test() == ()
+    assert transport.write_count == 0
+
+
+def test_duplicate_wifi_callback_codes_remain_nonterminal_passive_events():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x54, bytes((0x04, 7))))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x54, bytes((0x04, 7))))
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=2,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.event_kinds == (
+        MainEventKind.WIFI_CALLBACK_STATE_CODE_CANDIDATE,
+        MainEventKind.WIFI_CALLBACK_STATE_CODE_CANDIDATE,
+    )
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.wire_terminal_observed is False
+    assert result.acknowledgement_observed is False
+    assert result.setter_causation_observed is False
     assert transport.write_count == 0
 
 
