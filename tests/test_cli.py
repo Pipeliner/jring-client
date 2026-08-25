@@ -316,6 +316,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
         "Owned app interface use: 51/112 request targets across 152 direct "
         "invokes; 103/105 callbacks directly dispatched."
     ) in output
+    assert (
+        "Binder parity: 217 transactions; 217 synchronous; 0 Parcel-order "
+        "mismatches."
+    ) in output
     assert "Supplemental session transitions (not interface entries): 33" in output
     assert "Adversarial session races: 22" in output
     assert "Source-labeled binding reactions: 6" in output
@@ -356,6 +360,9 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["app_direct_request_targets"] == 51
     assert result["summary"]["app_direct_request_invokes"] == 152
     assert result["summary"]["directly_dispatched_callbacks"] == 103
+    assert result["summary"]["binder_transactions"] == 217
+    assert result["summary"]["binder_synchronous_transactions"] == 217
+    assert result["summary"]["binder_parcel_order_mismatches"] == 0
     assert result["summary"]["supplemental_session_transitions"] == 33
     assert result["summary"]["supplemental_session_races"] == 22
     assert result["summary"]["supplemental_binding_reactions"] == 6
@@ -426,6 +433,13 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     codec_registry = result["supplemental"]["codec_registry"]
     request_routing = result["supplemental"]["request_routing"]
     app_use = result["supplemental"]["app_use_evidence"]
+    binder = result["supplemental"]["binder_evidence"]
+    assert len(binder["request"]["rows"]) == 112
+    assert len(binder["callback"]["rows"]) == 105
+    assert binder["request"]["one_way_transaction_count"] == 0
+    assert binder["callback"]["one_way_transaction_count"] == 0
+    assert binder["trailing_data_rejection_observed"] is False
+    assert binder["hardware_eligible"] is False
     assert len(app_use["requests"]) == 112
     assert len(app_use["callbacks"]) == 105
     assert app_use["direct_request_target_count"] == 51

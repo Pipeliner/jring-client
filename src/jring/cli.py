@@ -35,6 +35,7 @@ from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
 from .vendor_app_use_evidence import recovered_vendor_app_use_evidence
 from .vendor_artifact_evidence import recovered_artifact_surface_evidence
+from .vendor_binder_evidence import recovered_vendor_binder_evidence
 from .vendor_callback_surfaces import recovered_callback_behavior_surfaces
 from .vendor_codec_registry import (
     CALLBACK_CODEC_LOCATORS,
@@ -278,6 +279,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     dispatcher = recovered_dispatcher_evidence()
     request_routing = recovered_request_routing_evidence()
     app_use = recovered_vendor_app_use_evidence()
+    binder = recovered_vendor_binder_evidence()
     warning_scopes = {item.scope.value: item for item in warning_audit.scopes}
     return {
         "summary": {
@@ -334,6 +336,15 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "app_direct_request_invokes": app_use.direct_request_invoke_count,
             "directly_dispatched_callbacks": (
                 app_use.directly_dispatched_callback_count
+            ),
+            "binder_transactions": binder.total_transaction_count,
+            "binder_synchronous_transactions": (
+                binder.request.synchronous_transaction_count
+                + binder.callback.synchronous_transaction_count
+            ),
+            "binder_parcel_order_mismatches": (
+                binder.request.parcel_order_mismatch_count
+                + binder.callback.parcel_order_mismatch_count
             ),
             "live_vendor_operations": sum(
                 entry.python_state is VendorPythonState.LIVE_VENDOR for entry in requests
@@ -439,6 +450,15 @@ def _protocol_coverage_payload() -> dict[str, object]:
         "requests": [asdict(entry) for entry in requests],
         "callbacks": [asdict(entry) for entry in callbacks],
         "supplemental": {
+            "binder_evidence": {
+                **asdict(binder),
+                "total_transaction_count": binder.total_transaction_count,
+                "maturity": binder.maturity,
+                "evidence_scope": binder.evidence_scope,
+                "runnable": binder.runnable,
+                "hardware_eligible": binder.hardware_eligible,
+                "hardware_verified": binder.hardware_verified,
+            },
             "app_use_evidence": {
                 **asdict(app_use),
                 "direct_request_target_count": app_use.direct_request_target_count,
@@ -814,6 +834,12 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{summary['app_direct_request_invokes']} direct invokes; "
         f"{summary['directly_dispatched_callbacks']}/105 callbacks directly "
         "dispatched."
+    )
+    print(
+        "Binder parity: "
+        f"{summary['binder_transactions']} transactions; "
+        f"{summary['binder_synchronous_transactions']} synchronous; "
+        f"{summary['binder_parcel_order_mismatches']} Parcel-order mismatches."
     )
     print(
         "Supplemental session transitions (not interface entries): "

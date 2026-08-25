@@ -49,6 +49,8 @@ Date: 2026-08-24
 | Every AIDL request looked like one fixed GATT command | A 112-row route partition separates 85 deterministic codecs from shared state, dynamic writes, descriptor control, DFU, and 23 no-packet operations |
 | SDK exposure was presented as APK use | A separate exact ledger distinguishes 51 app-invoked request targets from 61 bundled-but-uninvoked targets and keeps runtime reachability unclaimed |
 | Same-spelled request and callback methods could collapse | Interface roles preserve both `setAutoHeartMode` rows without name-only joining |
+| Declaration parity hid transaction and marshalling drift | A 217-row Binder crosswalk verifies contiguous IDs, all four surfaces, ordered Parcel kinds, reply handshakes, and synchronous mode |
+| Parcel `int32` erased boolean meaning | Each row exposes semantic kinds separately from its Parcel representation |
 | Backend errors could leak addresses or BlueZ paths | The final error boundary redacts identifiers, paths, and long payload hex |
 | Address selection required a sensitive argv value | Mode-0600 `--address-file` is the documented path; argv is marked legacy |
 | History silently replaced an existing file | Existing exports require `--force` |

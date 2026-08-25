@@ -203,6 +203,18 @@ descriptor-distinct; their single name collision, `setAutoHeartMode`, is not mer
 No positive owned dynamic request-interface invoke was observed, but reflection or
 external/runtime activation is not thereby disproved.
 
+The Binder crosswalk accounts for every row beneath that interface ledger. Request IDs
+are unique and contiguous from 1–112; callback IDs are unique and contiguous from
+1–105. Declarations, Proxies, Stub dispatch cases, and concrete implementations match
+row-for-row, as do ordered Parcel arguments/results. All 217 transactions are
+synchronous with a reply Parcel and exception handshake; none is one-way. Semantic
+kinds remain separate from Parcel kinds—for example, booleans marshal as `int32`, and
+typed records marshal as typed objects. Requests have 36 distinct semantic shapes and
+28 Parcel shapes; callbacks have 33 and 31. No explicit trailing-data rejection was
+observed, so adding it would be a documented hardening divergence. The crosswalk does
+not infer semantic aliases, BLE wire families, runtime reachability, or hardware
+support from Binder parity.
+
 ## Control-flow domains and recovered ordering
 
 Five domains must not be collapsed into one “authorized session”:
