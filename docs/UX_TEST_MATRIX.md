@@ -34,6 +34,12 @@ vendor implementation or hardware verification.
 | Reliability reviewer | OTA cursor or terminal flag advances after a write attempt | Do not translate local state into delivery or acknowledgement | Rejected chunk dispatch has no immediate local retry; local completion is not peripheral acknowledgement |
 | Runtime reviewer | An all-DEX direct-reference search finds no dial-transfer constructor | Say direct construction was not observed, while naming reflection/native/dynamic limits | Review is `inconclusive`, not runtime dormancy proof |
 | Privacy reviewer | A bounded fact is shown in JSON | Receive only sanitized scope, state, span count, observation, and limitations | No DEX digest, descriptor, prototype, offset, fingerprint, path, source, or disassembly appears |
+| Parity reviewer | Hundreds of Bluetooth-facing methods are classified | Count only exact AIDL declarations as interface rows | Request/callback ledgers remain 112/105 with zero missing rows |
+| Android maintainer | System Bluetooth actions are registered through process-local broadcasting | Show the registration-domain mismatch and unhandled cases | Never claim those events are delivered without an observed bridge |
+| Security reviewer | A dynamic system receiver accepts app actions without sender permission | Name the permission and teardown gaps without reproducing action strings | Treat as source-app attack surface; JRing recreates none of it |
+| Security reviewer | The source app has an exported Bluetooth controller and bundled SDK configuration | Expose only component/asset counts and risk boundaries | Never expose component names, actions, credentials, or configuration values |
+| Native reviewer | Boundary-aware scan finds no Bluetooth symbols in the packaged library | Keep seven unmatched declarations and unreviewed instructions visible | Native Bluetooth absence remains unestablished |
+| Runtime reviewer | Direct dial construction is absent but reflection, Binder, and resource tokens exist | Report activation as inconclusive | Never call the implementation dormant or unreachable |
 
 Across every row, logs and errors omit Bluetooth addresses, cloud identifiers, frame
 bytes, raw measurements, and decompiled-source details. Simulation provenance remains

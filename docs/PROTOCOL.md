@@ -418,6 +418,37 @@ disproved. The result is therefore inconclusive for runtime dormancy;
 `editDeviceDialCustom` remains only its existing offline main-channel setting request
 and does not model or authorize dial-file transfer.
 
+## Whole-artifact surface accounting
+
+A private all-DEX audit independently reconciles the exact AIDL surfaces with the public
+ledger: 112 request declarations and implementations match 112 request rows, and 105
+callback declarations and implementations match 105 callback rows, with zero missing,
+extra, or overloaded rows. An exclusive classification accounts for 903 owned
+Bluetooth-facing methods across 125 classes. Those methods include interface
+declarations, implementations, app call sites, SDK dispatch sites, Android Bluetooth
+helpers, and 188 internal OTA methods. Only the declaration sets define interface rows.
+
+Manifest and receiver review finds a required BLE feature and one private connected-
+device foreground service, but no app-owned static receiver or static Android Bluetooth
+action. The central Bluetooth controller is one of two exported app activities, while
+all three app services and all three OTA activities are non-exported. A bundled SDK
+configuration asset contains credential material; the evidence model exposes only its
+existence and never its values. Most Bluetooth-related dynamic filters use a
+process-local broadcast mechanism
+for system actions; three registered profile actions have no receiver case. The one
+system receiver lacks an observed sender permission and its teardown uses a different
+registration domain. These are app-side activation and lifecycle risks, not Python
+capabilities or proof that the corresponding Android behavior works.
+
+The reviewed XAPK contains one arm64 native library. Three JNI exports match app-side
+native declarations; seven DEX native declarations remain unmatched. Boundary-aware
+symbol/string review corrects earlier generic substring hits and finds no recognized
+Bluetooth, GATT, HID, or dial identifier, but native instruction behavior was not
+exhaustively reviewed. Five owned Bluetooth-related files still use reflective method
+invocation, Binder surfaces exist, and dial-related resource tokens are not semantically
+resolved. Dynamic dial-transfer activation and complete artifact coverage therefore
+remain inconclusive.
+
 ## Static history streams
 
 `jring.vendor_history` provides a pure, transaction-scoped decoder for the `10`, `11`,

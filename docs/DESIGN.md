@@ -146,6 +146,23 @@ scope, reviewed-span count, sanitized observation, and limitations. A confirmed 
 fact cannot promote semantic completeness or hardware maturity; a whole-corpus direct
 reference absence remains inconclusive about reflection, JNI, native, or dynamic entry.
 
+Whole-artifact surface evidence is another non-interface supplement. A private,
+digest-bound audit reconciles all three DEX units, the AIDL declaration and
+implementation sets, owned call/dispatch sites, direct Android Bluetooth helpers,
+manifest components, dynamic receivers, decoded-resource names, split packaging, JNI
+exports, reflection, and Binder. The public aggregate retains only sanitized counts,
+closed categories, mismatches, and limitations. Its method categories are mutually
+exclusive, while the direct Android API family counts are a separately labeled
+non-interface view. Neither count is added to the 112/105 ledgers.
+
+Artifact review also uses fail-closed negative evidence. No direct constructor, native
+identifier, or common owned dynamic-class-construction API does not prove runtime
+dormancy. Existing reflective invocation, Binder surfaces, unresolved resource entries,
+unmatched native declarations, and unreviewed native instructions keep dynamic
+activation and complete artifact coverage false. Android receiver registration defects
+remain source-app observations; JRing does not recreate their exported or mismatched
+broadcast behavior.
+
 `status --select --active-scan` retains the scan's private address association only in
 an in-process selection candidate whose representation and public summary omit it.
 Aliases use a new cryptographic salt for each discovery call. A numbered choice is

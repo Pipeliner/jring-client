@@ -24,6 +24,10 @@ Date: 2026-08-24
 | Simulated results looked like real health data | Human banners and structured/export provenance identify the simulator |
 | Missing optional battery data hid all capabilities | Status returns partial optional fields and still inventories services |
 | HID service presence was called usable | Output says `service advertised` and keeps usability unknown |
+| Interface count was inflated by helper and call-site methods | Whole-artifact output reconciles exact AIDL rows and labels 903 classified methods as supplemental |
+| Process-local filters implied Android broadcast delivery | Receiver mismatches are blockers and no unseen bridge is invented |
+| Native substring matches implied Bluetooth behavior | Boundary-aware rescanning records zero recognized identifiers while native absence remains unproven |
+| No direct dial constructor was called runtime dormancy | Reflection, Binder, resources, and opaque native behavior keep activation inconclusive |
 | Backend errors could leak addresses or BlueZ paths | The final error boundary redacts identifiers, paths, and long payload hex |
 | Address selection required a sensitive argv value | Mode-0600 `--address-file` is the documented path; argv is marked legacy |
 | History silently replaced an existing file | Existing exports require `--force` |

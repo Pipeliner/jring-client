@@ -155,6 +155,28 @@ Desired outcomes:
 - Cancel or reject an unclear selection without connecting.
 - Keep a mode-0600 address file as the non-interactive automation path.
 
+### Understand the whole artifact without mistaking plumbing for capabilities
+
+When I assess protocol parity, I want interface declarations, implementations,
+call/dispatch sites, Android Bluetooth helpers, manifest activation, resources, JNI,
+Binder, and reflection reported as separate surfaces, so a large code count or absent
+direct constructor never becomes a fake capability or completeness claim.
+
+Desired outcomes:
+
+- Reconcile the exact request and callback declaration sets against the public ledgers;
+  implementation and call-site methods never create additional interface rows.
+- Treat Android GATT, scanning, bonding, classic-profile, and OTA helpers as platform or
+  internal transport evidence until a public interface relationship is established.
+- Expose process-local/system broadcast mismatches, unhandled registered actions,
+  sender-permission gaps, and teardown-domain mismatches as app defects, not features.
+- Treat resource keyword counts as UI/localization surface, never capability counts.
+- Correct substring false positives in native symbols and keep unmatched native
+  declarations, opaque instructions, reflection, Binder, and resource activation
+  explicitly unresolved.
+- Publish only sanitized counts and conclusions; keep artifact identities, component and
+  action names, code locators, fingerprints, resources, and binaries private.
+
 ### Contribute protocol evidence without exposing private data
 
 When I have owner-authorized or synthetic protocol evidence, I want a fail-closed local

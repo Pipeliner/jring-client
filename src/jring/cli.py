@@ -33,6 +33,7 @@ from .non_health import static_non_health_capabilities
 from .protocol import ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
+from .vendor_artifact_evidence import recovered_artifact_surface_evidence
 from .vendor_coverage import (
     OFFLINE_REQUEST_CODEC_STATES,
     VendorPythonState,
@@ -263,6 +264,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     session = recovered_session_evidence()
     decompilation = recovered_decompilation_coverage()
     warning_audit = recovered_warning_audit()
+    artifact = recovered_artifact_surface_evidence()
     warning_scopes = {item.scope.value: item for item in warning_audit.scopes}
     return {
         "summary": {
@@ -346,6 +348,18 @@ def _protocol_coverage_payload() -> dict[str, object]:
             ),
             "instruction_reviews_not_performed": (
                 warning_audit.instruction_review_not_performed_count
+            ),
+            "artifact_missing_interface_rows": (
+                artifact.interface_parity.missing_public_row_count
+            ),
+            "artifact_exclusive_classified_methods": (
+                artifact.exclusive_classified_method_count
+            ),
+            "artifact_unhandled_dynamic_receiver_actions": (
+                artifact.dynamic_receiver_surface.primary_unhandled_action_count
+            ),
+            "artifact_unresolved_native_declarations": (
+                artifact.native_surface.unresolved_native_declaration_count
             ),
             "request_routes": dict(sorted(Counter(
                 entry.route for entry in requests
@@ -468,6 +482,26 @@ def _protocol_coverage_payload() -> dict[str, object]:
                     asdict(item) for item in warning_audit.comparisons
                 ],
             },
+            "artifact_surface": {
+                **asdict(artifact),
+                "interface_entries": artifact.interface_entries,
+                "source_recovery_completeness": (
+                    artifact.source_recovery_completeness
+                ),
+                "complete_artifact_coverage": artifact.complete_artifact_coverage,
+                "reflection_or_dynamic_activation_exhaustively_disproved": (
+                    artifact.reflection_or_dynamic_activation_exhaustively_disproved
+                ),
+                "semantic_correctness_established": (
+                    artifact.semantic_correctness_established
+                ),
+                "evidence_scope": artifact.evidence_scope,
+                "maturity": artifact.maturity,
+                "runnable": artifact.runnable,
+                "python_callable": artifact.python_callable,
+                "hardware_eligible": artifact.hardware_eligible,
+                "hardware_verified": artifact.hardware_verified,
+            },
         },
     }
 
@@ -547,6 +581,34 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{summary['instruction_reviews_not_performed']}."
     )
     print("This audit is not exhaustive for dependency or transitive Bluetooth behavior.")
+    artifact = payload["supplemental"]["artifact_surface"]
+    print("Artifact-surface completeness: not established.")
+    print(
+        "Dynamic receiver gaps: "
+        f"{artifact['dynamic_receiver_surface']['primary_unhandled_action_count']} "
+        "registered actions without cases; process/system registration mismatch remains."
+    )
+    print(
+        "Native declarations unresolved: "
+        f"{artifact['native_surface']['unresolved_native_declaration_count']}; "
+        "native Bluetooth absence not established."
+    )
+    print(
+        "Dial-transfer dynamic activation: "
+        f"{artifact['dynamic_activation_surface']['review_state'].value}."
+    )
+    print(
+        "AIDL interface parity: "
+        f"{artifact['interface_parity']['request_declaration_count']} requests; "
+        f"{artifact['interface_parity']['callback_declaration_count']} callbacks; "
+        f"{artifact['interface_parity']['missing_public_row_count']} missing rows."
+    )
+    print(
+        "Exclusive owned method classification: "
+        f"{artifact['exclusive_classified_method_count']} methods across "
+        f"{artifact['exclusive_classified_class_count']} classes."
+    )
+    print("Artifact-surface evidence is static, sanitized, and non-runnable.")
     print(f"Requests: {summary['request_total']}")
     print(f"Callbacks: {summary['callback_total']}")
     print(f"Offline request codecs: {summary['offline_request_codecs']}")

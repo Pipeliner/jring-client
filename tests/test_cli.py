@@ -280,6 +280,13 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Instruction reviews inconclusive: 1." in output
     assert "Bounded instruction facts confirmed: 7." in output
     assert "Target instruction reviews not performed: 0." in output
+    assert "Artifact-surface completeness: not established." in output
+    assert "AIDL interface parity: 112 requests; 105 callbacks; 0 missing rows." in output
+    assert "Exclusive owned method classification: 903 methods across 125 classes." in output
+    assert "Dynamic receiver gaps: 3 registered actions without cases" in output
+    assert "Native declarations unresolved: 7; native Bluetooth absence not established." in output
+    assert "Dial-transfer dynamic activation: inconclusive." in output
+    assert output.index("Dynamic receiver gaps:") < output.index("AIDL interface parity:")
     assert "missing failure" not in output.lower()
     assert "success rate" not in output.lower()
     assert "Requests: 112" in output
@@ -376,7 +383,28 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert warning_audit["hardware_verified"] is False
     assert len(warning_audit["scopes"]) == 3
     assert len(warning_audit["comparisons"]) == 8
-    assert "frame" not in json.dumps(result).lower()
+    artifact = result["supplemental"]["artifact_surface"]
+    assert artifact["interface_entries"] is False
+    assert artifact["source_recovery_completeness"] == "not_established"
+    assert artifact["complete_artifact_coverage"] is False
+    assert artifact["reflection_or_dynamic_activation_exhaustively_disproved"] is False
+    assert artifact["hardware_eligible"] is False
+    assert artifact["hardware_verified"] is False
+    assert artifact["interface_parity"]["missing_public_row_count"] == 0
+    assert artifact["exclusive_classified_method_count"] == 903
+    assert artifact["dynamic_activation_surface"]["review_state"] == "inconclusive"
+    assert result["summary"]["artifact_missing_interface_rows"] == 0
+    assert result["summary"]["artifact_unresolved_native_declarations"] == 7
+    def keys(value):
+        if isinstance(value, dict):
+            for key, nested in value.items():
+                yield key
+                yield from keys(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                yield from keys(nested)
+
+    assert all("frame" not in key.lower() for key in keys(result))
 
 
 def test_protocol_coverage_never_constructs_a_transport(monkeypatch, capsys):
