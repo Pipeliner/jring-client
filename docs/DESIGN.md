@@ -169,6 +169,13 @@ network material, cloud content, and file references are privacy classes only; t
 aggregate stores no corresponding values. This makes callback accounting complete
 without making any callback runnable or hardware-eligible.
 
+Codec coverage is backed by immutable row-to-code registries rather than name-set
+membership alone. All 85 request codec rows and 86 response decoder rows resolve to one
+or more importable Python symbols. Locator kinds preserve direct callables, enum-bound
+callables, typed and branching factories, pipelines, stateful assemblers, and shared
+families whose row binding is still unresolved. Resolution imports symbols but never
+invokes codecs, accepts payloads, or constructs Bluetooth.
+
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
 dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective

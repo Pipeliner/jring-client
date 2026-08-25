@@ -8,6 +8,7 @@ from types import MappingProxyType
 from typing import Mapping
 
 from .vendor_callback_surfaces import recovered_callback_behavior_surfaces
+from .vendor_codec_registry import CALLBACK_CODEC_LOCATORS, REQUEST_CODEC_LOCATORS
 from .vendor_session_evidence import recovered_session_evidence
 
 
@@ -377,14 +378,23 @@ def static_vendor_operation_coverage() -> tuple[StaticVendorOperation, ...]:
                 if name in _OFFLINE_MUTATION_CODECS
                 else VendorPythonState.NOT_REPRODUCED
             ),
-            evidence_locator=BEHAVIOR_EVIDENCE_LOCATORS.get(name),
+            evidence_locator=(
+                f"jring.vendor_codec_registry:request:{name}"
+                if name in REQUEST_CODEC_LOCATORS
+                else BEHAVIOR_EVIDENCE_LOCATORS.get(name)
+            ),
             evidence_scope=(
-                "statically_classified_non_runnable_surface"
+                "offline_codec_registry"
+                if name in REQUEST_CODEC_LOCATORS
+                else "statically_classified_non_runnable_surface"
                 if name in BEHAVIOR_EVIDENCE_LOCATORS
                 else None
             ),
             known_limitations=(
-                ("not_behavioral_parity", "no_runtime_or_hardware_verification")
+                REQUEST_CODEC_LOCATORS[name].limitations
+                + ("no_runtime_or_hardware_verification",)
+                if name in REQUEST_CODEC_LOCATORS
+                else ("not_behavioral_parity", "no_runtime_or_hardware_verification")
                 if name in BEHAVIOR_EVIDENCE_LOCATORS
                 else ()
             ),
@@ -657,14 +667,23 @@ def static_vendor_callback_coverage() -> tuple[StaticVendorCallback, ...]:
                 if name in _NON_OPCODE_CALLBACKS
                 else VendorPythonState.NOT_REPRODUCED
             ),
-            evidence_locator=CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS.get(name),
+            evidence_locator=(
+                f"jring.vendor_codec_registry:callback:{name}"
+                if name in CALLBACK_CODEC_LOCATORS
+                else CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS.get(name)
+            ),
             evidence_scope=(
-                "statically_classified_non_runnable_surface"
+                "offline_codec_registry"
+                if name in CALLBACK_CODEC_LOCATORS
+                else "statically_classified_non_runnable_surface"
                 if name in CALLBACK_BEHAVIOR_EVIDENCE_LOCATORS
                 else None
             ),
             known_limitations=(
-                (
+                CALLBACK_CODEC_LOCATORS[name].limitations
+                + ("no_runtime_or_hardware_verification",)
+                if name in CALLBACK_CODEC_LOCATORS
+                else (
                     "not_behavioral_parity",
                     "no_runtime_or_hardware_verification",
                 )

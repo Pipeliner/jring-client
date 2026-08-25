@@ -171,6 +171,8 @@ Desired outcomes:
 - Give every non-opcode callback either closed behavior evidence or an explicit
   declaration-without-dispatch state; never leave platform callbacks silently
   unclassified.
+- Link every codec-designated ledger row to importable Python code, while distinguishing
+  direct, bound, branching, pipeline, stateful, and unresolved-family relationships.
 - Expose process-local/system broadcast mismatches, unhandled registered actions,
   sender-permission gaps, and teardown-domain mismatches as app defects, not features.
 - Treat resource keyword counts as UI/localization surface, never capability counts.

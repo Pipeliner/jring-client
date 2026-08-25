@@ -39,6 +39,8 @@ Date: 2026-08-24
 | `readable` sounded like a successful read | The state is `read_property_advertised`; human output says the value was not read |
 | Callback targets, invoke sites, and opcode branches were treated as one count | The dispatcher crosswalk separates 85 targets, 125 syntactic/124 reachable invokes, and 104 distinct opcodes |
 | A duplicated case-insensitive opcode made every invoke look reachable | The shadowed ECG failure invoke is retained as syntax evidence but excluded from reachable routes |
+| Codec counts were disconnected from their implementations | Immutable registries resolve all 171 designated rows to code without invoking it |
+| Shared parsers/factories looked one-to-one | Pipeline, stateful, branching, and nine unresolved-family bindings are separate locator kinds |
 | Backend errors could leak addresses or BlueZ paths | The final error boundary redacts identifiers, paths, and long payload hex |
 | Address selection required a sensitive argv value | Mode-0600 `--address-file` is the documented path; argv is marked legacy |
 | History silently replaced an existing file | Existing exports require `--force` |

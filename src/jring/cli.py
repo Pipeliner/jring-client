@@ -35,6 +35,11 @@ from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
 from .vendor_artifact_evidence import recovered_artifact_surface_evidence
 from .vendor_callback_surfaces import recovered_callback_behavior_surfaces
+from .vendor_codec_registry import (
+    CALLBACK_CODEC_LOCATORS,
+    REQUEST_CODEC_LOCATORS,
+    CodecBindingKind,
+)
 from .vendor_coverage import (
     OFFLINE_REQUEST_CODEC_STATES,
     VendorPythonState,
@@ -309,6 +314,15 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 entry.python_state is VendorPythonState.NOT_REPRODUCED
                 for entry in callbacks
             ),
+            "request_codec_locators": len(REQUEST_CODEC_LOCATORS),
+            "callback_codec_locators": len(CALLBACK_CODEC_LOCATORS),
+            "unresolved_codec_family_bindings": sum(
+                locator.kind is CodecBindingKind.FAMILY_BINDING_UNRESOLVED
+                for locator in (
+                    *REQUEST_CODEC_LOCATORS.values(),
+                    *CALLBACK_CODEC_LOCATORS.values(),
+                )
+            ),
             "live_vendor_operations": sum(
                 entry.python_state is VendorPythonState.LIVE_VENDOR for entry in requests
             ),
@@ -413,6 +427,28 @@ def _protocol_coverage_payload() -> dict[str, object]:
         "requests": [asdict(entry) for entry in requests],
         "callbacks": [asdict(entry) for entry in callbacks],
         "supplemental": {
+            "codec_registry": {
+                "requests": [
+                    {
+                        "name": name,
+                        **asdict(locator),
+                        "maturity": locator.maturity,
+                        "runnable": locator.runnable,
+                        "hardware_eligible": locator.hardware_eligible,
+                    }
+                    for name, locator in REQUEST_CODEC_LOCATORS.items()
+                ],
+                "callbacks": [
+                    {
+                        "name": name,
+                        **asdict(locator),
+                        "maturity": locator.maturity,
+                        "runnable": locator.runnable,
+                        "hardware_eligible": locator.hardware_eligible,
+                    }
+                    for name, locator in CALLBACK_CODEC_LOCATORS.items()
+                ],
+            },
             "dispatcher_evidence": {
                 **asdict(dispatcher),
                 "maturity": dispatcher.maturity,
@@ -709,6 +745,12 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{summary['offline_callback_declaration_evidence']}"
     )
     print(f"Unclassified callbacks: {summary['unclassified_callbacks']}")
+    print(
+        "Codec traceability: "
+        f"{summary['request_codec_locators']}/85 request rows; "
+        f"{summary['callback_codec_locators']}/86 callback rows; "
+        f"{summary['unresolved_codec_family_bindings']} family bindings unresolved."
+    )
     print(
         "Supplemental session transitions (not interface entries): "
         f"{summary['supplemental_session_transitions']}"

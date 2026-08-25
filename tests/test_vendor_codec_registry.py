@@ -1,0 +1,102 @@
+from dataclasses import FrozenInstanceError
+from types import MappingProxyType
+
+import pytest
+
+from jring.vendor_codec_registry import (
+    CALLBACK_CODEC_LOCATORS,
+    REQUEST_CODEC_LOCATORS,
+    CodecBindingKind,
+    resolve_codec_symbols,
+)
+from jring.vendor_coverage import (
+    OFFLINE_REQUEST_CODEC_STATES,
+    VendorPythonState,
+    static_vendor_callback_coverage,
+    static_vendor_operation_coverage,
+)
+
+
+def test_request_registry_exactly_matches_all_eighty_five_codec_rows():
+    expected = {
+        row.name
+        for row in static_vendor_operation_coverage()
+        if row.python_state in OFFLINE_REQUEST_CODEC_STATES
+    }
+
+    assert type(REQUEST_CODEC_LOCATORS) is MappingProxyType
+    assert set(REQUEST_CODEC_LOCATORS) == expected
+    assert len(expected) == 85
+
+
+def test_callback_registry_exactly_matches_all_eighty_six_decoder_rows():
+    expected = {
+        row.name
+        for row in static_vendor_callback_coverage()
+        if row.python_state is VendorPythonState.OFFLINE_RESPONSE_CODEC
+    }
+
+    assert type(CALLBACK_CODEC_LOCATORS) is MappingProxyType
+    assert set(CALLBACK_CODEC_LOCATORS) == expected
+    assert len(expected) == 86
+
+
+def test_every_registry_target_resolves_to_callable_code():
+    for registry in (REQUEST_CODEC_LOCATORS, CALLBACK_CODEC_LOCATORS):
+        for locator in registry.values():
+            resolved = resolve_codec_symbols(locator)
+            assert len(resolved) == len(locator.targets) >= 1
+            assert all(callable(target) for target in resolved)
+            assert locator.hardware_eligible is False
+            assert locator.runnable is False
+
+
+def test_shared_and_stateful_codecs_are_not_misrepresented_as_direct():
+    assert REQUEST_CODEC_LOCATORS["setNotify"].kind is CodecBindingKind.PIPELINE
+    assert REQUEST_CODEC_LOCATORS["setHeartRateMode"].kind is (
+        CodecBindingKind.BRANCHING_FACTORY
+    )
+    for name in (
+        "setBloodPressureMode", "setPressureMode", "setSpoMode", "setSugarMode",
+    ):
+        assert REQUEST_CODEC_LOCATORS[name].kind is (
+            CodecBindingKind.FAMILY_BINDING_UNRESOLVED
+        )
+        assert REQUEST_CODEC_LOCATORS[name].limitations
+
+    assert CALLBACK_CODEC_LOCATORS["onGetWifiSsid"].kind is (
+        CodecBindingKind.STATEFUL_FACTORY
+    )
+    for name in (
+        "onGetAiAction", "onGetRawData", "onGetAiState",
+        "onRecvDeviceVoiceCommandConfirm", "onGetAiCommandType",
+    ):
+        assert CALLBACK_CODEC_LOCATORS[name].kind is (
+            CodecBindingKind.FAMILY_BINDING_UNRESOLVED
+        )
+
+
+def test_coverage_rows_link_back_to_registry_entries():
+    requests = {
+        row.name: row for row in static_vendor_operation_coverage()
+        if row.name in REQUEST_CODEC_LOCATORS
+    }
+    callbacks = {
+        row.name: row for row in static_vendor_callback_coverage()
+        if row.name in CALLBACK_CODEC_LOCATORS
+    }
+
+    assert all(
+        row.evidence_locator == f"jring.vendor_codec_registry:request:{name}"
+        for name, row in requests.items()
+    )
+    assert all(
+        row.evidence_locator == f"jring.vendor_codec_registry:callback:{name}"
+        for name, row in callbacks.items()
+    )
+
+    sample = REQUEST_CODEC_LOCATORS["getDeviceInfo"]
+    with pytest.raises(FrozenInstanceError):
+        sample.targets = ()
+    with pytest.raises(TypeError):
+        REQUEST_CODEC_LOCATORS["invented"] = sample

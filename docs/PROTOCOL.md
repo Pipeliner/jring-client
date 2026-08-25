@@ -169,6 +169,14 @@ events, five raw notification families, operation-specific acknowledgements, and
 generic by-day history decoder. The three local end projections are modeled separately
 rather than invented as wire frames. All 105 remain hardware-ineligible.
 
+The coverage ledger is mechanically linked to code. Immutable registries account for
+exactly 85 request-codec rows and 86 response-decoder rows. Every locator resolves to an
+importable callable or closed typed/stateful factory. Four neutral sensor-setting
+request rows still lack a proven row-to-mode binding, and five raw callback rows share a
+broad parser without a closed expected-type parameter; those nine relationships are
+reported as unresolved family bindings, not direct codecs. Locator resolution does not
+run a codec or make a row live.
+
 ## Control-flow domains and recovered ordering
 
 Five domains must not be collapsed into one “authorized session”:

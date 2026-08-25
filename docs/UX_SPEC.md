@@ -212,10 +212,13 @@ The machine-readable operation ledger accounts for all 112 SDK requests exactly 
 and keeps routing separate from Python maturity. Its presence does not imply 112 useful
 Bluetooth operations: local, cloud, filesystem, conversion, DFU, dynamic-GATT, and
 no-op interface methods remain visibly distinct, and every live vendor state is false.
-The paired callback ledger accounts for 105 declarations and separates 86 Bluetooth
-opcode callbacks, 14 platform/network/transport callbacks, three APK-generated local
+The paired callback ledger accounts for 105 declarations and separates 86 declarations
+classified as opcode-originated, 14 platform/network/transport callbacks, three APK-generated local
 end projections, and two declarations with no invocation site. This prevents an
-interface declaration or local timer from being presented as a wire event.
+interface declaration or local timer from being presented as a distinct wire family.
+Immutable registries link all 85 request-codec and 86 response-decoder rows to importable
+Python symbols. Direct, bound, branching, pipeline, stateful, and unresolved-family
+relationships remain separate; nine family bindings are still explicitly unresolved.
 
 Raw AI/audio/image codecs remain offline and are never subscribed by ordinary client
 commands. Synthetic payload decoding rejects declared-length mismatches and configured
@@ -509,6 +512,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Additional main-command codecs | `test_forty_six_additional_main_requests_have_offline_codecs`, `test_wifi_scan_is_an_active_network_action_not_a_read_only_query`, `test_every_main_operation_has_closed_privacy_and_risk_metadata`, `test_ai_language_is_opaque_explicit_utf8_and_never_uses_host_locale`, `test_private_text_rejects_controls_formatting_and_malformed_unicode`, `test_plans_exact_header_title_and_content_frames_without_live_side_effects` |
 | Complete non-runnable behavior surface | `test_twenty_six_non_codec_requests_have_closed_behavior_evidence`, `test_all_fourteen_local_ble_or_dynamic_gatt_requests_are_accounted_once`, `test_ten_non_bluetooth_requests_are_closed_and_accounted_once`, `test_get_ota_info_models_exact_main_request_without_exposing_a_frame`, `test_start_file_ota_is_descriptive_only_and_lists_dangerous_side_effects` |
 | Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_opcode_sources`, `test_all_eighty_six_opcode_originated_declarations_have_response_codecs`, `test_three_apk_generated_end_callbacks_are_local_projections_not_wire_codecs` |
+| Codec registry traceability | `test_request_registry_exactly_matches_all_eighty_five_codec_rows`, `test_callback_registry_exactly_matches_all_eighty_six_decoder_rows`, `test_every_registry_target_resolves_to_callable_code`, `test_shared_and_stateful_codecs_are_not_misrepresented_as_direct`, `test_coverage_rows_link_back_to_registry_entries` |
 | Static session sequencing and race evidence | `test_session_evidence_is_a_closed_immutable_singleton`, `test_session_graph_has_closed_unique_codes_and_only_known_interface_links`, `test_source_connected_is_dispatch_acceptance_not_descriptor_acknowledgement`, `test_device_policy_occurs_after_connected_and_does_not_become_owner_authority`, `test_all_adversarial_session_races_have_python_safety_rules` |
 | Honest aggregate decompilation evidence | `test_primary_run_and_emitted_markers_remain_different_observables`, `test_zero_scoped_markers_have_nonzero_scanned_denominators`, `test_warning_scope_is_visible_without_becoming_a_hard_failure_or_success_claim`, `test_fallback_pass_is_complete_output_generation_not_semantic_or_smali_review`, `test_decompilation_evidence_never_promotes_runtime_or_hardware_maturity`, `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry` |
 | Scoped warning and instruction review without false resolution | `test_warning_audit_accounts_for_owned_scope_without_inflating_interfaces`, `test_application_warning_partition_keeps_risk_exclusion_and_sites_distinct`, `test_sdk_warning_partition_preserves_kind_and_consequence_axes`, `test_same_tool_dispatch_surface_corroboration_does_not_validate_branches`, `test_instruction_review_resolves_selector_and_receiver_control_flow_only`, `test_progress_named_handoff_is_not_relabelled_as_numeric_ota_progress`, `test_ota_patch_and_dormant_dial_transfer_stay_separate_and_non_runnable`, `test_warning_evidence_is_closed_aggregate_only_and_without_authority`, `test_instruction_review_tightens_local_ota_flow_without_authorizing_it` |

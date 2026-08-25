@@ -120,6 +120,9 @@ entries: 85 offline request codecs, 26 non-runnable static behavior-evidence row
 and one non-runnable control model. Evidence rows are not behavioral parity or callable
 features. All 86 callback declarations classified as opcode-originated have offline
 decoder coverage; this is not a count of distinct wire families.
+Every one of those 85 request and 86 callback codec rows links to an importable Python
+encoder, parser, typed factory, or stateful pipeline. Nine shared-family bindings remain
+explicitly unresolved rather than being invented as one-to-one operations.
 The report distinguishes those from absent,
 APK-generated, and non-Bluetooth behavior, and always reports zero live or
 hardware-verified vendor operations. It contains no payload bytes and grants no write
