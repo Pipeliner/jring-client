@@ -186,6 +186,10 @@ Desired outcomes:
 - Show generic explicitly-unresolved rows, all rows retaining caveats, and every
   terminal-rule category as separate denominators so a smaller gap count cannot imply
   parity.
+- Answer whether complete Bluetooth capability parity is established before presenting
+  closure-looking counts, and keep successful report generation separate from scoped
+  interface accounting, source semantics, live vendor availability, and hardware
+  verification.
 - Distinguish cross-opcode events, unrelated same-opcode collisions, disjoint private
   state events, and source-local terminal-shaped projections from acknowledgements so
   names, shared opcodes, or workflow proximity never manufacture transaction success.

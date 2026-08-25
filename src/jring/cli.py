@@ -345,6 +345,145 @@ def _print_input_actions(inventory: dict[str, list[dict[str, object]]]) -> None:
     print("No hardware gesture or motion event is verified yet.")
 
 
+def _source_semantics_recovery_is_complete(
+    *, recovery_states: tuple[str, ...], completion_flags: tuple[bool, ...]
+) -> bool:
+    """Accept only explicit complete states; unknown future states fail closed."""
+
+    return bool(recovery_states) and bool(completion_flags) and all(
+        state == "complete" for state in recovery_states
+    ) and all(completion_flags)
+
+
+def _build_bluetooth_capability_parity(
+    *,
+    request_declared: int,
+    request_implemented: int,
+    request_accounted: int,
+    request_ledger_rows: int,
+    callback_declared: int,
+    callback_implemented: int,
+    callback_accounted: int,
+    callback_ledger_rows: int,
+    missing_rows: int,
+    extra_rows: int,
+    overloaded_declarations: int,
+    unclassified_request_rows: int,
+    unclassified_callback_rows: int,
+    unledgered_interface_targets: int,
+    source_semantics_recovery_complete: bool,
+    request_callback_relationships_closed: bool,
+    capability_denominator_established: bool,
+    in_scope_vendor_operation_count: int | None,
+    live_vendor_operations: int,
+    hardware_verified_vendor_operations: int,
+) -> dict[str, object]:
+    """Build a strict aggregate verdict without inventing a capability denominator."""
+
+    aidl_complete = (
+        request_declared
+        == request_implemented
+        == request_accounted
+        == request_ledger_rows
+        and callback_declared
+        == callback_implemented
+        == callback_accounted
+        == callback_ledger_rows
+        and missing_rows == 0
+        and extra_rows == 0
+        and overloaded_declarations == 0
+        and unclassified_request_rows == 0
+        and unclassified_callback_rows == 0
+        and unledgered_interface_targets == 0
+    )
+    source_semantics_complete = (
+        source_semantics_recovery_complete
+        and request_callback_relationships_closed
+    )
+    denominator_is_usable = (
+        capability_denominator_established
+        and in_scope_vendor_operation_count is not None
+        and in_scope_vendor_operation_count > 0
+    )
+    all_in_scope_vendor_operations_live = (
+        denominator_is_usable
+        and live_vendor_operations == in_scope_vendor_operation_count
+    )
+    live_complete = (
+        source_semantics_complete
+        and denominator_is_usable
+        and all_in_scope_vendor_operations_live
+    )
+    all_in_scope_vendor_operations_hardware_verified = (
+        denominator_is_usable
+        and hardware_verified_vendor_operations == in_scope_vendor_operation_count
+    )
+    hardware_complete = (
+        live_complete and all_in_scope_vendor_operations_hardware_verified
+    )
+    dimensions = {
+        "known_aidl_declaration_accounting": {
+            "complete": aidl_complete,
+            "status": "complete" if aidl_complete else "incomplete",
+            "scope": "recovered_aidl_declarations",
+            "request_declared": request_declared,
+            "request_accounted": request_accounted,
+            "callback_declared": callback_declared,
+            "callback_accounted": callback_accounted,
+            "missing_rows": missing_rows,
+            "extra_rows": extra_rows,
+        },
+        "source_semantics": {
+            "complete": source_semantics_complete,
+            "status": "complete" if source_semantics_complete else "not_established",
+            "request_callback_relationships_closed": (
+                request_callback_relationships_closed
+            ),
+        },
+        "live_vendor_availability": {
+            "complete": live_complete,
+            "status": (
+                "complete"
+                if live_complete
+                else "unavailable" if live_vendor_operations == 0 else "not_established"
+            ),
+            "capability_denominator_established": capability_denominator_established,
+            "in_scope_vendor_operation_count": in_scope_vendor_operation_count,
+            "all_in_scope_vendor_operations_live": (
+                all_in_scope_vendor_operations_live
+            ),
+            "live_vendor_operations": live_vendor_operations,
+        },
+        "hardware_verification": {
+            "complete": hardware_complete,
+            "status": (
+                "complete"
+                if hardware_complete
+                else "not_verified"
+                if hardware_verified_vendor_operations == 0
+                else "not_established"
+            ),
+            "all_in_scope_vendor_operations_hardware_verified": (
+                all_in_scope_vendor_operations_hardware_verified
+            ),
+            "hardware_verified_vendor_operations": (
+                hardware_verified_vendor_operations
+            ),
+        },
+    }
+    blocking_dimensions = [
+        name for name, dimension in dimensions.items()
+        if not dimension["complete"]
+    ]
+    return {
+        "complete": not blocking_dimensions,
+        "verdict": "complete" if not blocking_dimensions else "not_established",
+        "completion_rule": "all_dimensions_complete",
+        "blocking_dimensions": blocking_dimensions,
+        "dimensions": dimensions,
+    }
+
+
 def _protocol_coverage_payload() -> dict[str, object]:
     requests = static_vendor_operation_coverage()
     callbacks = static_vendor_callback_coverage()
@@ -360,7 +499,68 @@ def _protocol_coverage_payload() -> dict[str, object]:
     app_use = recovered_vendor_app_use_evidence()
     binder = recovered_vendor_binder_evidence()
     warning_scopes = {item.scope.value: item for item in warning_audit.scopes}
+    live_vendor_operations = sum(
+        entry.python_state is VendorPythonState.LIVE_VENDOR for entry in requests
+    )
+    hardware_verified_vendor_operations = sum(
+        entry.hardware_verified for entry in requests
+    )
+    interface = artifact.interface_parity
+    source_semantics_recovery_complete = _source_semantics_recovery_is_complete(
+        recovery_states=(
+            decompilation.source_recovery_completeness.value,
+            warning_audit.source_recovery_completeness,
+            artifact.source_recovery_completeness,
+        ),
+        completion_flags=(
+            decompilation.complete_semantic_source_review_completed,
+            decompilation.complete_smali_review_completed,
+            decompilation.complete_dex_instruction_review_completed,
+            decompilation.complete_dex_coverage,
+            decompilation.semantic_correctness_established,
+            warning_audit.semantic_correctness_established,
+            warning_audit.instruction_review_complete,
+            warning_audit.exhaustive_bluetooth_dependency_audit,
+            artifact.complete_artifact_coverage,
+            artifact.reflection_or_dynamic_activation_exhaustively_disproved,
+            artifact.semantic_correctness_established,
+        ),
+    )
+    parity = _build_bluetooth_capability_parity(
+        request_declared=interface.request_declaration_count,
+        request_implemented=interface.request_implementation_count,
+        request_accounted=interface.public_request_row_count,
+        request_ledger_rows=len(requests),
+        callback_declared=interface.callback_declaration_count,
+        callback_implemented=interface.callback_implementation_count,
+        callback_accounted=interface.public_callback_row_count,
+        callback_ledger_rows=len(callbacks),
+        missing_rows=interface.missing_public_row_count,
+        extra_rows=interface.extra_public_row_count,
+        overloaded_declarations=interface.overloaded_declaration_count,
+        unclassified_request_rows=sum(
+            entry.python_state is VendorPythonState.NOT_REPRODUCED
+            for entry in requests
+        ),
+        unclassified_callback_rows=sum(
+            entry.python_state is VendorPythonState.NOT_REPRODUCED
+            for entry in callbacks
+        ),
+        unledgered_interface_targets=artifact.interface_links.unledgered_target_count,
+        source_semantics_recovery_complete=source_semantics_recovery_complete,
+        request_callback_relationships_closed=(
+            len(request_correlations.rows) == len(REQUEST_CODEC_LOCATORS)
+            and request_correlations.unspecified_count == 0
+            and request_correlations.explicitly_unresolved_count == 0
+            and request_correlations.rows_with_unresolved_reasons_count == 0
+        ),
+        capability_denominator_established=False,
+        in_scope_vendor_operation_count=None,
+        live_vendor_operations=live_vendor_operations,
+        hardware_verified_vendor_operations=hardware_verified_vendor_operations,
+    )
     return {
+        "bluetooth_capability_parity": parity,
         "summary": {
             "request_total": len(requests),
             "callback_total": len(callbacks),
@@ -466,14 +666,12 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 binder.request.parcel_order_mismatch_count
                 + binder.callback.parcel_order_mismatch_count
             ),
-            "live_vendor_operations": sum(
-                entry.python_state is VendorPythonState.LIVE_VENDOR for entry in requests
-            ),
+            "live_vendor_operations": live_vendor_operations,
             "hardware_eligible_vendor_operations": sum(
                 entry.hardware_eligible for entry in requests
             ),
-            "hardware_verified_vendor_operations": sum(
-                entry.hardware_verified for entry in requests
+            "hardware_verified_vendor_operations": (
+                hardware_verified_vendor_operations
             ),
             "supplemental_session_transitions": len(session.transitions),
             "supplemental_session_races": len(session.races),
@@ -872,9 +1070,37 @@ def _protocol_coverage_payload() -> dict[str, object]:
 
 def _print_protocol_coverage(payload: dict[str, object]) -> None:
     summary = payload["summary"]
+    parity = payload["bluetooth_capability_parity"]
+    parity_dimensions = parity["dimensions"]
+    aidl = parity_dimensions["known_aidl_declaration_accounting"]
+    live = parity_dimensions["live_vendor_availability"]
+    hardware = parity_dimensions["hardware_verification"]
     decompilation = payload["supplemental"]["decompilation_coverage"]
     scopes = {item["scope"]: item for item in decompilation["scopes"]}
     print("OFFLINE PROTOCOL COVERAGE — no ring contacted")
+    parity_label = "YES — complete" if parity["complete"] else "NO — not established"
+    print(f"Complete APK-to-Python Bluetooth capability parity: {parity_label}.")
+    aidl_label = "COMPLETE" if aidl["complete"] else "INCOMPLETE"
+    print(
+        f"Known AIDL declaration accounting: {aidl_label} within recovered scope "
+        f"({aidl['request_declared']} requests, {aidl['callback_declared']} callbacks; "
+        f"{aidl['missing_rows']} missing, {aidl['extra_rows']} extra)."
+    )
+    source = parity_dimensions["source_semantics"]
+    source_label = "COMPLETE" if source["complete"] else "NOT ESTABLISHED"
+    print(f"Source semantics: {source_label}.")
+    live_label = "COMPLETE" if live["complete"] else "NOT COMPLETE"
+    print(
+        f"Live vendor availability: {live_label} — "
+        f"{live['live_vendor_operations']} live vendor operations."
+    )
+    hardware_label = "COMPLETE" if hardware["complete"] else "NOT COMPLETE"
+    print(
+        f"Hardware verification: {hardware_label} — "
+        f"{hardware['hardware_verified_vendor_operations']} hardware-verified vendor "
+        "operations."
+    )
+    print("Static row accounting does not satisfy semantic, live, or hardware gates.")
     print("Static source recovery completeness: not established.")
     print(
         "Decompiler run: "
@@ -993,7 +1219,7 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{artifact['dynamic_activation_surface']['review_state'].value}."
     )
     print(
-        "AIDL interface parity: "
+        "Known AIDL declaration accounting (not capability parity): "
         f"{artifact['interface_parity']['request_declaration_count']} requests; "
         f"{artifact['interface_parity']['callback_declaration_count']} callbacks; "
         f"{artifact['interface_parity']['missing_public_row_count']} missing rows."

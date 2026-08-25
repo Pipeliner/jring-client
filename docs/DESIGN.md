@@ -246,6 +246,13 @@ credential batches have only a disjoint state-event candidate, while the media-F
 terminal-shaped signal is a source-local projection shared by success and exhausted
 failure. These rows prove no identifier echo, credential use, network connection,
 transfer completion, acknowledgement, or terminal.
+
+Protocol coverage has a separate top-level Bluetooth-parity verdict. Its strict
+all-dimensions rule currently marks parity not established: only recovered-AIDL
+declaration accounting is complete, while source semantics, live vendor availability,
+and hardware verification remain incomplete. A successful JSON command is not a parity
+claim, and the 112/105 declaration counts are never treated as an exhaustive Bluetooth
+capability denominator.
 Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 

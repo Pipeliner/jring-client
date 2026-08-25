@@ -135,6 +135,12 @@ jring protocol-coverage
 jring protocol-coverage --json
 ```
 
+The report answers the overall question first: complete APK-to-Python Bluetooth
+capability parity is not established. It then separates complete accounting within the
+known AIDL declaration scope from incomplete source semantics, live vendor availability,
+and hardware verification. JSON command success likewise remains distinct from the
+top-level `bluetooth_capability_parity` verdict.
+
 The report accounts for 112 requests and 105 callbacks with zero unclassified ledger
 entries: 85 offline request codecs, 26 non-runnable static behavior-evidence rows,
 and one non-runnable control model. Evidence rows are not behavioral parity or callable

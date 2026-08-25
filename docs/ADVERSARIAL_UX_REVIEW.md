@@ -66,6 +66,7 @@ Date: 2026-08-24
 | Same-spelled request and callback methods could collapse | Interface roles preserve both `setAutoHeartMode` rows without name-only joining |
 | A shared opcode made Phone-MAC look acknowledged by a host-volume request | The Phone-MAC row has no eligible callback; opcode `49` is an explicit unrelated-pipeline collision |
 | Private Wi-Fi and FTP names implied connection or completion | Credential selectors remain disjoint from an unowned state event, while the FTP terminal-shaped signal is shared by source-local success and exhausted failure |
+| Complete-looking interface counts appeared before the live and hardware gaps | Protocol coverage now begins with an explicit negative parity verdict and separates scoped AIDL accounting from semantic, live-vendor, and hardware dimensions |
 | Declaration parity hid transaction and marshalling drift | A 217-row Binder crosswalk verifies contiguous IDs, all four surfaces, ordered Parcel kinds, reply handshakes, and synchronous mode |
 | Parcel `int32` erased boolean meaning | Each row exposes semantic kinds separately from its Parcel representation |
 | Local notification state was mislabeled as a CCCD action | Raw control evidence separates local toggles, always-enable descriptor bytes, queue-result callback, and asynchronous completion |

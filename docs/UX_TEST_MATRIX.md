@@ -48,6 +48,7 @@ vendor implementation or hardware verification.
 | Protocol contributor | A codec count is assigned by name-set membership | Resolve every codec row through an immutable typed locator | 85/85 request and 86/86 callback rows resolve; shared-family ambiguity stays visible |
 | Transport reviewer | Interface routes are mistaken for fixed BLE packets | Partition all 112 rows into deterministic main/raw, stateful, dynamic, descriptor, DFU, and no-packet shapes | 79+6+1+1+1+1+23 reconciles exactly; no route is runnable |
 | Privacy-sensitive protocol reviewer | Shared opcodes and completion-shaped names look like acknowledgements | Preserve the App-ID event candidate, Phone-MAC collision, disjoint Wi-Fi state candidate, and dual-outcome FTP projection as separate non-terminal states | No identifier equality, credential use, connection, transfer, response, or hardware claim; default output remains aggregate-only |
+| Accessibility or automation user | A successful report and zero missing AIDL rows look like complete Bluetooth parity | Lead human output with the negative verdict and expose a top-level JSON parity object | `ok: true` means report success only; scoped row accounting cannot satisfy semantic, live, or hardware gates |
 | History user | Local quiet follows generic history data | Label the local end projection incomplete instead of saying the device finished | Only detail wire/metadata evidence can confirm completion; a caller limit emits no end |
 
 Across every row, logs and errors omit Bluetooth addresses, cloud identifiers, frame

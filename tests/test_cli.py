@@ -416,11 +416,171 @@ def test_simulator_profiles_are_discoverable_in_help(capsys):
     assert "never reads or emits HID reports" in " ".join(output.split())
 
 
+def _complete_parity_inputs():
+    return {
+        "request_declared": 2,
+        "request_implemented": 2,
+        "request_accounted": 2,
+        "request_ledger_rows": 2,
+        "callback_declared": 3,
+        "callback_implemented": 3,
+        "callback_accounted": 3,
+        "callback_ledger_rows": 3,
+        "missing_rows": 0,
+        "extra_rows": 0,
+        "overloaded_declarations": 0,
+        "unclassified_request_rows": 0,
+        "unclassified_callback_rows": 0,
+        "unledgered_interface_targets": 0,
+        "source_semantics_recovery_complete": True,
+        "request_callback_relationships_closed": True,
+        "capability_denominator_established": True,
+        "in_scope_vendor_operation_count": 2,
+        "live_vendor_operations": 2,
+        "hardware_verified_vendor_operations": 2,
+    }
+
+
+def test_source_semantic_recovery_accepts_only_explicit_complete_states():
+    assert cli._source_semantics_recovery_is_complete(
+        recovery_states=("complete", "complete", "complete"),
+        completion_flags=(True, True, True),
+    ) is True
+
+    for state in ("not_established", "partial", "unknown", ""):
+        assert cli._source_semantics_recovery_is_complete(
+            recovery_states=("complete", state, "complete"),
+            completion_flags=(True, True, True),
+        ) is False
+    assert cli._source_semantics_recovery_is_complete(
+        recovery_states=("complete", "complete", "complete"),
+        completion_flags=(True, False, True),
+    ) is False
+    assert cli._source_semantics_recovery_is_complete(
+        recovery_states=(), completion_flags=(True,)
+    ) is False
+    assert cli._source_semantics_recovery_is_complete(
+        recovery_states=("complete",), completion_flags=()
+    ) is False
+
+
+def test_bluetooth_parity_derivation_requires_every_completion_gate():
+    complete = cli._build_bluetooth_capability_parity(**_complete_parity_inputs())
+    assert complete["complete"] is True
+    assert complete["verdict"] == "complete"
+    assert complete["blocking_dimensions"] == []
+
+    for gate in (
+        "source_semantics_recovery_complete",
+        "request_callback_relationships_closed",
+        "capability_denominator_established",
+    ):
+        inputs = _complete_parity_inputs()
+        inputs[gate] = False
+        result = cli._build_bluetooth_capability_parity(**inputs)
+        assert result["complete"] is False
+        assert result["verdict"] == "not_established"
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    (
+        ("in_scope_vendor_operation_count", None),
+        ("in_scope_vendor_operation_count", 0),
+        ("live_vendor_operations", 0),
+        ("live_vendor_operations", 1),
+        ("live_vendor_operations", 3),
+        ("hardware_verified_vendor_operations", 0),
+        ("hardware_verified_vendor_operations", 1),
+        ("hardware_verified_vendor_operations", 3),
+    ),
+)
+def test_bluetooth_parity_rejects_missing_zero_or_mismatched_denominators(field, value):
+    inputs = _complete_parity_inputs()
+    inputs[field] = value
+    result = cli._build_bluetooth_capability_parity(**inputs)
+
+    assert result["complete"] is False
+    assert result["verdict"] == "not_established"
+
+
+@pytest.mark.parametrize("drop_rows,unspecified", ((True, 0), (False, 1)))
+def test_protocol_parity_rejects_incomplete_or_unspecified_correlation_ledgers(
+    monkeypatch, drop_rows, unspecified
+):
+    original = cli.recovered_request_callback_correlations()
+
+    rows = []
+    if not drop_rows:
+        for index, row in enumerate(original.rows):
+            cloned = object.__new__(type(row))
+            for field in row.__dataclass_fields__:
+                object.__setattr__(cloned, field, getattr(row, field))
+            object.__setattr__(
+                cloned,
+                "relationship_state",
+                "unspecified" if unspecified and index == 0 else "exact_single",
+            )
+            object.__setattr__(cloned, "unresolved_reasons", ())
+            rows.append(cloned)
+    drift = object.__new__(type(original))
+    object.__setattr__(drift, "rows", tuple(rows))
+    object.__setattr__(drift, "matching_rules", original.matching_rules)
+    object.__setattr__(drift, "global_limitations", original.global_limitations)
+
+    monkeypatch.setattr(
+        cli,
+        "recovered_request_callback_correlations",
+        lambda: drift,
+    )
+
+    parity = cli._protocol_coverage_payload()["bluetooth_capability_parity"]
+    source = parity["dimensions"]["source_semantics"]
+    assert source["request_callback_relationships_closed"] is False
+    assert source["complete"] is False
+    assert parity["complete"] is False
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    (
+        ("request_ledger_rows", 1),
+        ("callback_ledger_rows", 2),
+        ("unclassified_request_rows", 1),
+        ("unclassified_callback_rows", 1),
+        ("unledgered_interface_targets", 1),
+    ),
+)
+def test_aidl_accounting_rejects_real_ledger_drift(field, value):
+    inputs = _complete_parity_inputs()
+    inputs[field] = value
+    result = cli._build_bluetooth_capability_parity(**inputs)
+
+    aidl = result["dimensions"]["known_aidl_declaration_accounting"]
+    assert aidl["complete"] is False
+    assert "known_aidl_declaration_accounting" in result["blocking_dimensions"]
+    assert result["complete"] is False
+
+
 def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert cli.main(["protocol-coverage"]) == 0
     output = capsys.readouterr().out
 
-    assert "OFFLINE PROTOCOL COVERAGE — no ring contacted" in output
+    assert output.splitlines()[:7] == [
+        "OFFLINE PROTOCOL COVERAGE — no ring contacted",
+        "Complete APK-to-Python Bluetooth capability parity: NO — not established.",
+        (
+            "Known AIDL declaration accounting: COMPLETE within recovered scope "
+            "(112 requests, 105 callbacks; 0 missing, 0 extra)."
+        ),
+        "Source semantics: NOT ESTABLISHED.",
+        "Live vendor availability: NOT COMPLETE — 0 live vendor operations.",
+        (
+            "Hardware verification: NOT COMPLETE — 0 hardware-verified vendor "
+            "operations."
+        ),
+        "Static row accounting does not satisfy semantic, live, or hardware gates.",
+    ]
     assert "Static source recovery completeness: not established." in output
     assert "Decompiler run: 6,705 classes processed; 89 run-reported failures." in output
     assert "Structured output: 88 failed-method stubs across 52 files." in output
@@ -452,7 +612,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
         "Packaged DEX scope inventory: 3/3 units classified; 1 owned scope; "
         "2 no owned scope; complete instruction review not established."
     ) in output
-    assert "AIDL interface parity: 112 requests; 105 callbacks; 0 missing rows." in output
+    assert (
+        "Known AIDL declaration accounting (not capability parity): 112 requests; "
+        "105 callbacks; 0 missing rows."
+    ) in output
     assert "Exclusive owned method classification: 903 methods across 125 classes." in output
     assert (
         "Owned-scope direct Android Bluetooth API references: 236 methods across "
@@ -473,7 +636,9 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Owned reflection: 11 calls resolved to constant Android helper targets" in output
     assert "Standalone dial static activation: no edge in reviewed Binder/resource paths" in output
     assert "Dial-transfer dynamic activation: inconclusive." in output
-    assert output.index("Dynamic receiver gaps:") < output.index("AIDL interface parity:")
+    assert output.index("Dynamic receiver gaps:") < output.index(
+        "Known AIDL declaration accounting (not capability parity):"
+    )
     assert "missing failure" not in output.lower()
     assert "success rate" not in output.lower()
     assert "Requests: 112" in output
@@ -543,6 +708,56 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
 def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert cli.main(["protocol-coverage", "--json"]) == 0
     result = json.loads(capsys.readouterr().out)
+
+    assert result["ok"] is True
+    assert result["bluetooth_capability_parity"] == {
+        "complete": False,
+        "verdict": "not_established",
+        "completion_rule": "all_dimensions_complete",
+        "blocking_dimensions": [
+            "source_semantics",
+            "live_vendor_availability",
+            "hardware_verification",
+        ],
+        "dimensions": {
+            "known_aidl_declaration_accounting": {
+                "complete": True,
+                "status": "complete",
+                "scope": "recovered_aidl_declarations",
+                "request_declared": 112,
+                "request_accounted": 112,
+                "callback_declared": 105,
+                "callback_accounted": 105,
+                "missing_rows": 0,
+                "extra_rows": 0,
+            },
+            "source_semantics": {
+                "complete": False,
+                "status": "not_established",
+                "request_callback_relationships_closed": False,
+            },
+            "live_vendor_availability": {
+                "complete": False,
+                "status": "unavailable",
+                "capability_denominator_established": False,
+                "in_scope_vendor_operation_count": None,
+                "all_in_scope_vendor_operations_live": False,
+                "live_vendor_operations": 0,
+            },
+            "hardware_verification": {
+                "complete": False,
+                "status": "not_verified",
+                "all_in_scope_vendor_operations_hardware_verified": False,
+                "hardware_verified_vendor_operations": 0,
+            },
+        },
+    }
+    rendered_parity = json.dumps(result["bluetooth_capability_parity"])
+    for forbidden in (
+        "parity_percent", "coverage_percent", "supported_capabilities",
+        "bluetooth_address", "path", "raw_payload",
+    ):
+        assert forbidden not in rendered_parity
 
     assert result["operation"] == "protocol_coverage"
     assert result["source"] == "local"
