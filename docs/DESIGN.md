@@ -185,6 +185,14 @@ Mutable policy status, connection gates, history/silence filters, one global pen
 payload, ignored write-callback status, and unknown dispatch outcomes prevent this model
 from authorizing a live queue implementation or automatic retry.
 
+A narrower builder-parity ledger closes 37 independently reviewed builder families.
+It records the Python symbol, accepted-domain differences, fixed length, checksum
+absence, endpoint role, queue item type, and insertion position without storing sample
+values. Thirty-one families route through the source main queue and six through its raw
+queue; only the shared sensor start/stop builder is front-inserted. The ledger keeps
+alarm batching and dial-state queue mutation divergences explicit and remains static,
+non-callable, and hardware-ineligible.
+
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
 dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective

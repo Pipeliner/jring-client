@@ -313,6 +313,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
         "1 descriptor; 1 DFU; 23 without a fixed packet."
     ) in output
     assert (
+        "Reviewed builder parity: 37 byte-exact families on accepted Python "
+        "domains; 31 main queue; 6 raw queue; 2 front-inserted."
+    ) in output
+    assert (
         "Owned app interface use: 51/112 request targets across 152 direct "
         "invokes; 103/105 callbacks have a direct invoke (181 sites: "
         "125 main, 6 raw, 50 outside dispatchers)."
@@ -358,6 +362,10 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["request_main_layouts"] == 79
     assert result["summary"]["request_raw_layouts"] == 6
     assert result["summary"]["request_no_fixed_packets"] == 23
+    assert result["summary"]["request_builder_families"] == 37
+    assert result["summary"]["request_builder_main_queue"] == 31
+    assert result["summary"]["request_builder_raw_queue"] == 6
+    assert result["summary"]["request_builder_front_inserted"] == 2
     assert result["summary"]["app_direct_request_targets"] == 51
     assert result["summary"]["app_direct_request_invokes"] == 152
     assert result["summary"]["directly_invoked_callbacks"] == 103
@@ -440,9 +448,16 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     dispatcher = result["supplemental"]["dispatcher_evidence"]
     codec_registry = result["supplemental"]["codec_registry"]
     request_routing = result["supplemental"]["request_routing"]
+    request_builders = result["supplemental"]["request_builder_evidence"]
     app_use = result["supplemental"]["app_use_evidence"]
     binder = result["supplemental"]["binder_evidence"]
     assert len(binder["request"]["rows"]) == 112
+    assert len(request_builders["families"]) == 37
+    assert request_builders["byte_exact_family_count"] == 37
+    assert request_builders["runnable"] is False
+    assert request_builders["python_callable"] is False
+    assert request_builders["hardware_eligible"] is False
+    assert request_builders["hardware_verified"] is False
     assert len(binder["callback"]["rows"]) == 105
     assert binder["request"]["one_way_transaction_count"] == 0
     assert binder["callback"]["one_way_transaction_count"] == 0

@@ -125,6 +125,12 @@ encoder, parser, typed factory, or stateful pipeline. The four shared `23` senso
 wrappers have exact start selectors and a common stop selector. The five raw callback
 rows use callback-specific fail-closed parsers over the shared raw frame decoder, so no
 codec-family binding remains unresolved.
+For the 37 builder families reviewed instruction-by-instruction, a separate sanitized
+ledger records byte-exact parity on the Python encoders' accepted domains: all are
+fixed 20-byte, checksum-free builders; 31 use the source main queue and six the raw
+queue. Only sensor-session start/stop are front-inserted. Source gates, logging, queue
+draining, alarm partial-enqueue behavior, and dial-state queue clearing are explicitly
+not reproduced.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke

@@ -50,6 +50,7 @@ from .vendor_coverage import (
 )
 from .vendor_decompilation_evidence import recovered_decompilation_coverage
 from .vendor_dispatcher_evidence import recovered_dispatcher_evidence
+from .vendor_request_builder_evidence import recovered_request_builder_evidence
 from .vendor_request_routing import recovered_request_routing_evidence
 from .vendor_session_evidence import recovered_session_evidence
 from .vendor_warning_evidence import (
@@ -277,6 +278,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     artifact = recovered_artifact_surface_evidence()
     callback_surfaces = recovered_callback_behavior_surfaces()
     dispatcher = recovered_dispatcher_evidence()
+    request_builders = recovered_request_builder_evidence()
     request_routing = recovered_request_routing_evidence()
     app_use = recovered_vendor_app_use_evidence()
     binder = recovered_vendor_binder_evidence()
@@ -332,6 +334,16 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "request_main_layouts": request_routing.main_layout_count,
             "request_raw_layouts": request_routing.raw_layout_count,
             "request_no_fixed_packets": request_routing.no_fixed_packet_count,
+            "request_builder_families": request_builders.byte_exact_family_count,
+            "request_builder_main_queue": sum(
+                row.endpoint_role == "main" for row in request_builders.families
+            ),
+            "request_builder_raw_queue": sum(
+                row.endpoint_role == "raw" for row in request_builders.families
+            ),
+            "request_builder_front_inserted": sum(
+                row.enqueue_position == "front" for row in request_builders.families
+            ),
             "app_direct_request_targets": app_use.direct_request_target_count,
             "app_direct_request_invokes": app_use.direct_request_invoke_count,
             "directly_invoked_callbacks": (
@@ -536,6 +548,28 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 "hardware_eligible": request_routing.hardware_eligible,
                 "hardware_verified": request_routing.hardware_verified,
                 "owner_authorized": request_routing.owner_authorized,
+            },
+            "request_builder_evidence": {
+                "families": [
+                    {
+                        **{
+                            key: value
+                            for key, value in asdict(row).items()
+                            if key != "frame_length"
+                        },
+                        "fixed_length": row.frame_length,
+                    }
+                    for row in request_builders.families
+                ],
+                "main_queue_facts": request_builders.main_queue_facts,
+                "raw_queue_facts": request_builders.raw_queue_facts,
+                "omitted_runtime_behavior": request_builders.omitted_runtime_behavior,
+                "byte_exact_family_count": request_builders.byte_exact_family_count,
+                "maturity": request_builders.maturity,
+                "runnable": request_builders.runnable,
+                "python_callable": request_builders.python_callable,
+                "hardware_eligible": request_builders.hardware_eligible,
+                "hardware_verified": request_builders.hardware_verified,
             },
             "codec_registry": {
                 "requests": [
@@ -867,6 +901,13 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{summary['request_raw_layouts']} raw; 1 stateful shared; 1 dynamic; "
         "1 descriptor; 1 DFU; "
         f"{summary['request_no_fixed_packets']} without a fixed packet."
+    )
+    print(
+        "Reviewed builder parity: "
+        f"{summary['request_builder_families']} byte-exact families on accepted "
+        f"Python domains; {summary['request_builder_main_queue']} main queue; "
+        f"{summary['request_builder_raw_queue']} raw queue; "
+        f"{summary['request_builder_front_inserted']} front-inserted."
     )
     print(
         "Owned app interface use: "

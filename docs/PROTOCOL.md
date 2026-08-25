@@ -195,6 +195,14 @@ count therefore remains distinct from 86 identifiable layouts and 80 source path
 can reach the main queue. None establishes session readiness, owner authorization,
 response correlation, safe retry, or hardware support.
 
+Within those routes, 37 statically reviewed builder families have a second,
+domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum
+when given values accepted by the stricter Python type/domain rules. Thirty-one use
+source queue type 0 on the main endpoint and six use type 1 on the raw endpoint; only
+sensor-session start and stop use front insertion. This is byte-layout evidence, not
+queue parity: policy/connection gates, full-message logging, drain timing, alarm
+partial enqueue, and dial-state queue clearing are not reproduced.
+
 The app-use evidence answers a different question: what this APK directly references,
 not what the bundled SDK exposes. It partitions all 112 request rows into 51 direct
 app interface targets (152 invoke sites), 43 uninvoked SDK wire entries, 14 uninvoked
