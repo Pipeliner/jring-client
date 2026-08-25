@@ -55,6 +55,7 @@ Date: 2026-08-24
 | All callback invokes were flattened into “directly dispatched” | Every callback row now preserves main-response, raw-response, and outside-dispatcher invoke counts; repeated sites and four cross-origin overlaps remain visible |
 | Non-codec callback booleans and integers looked self-explanatory | Structured result semantics distinguish queue acceptance, mixed auth status, SDK connection state, discarded RSSI status, OTA phase/detail, and retry state |
 | Scan privacy implied raw advertisement forwarding | The row records only selected identity/RSSI plus six derived identifier fragments, alongside auto-connect/OTA side effects |
+| A reset/stale step sample became the next click's baseline | Equal or decreasing counters quarantine the adapter until explicit rebaseline, so the following `+1` remains silent |
 | Same-spelled request and callback methods could collapse | Interface roles preserve both `setAutoHeartMode` rows without name-only joining |
 | Declaration parity hid transaction and marshalling drift | A 217-row Binder crosswalk verifies contiguous IDs, all four surfaces, ordered Parcel kinds, reply handshakes, and synchronous mode |
 | Parcel `int32` erased boolean meaning | Each row exposes semantic kinds separately from its Parcel representation |

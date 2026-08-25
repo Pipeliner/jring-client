@@ -134,8 +134,22 @@ def test_experimental_step_counter_never_replays_batches_resets_or_reconnects():
     assert adapter.observe(connection_epoch=1, cumulative_steps=14, observed_at=2.0) is None
     assert adapter.observe(connection_epoch=1, cumulative_steps=15, observed_at=3.0) == SensorEvent("step")
     assert adapter.observe(connection_epoch=1, cumulative_steps=2, observed_at=4.0) is None
-    assert adapter.observe(connection_epoch=1, cumulative_steps=3, observed_at=5.0) == SensorEvent("step")
+    assert adapter.requires_rebaseline is True
+    assert adapter.observe(connection_epoch=1, cumulative_steps=3, observed_at=5.0) is None
+    assert adapter.requires_rebaseline is True
+    adapter.rebaseline(connection_epoch=1, cumulative_steps=3, observed_at=5.0)
+    assert adapter.requires_rebaseline is False
+    assert adapter.observe(connection_epoch=1, cumulative_steps=4, observed_at=5.5) == SensorEvent("step")
     assert adapter.observe(connection_epoch=2, cumulative_steps=200, observed_at=6.0) is None
+
+
+def test_step_counter_duplicate_quarantines_instead_of_manufacturing_next_click():
+    adapter = ExperimentalStepCounterAdapter(minimum_interval=0.0)
+
+    assert adapter.observe(connection_epoch=1, cumulative_steps=20, observed_at=1.0) is None
+    assert adapter.observe(connection_epoch=1, cumulative_steps=20, observed_at=2.0) is None
+    assert adapter.observe(connection_epoch=1, cumulative_steps=21, observed_at=3.0) is None
+    assert adapter.requires_rebaseline is True
 
 
 def test_experimental_step_counter_is_not_hardware_eligible_and_rejects_bad_input():

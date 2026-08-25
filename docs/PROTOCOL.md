@@ -296,9 +296,11 @@ value, handle reset/wrap, avoid replaying batched increments as click bursts, de
 and rate-limit output.
 
 `ExperimentalStepCounterAdapter` implements those transformations for synthetic input
-only: a new connection or reset establishes a baseline, a multi-step jump is discarded
-rather than replayed, and exact single increments are rate-limited. The adapter is
-unconditionally hardware-ineligible and is not connected to the transport or uinput.
+only: a new connection establishes a baseline, while an equal or decreasing sample
+quarantines the adapter until an explicit `rebaseline()` call. A multi-step jump is
+discarded rather than replayed, and exact single increments are rate-limited. This
+prevents a reset/stale sample followed by `+1` from manufacturing a click. The adapter
+is unconditionally hardware-ineligible and is not connected to transport or uinput.
 
 The motion path uses opcode family `78` and can yield nine signed 16-bit channels in
 bytes 2–19; this APK branch consumes the entire fixed frame. Axis order, units, sampling

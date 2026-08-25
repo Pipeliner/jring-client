@@ -155,10 +155,45 @@ class ExperimentalStepCounterAdapter:
         self._counter: int | None = None
         self._last_observed_at: float | None = None
         self._last_emitted_at: float | None = None
+        self._requires_rebaseline = False
 
     @property
     def hardware_eligible(self) -> bool:
         return False
+
+    @property
+    def requires_rebaseline(self) -> bool:
+        return self._requires_rebaseline
+
+    def _validate_observation(self, cumulative_steps: int, observed_at: float) -> float:
+        if type(cumulative_steps) is not int:
+            raise TypeError("cumulative step count must be an integer")
+        if not 0 <= cumulative_steps <= 0xFFFFFFFF:
+            raise ValueError("cumulative step count must fit an unsigned 32-bit value")
+        if not isinstance(observed_at, (int, float)) or isinstance(observed_at, bool):
+            raise TypeError("observation time must be a finite number")
+        timestamp = float(observed_at)
+        if not math.isfinite(timestamp):
+            raise ValueError("observation time must be finite")
+        if self._last_observed_at is not None and timestamp < self._last_observed_at:
+            raise ValueError("observation time must be monotonic")
+        self._last_observed_at = timestamp
+        return timestamp
+
+    def rebaseline(
+        self,
+        *,
+        connection_epoch: object,
+        cumulative_steps: int,
+        observed_at: float,
+    ) -> None:
+        """Explicitly accept a new counter baseline after a reset/stale sample."""
+
+        self._validate_observation(cumulative_steps, observed_at)
+        self._connection_epoch = connection_epoch
+        self._counter = cumulative_steps
+        self._last_emitted_at = None
+        self._requires_rebaseline = False
 
     def observe(
         self,
@@ -167,32 +202,24 @@ class ExperimentalStepCounterAdapter:
         cumulative_steps: int,
         observed_at: float,
     ) -> SensorEvent | None:
-        if type(cumulative_steps) is not int:
-            raise TypeError("cumulative step count must be an integer")
-        if not 0 <= cumulative_steps <= 0xFFFFFFFF:
-            raise ValueError("cumulative step count must fit an unsigned 32-bit value")
-        if not isinstance(observed_at, (int, float)) or isinstance(observed_at, bool):
-            raise TypeError("observation time must be a finite number")
-        observed_at = float(observed_at)
-        if not math.isfinite(observed_at):
-            raise ValueError("observation time must be finite")
-        if (
-            self._last_observed_at is not None
-            and observed_at < self._last_observed_at
-        ):
-            raise ValueError("observation time must be monotonic")
-        self._last_observed_at = observed_at
+        observed_at = self._validate_observation(cumulative_steps, observed_at)
 
         if connection_epoch != self._connection_epoch:
             self._connection_epoch = connection_epoch
             self._counter = cumulative_steps
             self._last_emitted_at = None
+            self._requires_rebaseline = False
+            return None
+
+        if self._requires_rebaseline:
             return None
 
         previous = self._counter
-        self._counter = cumulative_steps
         if previous is None or cumulative_steps <= previous:
+            self._counter = None
+            self._requires_rebaseline = True
             return None
+        self._counter = cumulative_steps
         if cumulative_steps - previous != 1:
             return None
         if (

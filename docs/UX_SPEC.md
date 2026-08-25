@@ -402,10 +402,11 @@ owner-hardware evidence first.
 
 The offline `ExperimentalStepCounterAdapter` demonstrates that safety contract with
 synthetic counters. It ignores the first value of each connection, reset/wrap values,
-and every multi-step jump; it emits at most one neutral `step` event for an exact
-single increment after the configured minimum interval. It is unconditionally marked
-hardware-ineligible and has no BLE source, so it cannot activate the radio or inject
-input by itself.
+and every multi-step jump. Equal or decreasing samples enter a visible rebaseline-
+required state, and later increments remain silent until the caller explicitly accepts
+a new baseline. It emits at most one neutral `step` event for an exact single increment
+after the configured minimum interval. It is unconditionally hardware-ineligible and
+has no BLE source, so it cannot activate the radio or inject input by itself.
 
 ### Discoverable and accessible input vocabulary
 
