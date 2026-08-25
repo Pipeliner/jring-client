@@ -395,10 +395,26 @@ no-response firmware writes, callback gaps, and reboot/disconnect side effects. 
 model exposes reconstructible field evidence but no runnable byte object, encoder,
 parser, file/network access, or transport plan.
 
-Warning-focused comparison keeps two OTA uncertainties explicit. Structured and
-fallback output disagree on GPIO-selector packing and write control flow, so no selector
-meaning is accepted without bounded instruction review. A separate custom-dial transfer
-implementation has no observed SDK-interface construction or call site;
+Warning-focused comparison preserves the historical structured/fallback GPIO-selector
+divergence while a private, fingerprinted instruction review now confirms only its local
+control flow: two recognized branches converge on one write-attempt sequence and other
+values return locally. Selector meaning, safe values, device acceptance, dispatch, and
+delivery remain unverified. The reviewed chunk path advances its cursor before delivery
+confirmation, has no immediate local retry on a rejected dispatch boolean, and can set a
+local end flag without accepted dispatch. A later local completion event is not a
+peripheral acknowledgement.
+
+The main dispatcher review also corrects its earlier surface terminology. The reviewed
+method contains 85 unique direct callback targets already represented in the public
+ledger, not 85 switch labels or cases. Target presence does not establish the branch to
+opcode mapping, field meaning, reachability, or correct behavior.
+
+The SDK's progress-named async handoff passes a GATT object, not a numeric OTA
+percentage, and the reviewed handoff has no connection-generation guard. It remains
+separate from broadcast percentage progress. A three-DEX direct-reference search found
+no external construction edge for the separate custom-dial transfer implementation,
+but reflection, JNI/native, resource-driven, and dynamic activation were not exhaustively
+disproved. The result is therefore inconclusive for runtime dormancy;
 `editDeviceDialCustom` remains only its existing offline main-channel setting request
 and does not model or authorize dial-file transfer.
 

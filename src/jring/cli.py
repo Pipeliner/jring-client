@@ -41,7 +41,10 @@ from .vendor_coverage import (
 )
 from .vendor_decompilation_evidence import recovered_decompilation_coverage
 from .vendor_session_evidence import recovered_session_evidence
-from .vendor_warning_evidence import ComparisonState, recovered_warning_audit
+from .vendor_warning_evidence import (
+    ComparisonState,
+    recovered_warning_audit,
+)
 
 
 class ExitCode(IntEnum):
@@ -332,6 +335,18 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 item.comparison_state is ComparisonState.COMPARISON_DIVERGENCE
                 for item in warning_audit.comparisons
             ),
+            "instruction_bounded_facts_confirmed": (
+                warning_audit.bounded_fact_confirmed_count
+            ),
+            "instruction_bounded_facts_contradicted": (
+                warning_audit.bounded_fact_contradicted_count
+            ),
+            "instruction_reviews_inconclusive": (
+                warning_audit.inconclusive_review_count
+            ),
+            "instruction_reviews_not_performed": (
+                warning_audit.instruction_review_not_performed_count
+            ),
             "request_routes": dict(sorted(Counter(
                 entry.route for entry in requests
             ).items())),
@@ -422,6 +437,25 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 "instruction_review_complete": (
                     warning_audit.instruction_review_complete
                 ),
+                "target_review_count": warning_audit.target_review_count,
+                "bounded_fact_confirmed_count": (
+                    warning_audit.bounded_fact_confirmed_count
+                ),
+                "bounded_fact_contradicted_count": (
+                    warning_audit.bounded_fact_contradicted_count
+                ),
+                "inconclusive_review_count": (
+                    warning_audit.inconclusive_review_count
+                ),
+                "instruction_review_not_performed_count": (
+                    warning_audit.instruction_review_not_performed_count
+                ),
+                "all_target_reviews_attempted": (
+                    warning_audit.all_target_reviews_attempted
+                ),
+                "all_bounded_facts_resolved": (
+                    warning_audit.all_bounded_facts_resolved
+                ),
                 "exhaustive_bluetooth_dependency_audit": (
                     warning_audit.exhaustive_bluetooth_dependency_audit
                 ),
@@ -496,7 +530,22 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{summary['same_tool_surface_corroborations']}; "
         f"comparison divergences: {summary['warning_comparison_divergences']}."
     )
-    print("Instruction-reviewed warning facts: 0.")
+    print(
+        "Instruction-reviewed facts contradicted: "
+        f"{summary['instruction_bounded_facts_contradicted']}."
+    )
+    print(
+        "Instruction reviews inconclusive: "
+        f"{summary['instruction_reviews_inconclusive']}."
+    )
+    print(
+        "Bounded instruction facts confirmed: "
+        f"{summary['instruction_bounded_facts_confirmed']}."
+    )
+    print(
+        "Target instruction reviews not performed: "
+        f"{summary['instruction_reviews_not_performed']}."
+    )
     print("This audit is not exhaustive for dependency or transitive Bluetooth behavior.")
     print(f"Requests: {summary['request_total']}")
     print(f"Callbacks: {summary['callback_total']}")

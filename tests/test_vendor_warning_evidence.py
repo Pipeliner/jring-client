@@ -1,5 +1,6 @@
-from dataclasses import FrozenInstanceError, fields
+from dataclasses import FrozenInstanceError, asdict, fields
 import inspect
+import json
 
 import pytest
 
@@ -10,6 +11,7 @@ from jring.vendor_coverage import (
 )
 from jring.vendor_warning_evidence import (
     ComparisonState,
+    InstructionFactScope,
     InstructionReviewState,
     WarningAuditScope,
     WarningComparisonCode,
@@ -83,18 +85,25 @@ def test_same_tool_dispatch_surface_corroboration_does_not_validate_branches():
 
     assert dispatch.comparison_state is ComparisonState.SAME_TOOL_SURFACE_CORROBORATION
     assert dispatch.surface_item_count == 85
-    assert dispatch.instruction_review is InstructionReviewState.NOT_PERFORMED
+    assert dispatch.instruction_review is InstructionReviewState.BOUNDED_FACT_CONFIRMED
+    assert dispatch.instruction_fact_scope is InstructionFactScope.INTRAPROCEDURAL
+    assert dispatch.reviewed_span_count == 1
+    assert dispatch.reviewed_occurrence_count == 125
+    assert "not switch labels or cases" in dispatch.observation
     assert dispatch.semantic_correctness_established is False
     assert "branch_opcode_and_field_semantics_remain_unresolved" in dispatch.limitations
 
 
-def test_gpio_selector_divergence_and_missing_receiver_bodies_remain_unresolved():
+def test_instruction_review_resolves_selector_and_receiver_control_flow_only():
     comparisons = _comparisons()
 
     selector = comparisons[WarningComparisonCode.APP_OTA_SELECTOR_DIVERGENCE]
     assert selector.comparison_state is ComparisonState.COMPARISON_DIVERGENCE
-    assert selector.instruction_review is InstructionReviewState.NOT_PERFORMED
-    assert selector.public_fact_eligible is False
+    assert selector.instruction_review is InstructionReviewState.BOUNDED_FACT_CONFIRMED
+    assert selector.instruction_fact_scope is InstructionFactScope.INTRAPROCEDURAL
+    assert selector.reviewed_span_count == 1
+    assert selector.public_fact_eligible is True
+    assert "hardware_meaning_and_acceptance_remain_unverified" in selector.limitations
 
     for code in (
         WarningComparisonCode.APP_CLASSIC_ATTACHMENT_RECEIVER,
@@ -103,8 +112,20 @@ def test_gpio_selector_divergence_and_missing_receiver_bodies_remain_unresolved(
     ):
         item = comparisons[code]
         assert item.comparison_state is ComparisonState.FALLBACK_BODY_UNAVAILABLE
-        assert item.instruction_review is InstructionReviewState.NOT_PERFORMED
-        assert item.public_fact_eligible is False
+        assert item.instruction_review is InstructionReviewState.BOUNDED_FACT_CONFIRMED
+        assert item.reviewed_span_count >= 1
+        assert item.public_fact_eligible is True
+
+
+def test_progress_named_handoff_is_not_relabelled_as_numeric_ota_progress():
+    progress = _comparisons()[WarningComparisonCode.SDK_OTA_PROGRESS_FORWARDING]
+
+    assert progress.instruction_review is InstructionReviewState.BOUNDED_FACT_CONFIRMED
+    assert progress.instruction_fact_scope is InstructionFactScope.INTERPROCEDURAL
+    assert progress.reviewed_span_count == 7
+    assert "GATT object" in progress.observation
+    assert "numeric percentage" in progress.observation
+    assert "generation_guard_not_present_in_reviewed_handoff" in progress.limitations
 
 
 def test_ota_patch_and_dormant_dial_transfer_stay_separate_and_non_runnable():
@@ -114,8 +135,19 @@ def test_ota_patch_and_dormant_dial_transfer_stay_separate_and_non_runnable():
 
     assert patch.related_requests == ("startFileOta",)
     assert patch.comparison_state is ComparisonState.INSTRUCTION_REVIEW_REQUIRED
+    assert patch.instruction_review is InstructionReviewState.BOUNDED_FACT_CONFIRMED
+    assert patch.instruction_fact_scope is InstructionFactScope.INTERPROCEDURAL
+    assert patch.reviewed_span_count == 5
+    assert "local_completion_is_not_peripheral_acknowledgement" in patch.limitations
     assert dial.related_requests == ("editDeviceDialCustom",)
     assert dial.comparison_state is ComparisonState.NO_OBSERVED_INTERFACE_CALL_SITE
+    assert dial.instruction_review is InstructionReviewState.INCONCLUSIVE
+    assert dial.instruction_fact_scope is InstructionFactScope.WHOLE_CORPUS_SEARCH
+    assert dial.reviewed_span_count == 5
+    assert dial.public_fact_eligible is False
+    assert "reflection_native_and_dynamic_activation_not_exhaustively_disproved" in (
+        dial.limitations
+    )
     assert "does_not_authorize_or_model_dial_file_transfer" in dial.limitations
     assert len(static_vendor_operation_coverage()) == 112
 
@@ -132,16 +164,40 @@ def test_warning_evidence_is_closed_aggregate_only_and_without_authority():
     assert audit.source_recovery_completeness == "not_established"
     assert audit.semantic_correctness_established is False
     assert audit.instruction_review_complete is False
+    assert audit.target_review_count == 8
+    assert audit.bounded_fact_confirmed_count == 7
+    assert audit.bounded_fact_contradicted_count == 0
+    assert audit.inconclusive_review_count == 1
+    assert audit.instruction_review_not_performed_count == 0
+    assert audit.all_target_reviews_attempted is True
+    assert audit.all_bounded_facts_resolved is False
+
+    for item in audit.comparisons:
+        assert item.public_fact_eligible is (
+            item.instruction_review is InstructionReviewState.BOUNDED_FACT_CONFIRMED
+        )
     assert audit.exhaustive_bluetooth_dependency_audit is False
     assert audit.runnable is False
     assert audit.python_callable is False
     assert audit.hardware_eligible is False
     assert audit.hardware_verified is False
 
-    forbidden = {"class_name", "file_name", "method_name", "path", "source", "warning_text"}
+    forbidden = {
+        "class_name", "file_name", "method_name", "path", "source", "warning_text",
+        "dex_digest", "descriptor", "prototype", "fingerprint", "instruction_offset",
+    }
     for model in (WarningScopeEvidence, WarningComparisonEvidence, type(audit)):
         assert forbidden.isdisjoint(field.name for field in fields(model))
     source = inspect.getsource(warning_module).lower()
     assert "import pathlib" not in source
     assert "import subprocess" not in source
     assert "open(" not in source
+
+    serialized = json.dumps(
+        [asdict(item) for item in audit.comparisons], sort_keys=True
+    ).lower()
+    for private_token in (
+        "sha-256", "sha256", "classes.dex", "classes2.dex", "classes3.dex",
+        "descriptor", "prototype", "fingerprint", "instruction_offset", ".smali",
+    ):
+        assert private_token not in serialized

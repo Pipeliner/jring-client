@@ -276,7 +276,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     ) in output
     assert "Owned warning occurrences: 29 application; 62 embedded SDK." in output
     assert "Same-tool surface corroborations: 2; comparison divergences: 1." in output
-    assert "Instruction-reviewed warning facts: 0." in output
+    assert "Instruction-reviewed facts contradicted: 0." in output
+    assert "Instruction reviews inconclusive: 1." in output
+    assert "Bounded instruction facts confirmed: 7." in output
+    assert "Target instruction reviews not performed: 0." in output
     assert "missing failure" not in output.lower()
     assert "success rate" not in output.lower()
     assert "Requests: 112" in output
@@ -324,6 +327,9 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["owned_warning_audit_occurrences"] == 91
     assert result["summary"]["same_tool_surface_corroborations"] == 2
     assert result["summary"]["warning_comparison_divergences"] == 1
+    assert result["summary"]["instruction_bounded_facts_confirmed"] == 7
+    assert result["summary"]["instruction_bounded_facts_contradicted"] == 0
+    assert result["summary"]["instruction_reviews_inconclusive"] == 1
     assert result["summary"]["offline_control_models"] == 1
     assert result["summary"]["offline_behavior_evidence"] == 26
     assert result["summary"]["unclassified_requests"] == 0
@@ -364,6 +370,7 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert warning_audit["source_recovery_completeness"] == "not_established"
     assert warning_audit["semantic_correctness_established"] is False
     assert warning_audit["instruction_review_complete"] is False
+    assert warning_audit["all_bounded_facts_resolved"] is False
     assert warning_audit["exhaustive_bluetooth_dependency_audit"] is False
     assert warning_audit["hardware_eligible"] is False
     assert warning_audit["hardware_verified"] is False

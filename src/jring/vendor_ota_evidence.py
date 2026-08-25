@@ -374,8 +374,10 @@ _START_FILE = OfflineFirmwareAndTransferEvidence._create(
         _phase(
             "configure_suota_transfer",
             "SUOTA GATT service",
-            "Writes memory-device, GPIO-map, and patch-length controls using fixed source "
-            "configuration plus negotiated MTU and patch-size values.",
+            "Writes memory-device, GPIO-map, and patch-length controls. Bounded "
+            "instruction review confirms exactly two local selector branches converge "
+            "on the GPIO-map write attempt; their hardware meaning and acceptance remain "
+            "unverified.",
         ),
         _phase(
             "stream_no_response_chunks",
@@ -392,8 +394,9 @@ _START_FILE = OfflineFirmwareAndTransferEvidence._create(
         _phase(
             "end_reboot_disconnect_cleanup",
             "SUOTA controls and platform Bluetooth stack",
-            "Writes end and conditional reboot signals, releases the wake lock, closes "
-            "the file, disconnects/closes GATT, and may refresh the GATT cache.",
+            "Attempts end and conditional reboot signals, releases the wake lock, closes "
+            "the file, disconnects/closes GATT, and may refresh the GATT cache. The local "
+            "terminal transition is not a peripheral acknowledgement.",
         ),
     ),
     callbacks=(
@@ -412,8 +415,9 @@ _START_FILE = OfflineFirmwareAndTransferEvidence._create(
         _callback(
             "OTA progress and terminal actions",
             "broadcast receiver",
-            "Progress is forwarded to the service callback; proceeding and success "
-            "actions trigger transfer configuration and cleanup respectively.",
+            "Broadcast percentage progress is forwarded to the service callback; "
+            "proceeding and local-success actions trigger transfer configuration and "
+            "cleanup respectively. The local-success action is not device acknowledgement.",
         ),
     ),
     blockers=(
@@ -464,11 +468,11 @@ _START_FILE = OfflineFirmwareAndTransferEvidence._create(
             "semantics, timing, negotiated sizes, and status ordering.",
         ),
         _blocker(
-            "gpio_selector_same_tool_divergence",
+            "gpio_selector_semantics_and_acceptance_unverified",
             "SUOTA configuration",
-            "Structured and fallback decompiler modes disagree on selector packing and "
-            "write control flow; no selector meaning is accepted without bounded "
-            "instruction review.",
+            "Instruction review resolves the local decompiler control-flow divergence, "
+            "but does not establish selector meaning, device acceptance, safe values, or "
+            "successful dispatch.",
         ),
         _blocker(
             "dormant_custom_dial_transfer_no_interface_call_site",
@@ -482,6 +486,30 @@ _START_FILE = OfflineFirmwareAndTransferEvidence._create(
             "SUOTA patch-data characteristic",
             "Firmware chunks use direct no-response writes; safe pacing and delivery have "
             "not been validated on eligible hardware.",
+        ),
+        _blocker(
+            "chunk_cursor_advances_before_delivery_confirmation",
+            "SUOTA patch-data characteristic",
+            "Bounded instruction review shows the local image cursor advances before any "
+            "delivery confirmation is established.",
+        ),
+        _blocker(
+            "rejected_chunk_dispatch_has_no_local_retry",
+            "SUOTA patch-data characteristic",
+            "The reviewed chunk method logs a rejected dispatch result but contains no "
+            "immediate local retry or cursor rollback.",
+        ),
+        _blocker(
+            "end_flag_not_dispatch_confirmed",
+            "SUOTA terminal control",
+            "The reviewed end-control path sets its local end-sent flag without requiring "
+            "a characteristic or an accepted write dispatch.",
+        ),
+        _blocker(
+            "local_completion_not_peripheral_acknowledgement",
+            "SUOTA completion",
+            "A later local state advance emits completion without proving that the "
+            "peripheral accepted the end-control write.",
         ),
         _blocker(
             "coarse_progress_integer_division",

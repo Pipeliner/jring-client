@@ -120,9 +120,13 @@ def test_start_file_ota_preserves_precise_non_runnable_blockers():
         "unchecked_single_file_read",
         "xor_byte_is_not_authenticity",
         "hardware_specific_suota_state_machine",
-        "gpio_selector_same_tool_divergence",
+        "gpio_selector_semantics_and_acceptance_unverified",
         "dormant_custom_dial_transfer_no_interface_call_site",
         "write_without_response_chunk_stream",
+        "chunk_cursor_advances_before_delivery_confirmation",
+        "rejected_chunk_dispatch_has_no_local_retry",
+        "end_flag_not_dispatch_confirmed",
+        "local_completion_not_peripheral_acknowledgement",
         "coarse_progress_integer_division",
         "ota_error_callback_gap",
         "no_terminal_success_service_callback",
@@ -141,6 +145,21 @@ def test_custom_dial_request_is_not_relabelled_as_dormant_dial_transfer():
     assert "neither models nor authorizes dial-file transfer" in blocker.observation
     assert evidence.runnable is False
     assert evidence.hardware_eligible is False
+
+
+def test_instruction_review_tightens_local_ota_flow_without_authorizing_it():
+    evidence = evidence_for(FirmwareAndTransferEvidenceOperation.START_FILE_OTA)
+    phases = {item.code: item for item in evidence.phases}
+
+    assert "exactly two local selector branches" in (
+        phases["configure_suota_transfer"].observation
+    )
+    assert "not a peripheral acknowledgement" in (
+        phases["end_reboot_disconnect_cleanup"].observation
+    )
+    assert evidence.runnable is False
+    assert evidence.hardware_eligible is False
+    assert evidence.hardware_verified is False
 
 
 def test_start_file_ota_traces_connection_chunk_status_and_cleanup_phases():

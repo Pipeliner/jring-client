@@ -131,6 +131,15 @@ Desired outcomes:
   divergences, omitted bodies, and warning-bearing dependencies visibly unresolved.
 - Require bounded instruction review before a warning-site result can support a named
   branch, selector, signedness, byte-order, or retry claim.
+- Bind each private instruction review to the exact artifact, DEX unit, complete method
+  prototype, reproducible span fingerprint, and every relevant control-flow edge.
+- Publish only the sanitized bounded result, fact scope, span count, and limitations;
+  never publish private descriptors, offsets, fingerprints, disassembly, or paths.
+- Distinguish `not performed`, `confirmed`, `contradicted`, and `inconclusive` reviews;
+  a scoped negative direct-call search remains inconclusive about reflection or native
+  activation.
+- Keep local cursor movement, dispatch booleans, terminal flags, and app broadcasts
+  separate from peripheral delivery or acknowledgement.
 
 ### Select my ring without exposing its address
 

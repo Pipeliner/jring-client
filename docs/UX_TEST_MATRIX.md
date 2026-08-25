@@ -28,8 +28,12 @@ vendor implementation or hardware verification.
 | Binding prompt user | Device requests a `4b` transition | Name the binding action and require its own consent; do not cite cloud or OS bond as approval | Binding transition has its own token and audit state |
 | Input-mapping user | Connection is uncertain or policy changes | Disarm input immediately and emit no catch-up clicks | Input eligibility requires current generation and confirmed source state |
 | Protocol maintainer | Structured and fallback decompiler output agree at a warning site | Say “same-tool surface corroboration,” never “validated” or “resolved” | Semantic correctness stays false until bounded instruction review |
+| Protocol maintainer | Instruction review finds 85 direct callback targets but no switch payload | Call them direct targets, never labels or cases | Target set is confirmed; branch/opcode and field semantics remain unresolved |
 | Security reviewer | A fallback file exists but the warned receiver body is absent | Name the body as unavailable and keep its branch claims unresolved | Counterpart state is `fallback_body_unavailable`; no completeness promotion |
-| OTA reviewer | Decompiler modes disagree on selector/write control flow | Refuse a selector meaning and retain the hardware block | Comparison is divergent; instruction review is not performed |
+| OTA reviewer | Instruction review resolves a decompiler selector divergence | State only the reviewed local branches; refuse selector meaning, safe values, delivery, or device acceptance | Historical comparison remains divergent; bounded local fact is confirmed; hardware block remains |
+| Reliability reviewer | OTA cursor or terminal flag advances after a write attempt | Do not translate local state into delivery or acknowledgement | Rejected chunk dispatch has no immediate local retry; local completion is not peripheral acknowledgement |
+| Runtime reviewer | An all-DEX direct-reference search finds no dial-transfer constructor | Say direct construction was not observed, while naming reflection/native/dynamic limits | Review is `inconclusive`, not runtime dormancy proof |
+| Privacy reviewer | A bounded fact is shown in JSON | Receive only sanitized scope, state, span count, observation, and limitations | No DEX digest, descriptor, prototype, offset, fingerprint, path, source, or disassembly appears |
 
 Across every row, logs and errors omit Bluetooth addresses, cloud identifiers, frame
 bytes, raw measurements, and decompiled-source details. Simulation provenance remains

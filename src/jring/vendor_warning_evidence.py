@@ -26,6 +26,16 @@ class ComparisonState(str, Enum):
 
 class InstructionReviewState(str, Enum):
     NOT_PERFORMED = "not_performed"
+    BOUNDED_FACT_CONFIRMED = "bounded_fact_confirmed"
+    BOUNDED_FACT_CONTRADICTED = "bounded_fact_contradicted"
+    INCONCLUSIVE = "inconclusive"
+
+
+class InstructionFactScope(str, Enum):
+    NOT_REVIEWED = "not_reviewed"
+    INTRAPROCEDURAL = "intraprocedural"
+    INTERPROCEDURAL = "interprocedural"
+    WHOLE_CORPUS_SEARCH = "whole_corpus_search"
 
 
 class WarningComparisonCode(str, Enum):
@@ -71,6 +81,9 @@ class WarningComparisonEvidence:
     scope: WarningAuditScope
     comparison_state: ComparisonState
     instruction_review: InstructionReviewState
+    instruction_fact_scope: InstructionFactScope
+    reviewed_span_count: int
+    reviewed_occurrence_count: int | None
     surface_item_count: int | None
     related_requests: tuple[str, ...]
     related_callbacks: tuple[str, ...]
@@ -103,6 +116,46 @@ class RecoveredWarningAudit:
     @property
     def instruction_review_complete(self) -> bool:
         return False
+
+    @property
+    def target_review_count(self) -> int:
+        return len(self.comparisons)
+
+    @property
+    def bounded_fact_confirmed_count(self) -> int:
+        return sum(
+            item.instruction_review is InstructionReviewState.BOUNDED_FACT_CONFIRMED
+            for item in self.comparisons
+        )
+
+    @property
+    def bounded_fact_contradicted_count(self) -> int:
+        return sum(
+            item.instruction_review is InstructionReviewState.BOUNDED_FACT_CONTRADICTED
+            for item in self.comparisons
+        )
+
+    @property
+    def inconclusive_review_count(self) -> int:
+        return sum(
+            item.instruction_review is InstructionReviewState.INCONCLUSIVE
+            for item in self.comparisons
+        )
+
+    @property
+    def instruction_review_not_performed_count(self) -> int:
+        return sum(
+            item.instruction_review is InstructionReviewState.NOT_PERFORMED
+            for item in self.comparisons
+        )
+
+    @property
+    def all_target_reviews_attempted(self) -> bool:
+        return self.instruction_review_not_performed_count == 0
+
+    @property
+    def all_bounded_facts_resolved(self) -> bool:
+        return self.all_target_reviews_attempted and self.inconclusive_review_count == 0
 
     @property
     def exhaustive_bluetooth_dependency_audit(self) -> bool:
@@ -227,6 +280,10 @@ def _comparison(
     count: int | None = None,
     requests: tuple[str, ...] = (),
     callbacks: tuple[str, ...] = (),
+    instruction_review: InstructionReviewState = InstructionReviewState.NOT_PERFORMED,
+    fact_scope: InstructionFactScope = InstructionFactScope.NOT_REVIEWED,
+    reviewed_spans: int = 0,
+    reviewed_occurrences: int | None = None,
     public_fact: bool = False,
 ) -> WarningComparisonEvidence:
     return _closed_instance(
@@ -234,7 +291,10 @@ def _comparison(
         code=code,
         scope=scope,
         comparison_state=state,
-        instruction_review=InstructionReviewState.NOT_PERFORMED,
+        instruction_review=instruction_review,
+        instruction_fact_scope=fact_scope,
+        reviewed_span_count=reviewed_spans,
+        reviewed_occurrence_count=reviewed_occurrences,
         surface_item_count=count,
         related_requests=requests,
         related_callbacks=callbacks,
@@ -251,66 +311,119 @@ _COMPARISONS = (
         WarningComparisonCode.SDK_MAIN_DISPATCH_LABEL_SURFACE,
         WarningAuditScope.EMBEDDED_SDK,
         ComparisonState.SAME_TOOL_SURFACE_CORROBORATION,
-        "both modes expose the same callback-label set already present in the ledger",
-        ("branch_opcode_and_field_semantics_remain_unresolved",),
+        "instruction review confirms 85 unique direct callback targets already present "
+        "in the ledger; these are not switch labels or cases",
+        (
+            "branch_opcode_and_field_semantics_remain_unresolved",
+            "target_presence_does_not_establish_reachability_or_hardware_behavior",
+        ),
         count=85,
+        instruction_review=InstructionReviewState.BOUNDED_FACT_CONFIRMED,
+        fact_scope=InstructionFactScope.INTRAPROCEDURAL,
+        reviewed_spans=1,
+        reviewed_occurrences=125,
         public_fact=True,
     ),
     _comparison(
         WarningComparisonCode.SDK_OTA_PROGRESS_FORWARDING,
         WarningAuditScope.EMBEDDED_SDK,
         ComparisonState.SAME_TOOL_SURFACE_CORROBORATION,
-        "both modes retain the selected-connection progress forwarding edge",
-        ("same_tool_agreement_does_not_prove_transfer_semantics",),
+        "instruction review identifies the progress-named edge as a GATT object "
+        "handoff rather than a numeric percentage callback",
+        (
+            "generation_guard_not_present_in_reviewed_handoff",
+            "handoff_does_not_prove_transfer_or_session_correctness",
+        ),
         requests=("startFileOta",),
+        instruction_review=InstructionReviewState.BOUNDED_FACT_CONFIRMED,
+        fact_scope=InstructionFactScope.INTERPROCEDURAL,
+        reviewed_spans=7,
         public_fact=True,
     ),
     _comparison(
         WarningComparisonCode.APP_OTA_SELECTOR_DIVERGENCE,
         WarningAuditScope.APPLICATION,
         ComparisonState.COMPARISON_DIVERGENCE,
-        "the two modes disagree on selector packing and write control flow",
-        ("requires_bounded_instruction_review_before_any_selector_claim",),
+        "the decompiler modes disagree, while instruction review confirms two "
+        "recognized selector branches converge on one local write-attempt sequence",
+        (
+            "packing_helper_internals_not_part_of_this_bounded_fact",
+            "hardware_meaning_and_acceptance_remain_unverified",
+            "dispatch_result_does_not_prove_delivery",
+        ),
         requests=("startFileOta",),
+        instruction_review=InstructionReviewState.BOUNDED_FACT_CONFIRMED,
+        fact_scope=InstructionFactScope.INTRAPROCEDURAL,
+        reviewed_spans=1,
+        public_fact=True,
     ),
     _comparison(
         WarningComparisonCode.APP_CLASSIC_ATTACHMENT_RECEIVER,
         WarningAuditScope.APPLICATION,
         ComparisonState.FALLBACK_BODY_UNAVAILABLE,
-        "structured output routes classic discovery bonding and audio attachment events",
-        ("exact_event_branch_mapping_remains_unresolved",),
+        "instruction review confirms the recovered action cases and common-return "
+        "control flow without unintended case fallthrough",
+        ("platform_side_effects_and_complete_attachment_workflow_remain_unverified",),
+        instruction_review=InstructionReviewState.BOUNDED_FACT_CONFIRMED,
+        fact_scope=InstructionFactScope.INTERPROCEDURAL,
+        reviewed_spans=6,
+        public_fact=True,
     ),
     _comparison(
         WarningComparisonCode.APP_OTA_EVENT_RECEIVER,
         WarningAuditScope.APPLICATION,
         ComparisonState.FALLBACK_BODY_UNAVAILABLE,
-        "structured output routes update progress terminal and reconnect events",
-        ("exact_event_branch_mapping_remains_unresolved",),
+        "instruction review confirms the recovered update-event cases and their "
+        "common-return control flow",
+        ("event_reachability_and_peripheral_completion_remain_unverified",),
         requests=("startFileOta",),
+        instruction_review=InstructionReviewState.BOUNDED_FACT_CONFIRMED,
+        fact_scope=InstructionFactScope.INTRAPROCEDURAL,
+        reviewed_spans=1,
+        public_fact=True,
     ),
     _comparison(
         WarningComparisonCode.APP_SPORT_SENSOR_RECEIVER,
         WarningAuditScope.APPLICATION,
         ComparisonState.FALLBACK_BODY_UNAVAILABLE,
-        "structured output separates connection-state and sensor-event handling",
-        ("exact_branch_separation_and_fallthrough_remain_unresolved",),
+        "instruction review confirms a deliberate shared nonzero-state processing "
+        "tail, with an additional local mode call on the connected branch",
+        ("sensor_meaning_correctness_and_event_completeness_remain_unverified",),
+        instruction_review=InstructionReviewState.BOUNDED_FACT_CONFIRMED,
+        fact_scope=InstructionFactScope.INTERPROCEDURAL,
+        reviewed_spans=2,
+        public_fact=True,
     ),
     _comparison(
         WarningComparisonCode.SDK_OTA_PATCH_ADVANCE,
         WarningAuditScope.EMBEDDED_SDK,
         ComparisonState.INSTRUCTION_REVIEW_REQUIRED,
-        "patch advance contains duplicated and removed control-flow regions",
-        ("memory_branch_retry_and_terminal_ordering_remain_unresolved",),
+        "instruction review confirms local cursor-before-dispatch and terminal-flag "
+        "control flow without a local false-dispatch retry",
+        (
+            "local_completion_is_not_peripheral_acknowledgement",
+            "end_to_end_retry_delivery_and_terminal_semantics_remain_unverified",
+        ),
         requests=("startFileOta",),
+        instruction_review=InstructionReviewState.BOUNDED_FACT_CONFIRMED,
+        fact_scope=InstructionFactScope.INTERPROCEDURAL,
+        reviewed_spans=5,
+        public_fact=True,
     ),
     _comparison(
         WarningComparisonCode.SDK_DORMANT_DIAL_TRANSFER_CALL_SITE,
         WarningAuditScope.EMBEDDED_SDK,
         ComparisonState.NO_OBSERVED_INTERFACE_CALL_SITE,
-        "a separate dial-transfer implementation has no observed interface construction edge",
-        ("does_not_authorize_or_model_dial_file_transfer",),
+        "a three-DEX direct-reference search found no external construction edge for "
+        "the separate dial-transfer implementation",
+        (
+            "does_not_authorize_or_model_dial_file_transfer",
+            "reflection_native_and_dynamic_activation_not_exhaustively_disproved",
+        ),
         requests=("editDeviceDialCustom",),
-        public_fact=True,
+        instruction_review=InstructionReviewState.INCONCLUSIVE,
+        fact_scope=InstructionFactScope.WHOLE_CORPUS_SEARCH,
+        reviewed_spans=5,
     ),
 )
 
@@ -330,6 +443,7 @@ def recovered_warning_audit() -> RecoveredWarningAudit:
 
 __all__ = [
     "ComparisonState",
+    "InstructionFactScope",
     "InstructionReviewState",
     "RecoveredWarningAudit",
     "WarningAuditScope",

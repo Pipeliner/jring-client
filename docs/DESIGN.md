@@ -137,6 +137,15 @@ warned method body exists. Warning-bearing dependency and transitive call paths 
 outside the owned-scope population, so the graph cannot claim exhaustive Bluetooth
 dependency coverage.
 
+Targeted instruction review uses a private append-only provenance ledger. Each entry
+binds its bounded predicate to the artifact and DEX digest, exact method prototype,
+reproducible method/span fingerprint, and relevant switch, fallthrough, width, operand,
+and exception edges. None of those private identities enter the package or CLI. The
+public closed aggregate exposes only result state, intra/interprocedural or corpus-search
+scope, reviewed-span count, sanitized observation, and limitations. A confirmed local
+fact cannot promote semantic completeness or hardware maturity; a whole-corpus direct
+reference absence remains inconclusive about reflection, JNI, native, or dynamic entry.
+
 `status --select --active-scan` retains the scan's private address association only in
 an in-process selection candidate whose representation and public summary omit it.
 Aliases use a new cryptographic salt for each discovery call. A numbered choice is
