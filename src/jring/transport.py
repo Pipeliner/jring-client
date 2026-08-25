@@ -31,6 +31,31 @@ class GattCharacteristicTarget:
     instance_id: str
 
 
+@dataclass(frozen=True, repr=False)
+class GattDescriptorTarget:
+    """Connection-scoped identity for one enumerated descriptor.
+
+    This value identifies the exact descriptor selected during preflight.  A future
+    live transport must additionally validate ownership/object identity; equality
+    alone is never runtime authority.
+    """
+
+    connection_generation: int
+    service_uuid: str
+    characteristic_uuid: str
+    characteristic_instance_id: str
+    uuid: str
+    instance_id: str
+
+    def __repr__(self) -> str:
+        return (
+            "GattDescriptorTarget("
+            f"connection_generation={self.connection_generation!r}, "
+            "service=<redacted>, characteristic=<redacted>, "
+            "descriptor=<redacted>)"
+        )
+
+
 @dataclass(frozen=True)
 class GattCharacteristicMetadata:
     service_uuid: str

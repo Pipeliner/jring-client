@@ -1,4 +1,5 @@
 from copy import copy, deepcopy
+from dataclasses import asdict
 import math
 
 import pytest
@@ -763,6 +764,9 @@ def test_operation_and_action_repr_never_expose_frames_or_invent_cccd_state():
     assert operation.maturity == "static_apk_only"
     assert write.hardware_eligible is False
     assert engine.hardware_eligible is False
+    with pytest.raises(TypeError):
+        asdict(write)
+    assert not hasattr(write, "_frame")
 
 
 def test_operation_constructor_is_closed_over_typed_static_requests():

@@ -105,6 +105,7 @@ class OperationReason(str, Enum):
     TIMEOUT = "timeout"
     CANCELLED = "cancelled"
     DISCONNECTED = "disconnected"
+    TRANSPORT_FAILURE = "transport_failure"
     MALFORMED_RESPONSE = "malformed_response"
     CLEANUP_FAILED = "cleanup_failed"
     DEVICE_REJECTED = "device_rejected"
@@ -636,7 +637,8 @@ def _valid_result_state(
             and terminal_basis is TerminalBasis.NOT_OBSERVED
             and reason in {OperationReason.TIMEOUT, OperationReason.CANCELLED,
                            OperationReason.DISCONNECTED, OperationReason.MALFORMED_RESPONSE,
-                           OperationReason.CLEANUP_FAILED}
+                           OperationReason.CLEANUP_FAILED,
+                           OperationReason.TRANSPORT_FAILURE}
             and recovery is RecoveryDirective.RECONNECT_NO_REPLAY
             and deadline in {DeadlineState.EXPIRED, DeadlineState.CANCELLED}
         )
@@ -645,6 +647,7 @@ def _valid_result_state(
             OperationReason.PRE_DISPATCH_FAILURE: DeadlineState.NOT_APPLICABLE,
             OperationReason.TIMEOUT: DeadlineState.EXPIRED,
             OperationReason.CANCELLED: DeadlineState.CANCELLED,
+            OperationReason.DISCONNECTED: DeadlineState.CANCELLED,
         }
         return (
             stage in {OperationStage.PREFLIGHT, OperationStage.SUBSCRIPTION, OperationStage.WRITE}

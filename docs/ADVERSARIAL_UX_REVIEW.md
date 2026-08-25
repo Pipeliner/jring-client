@@ -151,6 +151,24 @@ arbitrary extra attributes, while process-local weak seals reject changes to dec
 fields. Per-attempt transitions preserve local acceptance and matched-response
 evidence instead of regressing to a weaker dispatch state.
 
+The strict-GATT slice was challenged by callback-race, architecture, and four-persona
+reviews. The older model's high-level subscription return could sound like descriptor
+completion, primary setup failure vanished when no operation was queued, optional RAW
+had no degradation state, and an unbound disconnect or duplicate notification could
+mutate later work. The accepted engine separates readiness from operation outcome,
+requires exact-target dispatch and completion, binds all callbacks to connection and
+action identity, makes setup failure durable, and quarantines every possibly dispatched
+operation to one connection. Nontechnical copy leads with whether the command was sent;
+automation receives stable stage/status fields; assistive input disarms on capability
+loss; and public action payloads omit target identities, UUIDs, frames, and values.
+The implementation-level pass then found forgeable route fields, parsed-value leakage
+through dataclass serialization, mutable action internals, misleading bare success,
+missing normalized results, primary post-dispatch timeout ambiguity, and RAW traffic
+misclassified as a MAIN protocol error. Exact route revalidation, externally sealed
+action/value state, closed public serializers, normalized accepted/terminal outcomes,
+response-matched terminology, deadline-first callbacks, and inert RAW handling close
+those gaps without adding live authority.
+
 The review found no need for a new implementation family. It did find that simulator
 and shell-completion work could distract from live client parity; simulator work is now
 last and minimal, and Fish completion is explicitly excluded.

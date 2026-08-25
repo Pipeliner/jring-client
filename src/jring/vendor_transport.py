@@ -80,6 +80,10 @@ from .vendor_runtime_eligibility import (
     fake_singleton_terminal_request_names,
     require_fake_singleton_terminal,
 )
+from .vendor_operation_registry import (
+    OperationTerminalStatus,
+    operation_registry_entry,
+)
 
 _ENGINE_IDS = itertools.count()
 
@@ -410,6 +414,7 @@ class _OperationIntegrityToken:
 
 @dataclass(frozen=True)
 class _OperationExecutionShape:
+    operation_id: str
     name: str
     request_endpoint_uuid: str
     response_endpoint_uuid: str
@@ -428,10 +433,10 @@ _OPERATION_EXECUTION_SHAPES: WeakKeyDictionary[
 
 @dataclass(frozen=True, init=False, repr=False)
 class OfflineVendorOperation:
+    operation_id: str
     name: str
     request_endpoint_uuid: str
     response_endpoint_uuid: str
-    _request_frame: bytes = field(repr=False)
     _execution_token: _OperationIntegrityToken = field(repr=False, compare=False)
     success_opcodes: tuple[int, ...]
     failure_opcodes: tuple[int, ...]
@@ -446,6 +451,7 @@ class OfflineVendorOperation:
     def _create(
         cls,
         *,
+        operation_id: str,
         name: str,
         request_frame: bytes,
         success_opcodes: tuple[int, ...],
@@ -455,10 +461,10 @@ class OfflineVendorOperation:
         excluded_subcommands: tuple[int, ...] = (),
     ) -> "OfflineVendorOperation":
         instance = object.__new__(cls)
+        object.__setattr__(instance, "operation_id", operation_id)
         object.__setattr__(instance, "name", name)
         object.__setattr__(instance, "request_endpoint_uuid", VENDOR_CHARACTERISTIC_33F3)
         object.__setattr__(instance, "response_endpoint_uuid", VENDOR_CHARACTERISTIC_33F4)
-        object.__setattr__(instance, "_request_frame", bytes(request_frame))
         object.__setattr__(instance, "success_opcodes", tuple(success_opcodes))
         object.__setattr__(instance, "failure_opcodes", tuple(failure_opcodes))
         object.__setattr__(instance, "expected_subcommand", expected_subcommand)
@@ -469,6 +475,7 @@ class OfflineVendorOperation:
         token = _OperationIntegrityToken()
         object.__setattr__(instance, "_execution_token", token)
         _OPERATION_EXECUTION_SHAPES[token] = _OperationExecutionShape(
+            operation_id=operation_id,
             name=name,
             request_endpoint_uuid=VENDOR_CHARACTERISTIC_33F3,
             response_endpoint_uuid=VENDOR_CHARACTERISTIC_33F4,
@@ -490,11 +497,11 @@ class OfflineVendorOperation:
         if expected is None:
             raise ValueError("offline operation execution identity is unavailable")
         if (
-            self.name != expected.name
+            "_request_frame" in self.__dict__
+            or self.operation_id != expected.operation_id
+            or self.name != expected.name
             or self.request_endpoint_uuid != expected.request_endpoint_uuid
             or self.response_endpoint_uuid != expected.response_endpoint_uuid
-            or type(self._request_frame) is not bytes
-            or self._request_frame != expected.request_frame
             or self.success_opcodes != expected.success_opcodes
             or self.failure_opcodes != expected.failure_opcodes
             or self.expected_subcommand != expected.expected_subcommand
@@ -531,6 +538,7 @@ class OfflineVendorOperation:
             if item.operation is request.operation
         )
         return cls._create(
+            operation_id=_STATIC_QUERY_REQUEST_NAMES[request.operation],
             name=request.operation.value,
             request_frame=frame,
             success_opcodes=coverage.success_opcodes,
@@ -568,6 +576,7 @@ class OfflineVendorOperation:
         )
         ack_operation = _SETTING_ACKS[request.operation]
         return cls._create(
+            operation_id=_SETTING_REQUEST_NAMES[request.operation],
             name=request.operation.value,
             request_frame=frame,
             success_opcodes=success,
@@ -594,6 +603,7 @@ class OfflineVendorOperation:
             raise ValueError("personal-setting request does not match its operation")
         ack_operation = _PERSONAL_ACKS[request.operation]
         return cls._create(
+            operation_id=_PERSONAL_REQUEST_NAMES[request.operation],
             name=request.operation.value,
             request_frame=frame,
             success_opcodes=(expected_opcode,),
@@ -620,6 +630,7 @@ class OfflineVendorOperation:
         success_opcode = expected_opcode
         failure_opcode = expected_opcode | 0x80
         return cls._create(
+            operation_id=_BEHAVIOR_REQUEST_NAMES[type(request)],
             name=name,
             request_frame=frame,
             success_opcodes=(success_opcode,),
@@ -641,6 +652,7 @@ class OfflineVendorOperation:
             if frame != expected:
                 raise ValueError("screen-light request has an invalid shape")
             return cls._create(
+                operation_id="SetScreenLightTime",
                 name=request.operation.value,
                 request_frame=frame,
                 success_opcodes=(0x78,),
@@ -668,6 +680,7 @@ class OfflineVendorOperation:
         if frame != expected:
             raise ValueError("main command request has an invalid shape")
         return cls._create(
+            operation_id=_NO_ARGUMENT_REQUEST_NAMES[request.command],
             name=request.operation.value,
             request_frame=frame,
             success_opcodes=success,
@@ -694,11 +707,14 @@ class OfflineVendorOperation:
         binding = _COMMAND_RESPONSES.get(request.operation)
         if binding is None:
             raise TypeError("command has no exact response correlation")
+        if request_name is None:
+            raise TypeError("command has no closed operation registry identity")
         request_opcode, success, failure, expected_subcommand, parser = binding
         frame = StaticVendorCommandRequest.synthetic_bytes_for_test(request)
         if len(frame) != 20 or frame[0] != request_opcode:
             raise ValueError("vendor command does not match its closed operation")
         return cls._create(
+            operation_id=request_name,
             name=request.operation.value,
             request_frame=frame,
             success_opcodes=success,
@@ -722,6 +738,8 @@ class OfflineVendorOperation:
         binding = _PHONE_RESPONSES.get(request.operation)
         if binding is None:
             raise TypeError("phone integration has no exact singleton correlation")
+        if request_name is None:
+            raise TypeError("phone integration has no closed operation registry identity")
         request_opcode, success, failure, expected_subcommand, parser = binding
         frames = OfflinePhoneRequest.synthetic_frames_for_test(request)
         if len(frames) != 1:
@@ -730,6 +748,7 @@ class OfflineVendorOperation:
         if len(frame) != 20 or frame[0] != request_opcode:
             raise ValueError("phone integration does not match its closed operation")
         return cls._create(
+            operation_id=request_name,
             name=request.operation.value,
             request_frame=frame,
             success_opcodes=success,
@@ -744,6 +763,7 @@ class OfflineVendorOperation:
 
         require_fake_singleton_terminal("SetScreenLightTime")
         return cls._create(
+            operation_id="SetScreenLightTime",
             name="screen_light_time",
             request_frame=bytes((0x78, 0x0A)) + bytes(18),
             success_opcodes=(0x78,),
@@ -761,7 +781,9 @@ class OfflineVendorOperation:
         return False
 
     def synthetic_request_for_test(self) -> bytes:
-        return bytes(self._request_frame)
+        self.validate_for_fake_execution()
+        expected = _OPERATION_EXECUTION_SHAPES[self._execution_token]
+        return bytes(expected.request_frame)
 
     def _match(self, endpoint_uuid: str, data: bytes) -> tuple[_Match, object | None]:
         endpoint = _normalize_uuid(endpoint_uuid, "notification endpoint")
@@ -792,7 +814,8 @@ class OfflineVendorOperation:
     def __repr__(self) -> str:
         return (
             "OfflineVendorOperation("
-            f"name={self.name!r}, request_endpoint_uuid={self.request_endpoint_uuid!r}, "
+            f"operation_id={self.operation_id!r}, name={self.name!r}, "
+            f"request_endpoint_uuid={self.request_endpoint_uuid!r}, "
             f"response_endpoint_uuid={self.response_endpoint_uuid!r}, "
             "request_frame=<redacted>, hardware_eligible=False)"
         )
@@ -841,13 +864,59 @@ class NotificationSubscriptionIntent:
         )
 
 
-@dataclass(frozen=True, repr=False)
+_OFFLINE_WRITE_INTENT_FRAMES: WeakKeyDictionary[object, bytes] = WeakKeyDictionary()
+
+
 class OfflineWriteIntent:
-    operation_name: str
-    token: VendorOperationToken
-    endpoint_uuid: str
-    deadline: float
-    _frame: bytes = field(repr=False)
+    """Closed fake write intent whose frame is not dataclass-serializable."""
+
+    __slots__ = (
+        "_operation_name",
+        "_token",
+        "_endpoint_uuid",
+        "_deadline",
+        "__weakref__",
+    )
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("offline write intents are engine-owned")
+
+    def __setattr__(self, _name: str, _value: object) -> None:
+        raise AttributeError("offline write intents are immutable")
+
+    @classmethod
+    def _create(
+        cls,
+        *,
+        operation_name: str,
+        token: VendorOperationToken,
+        endpoint_uuid: str,
+        deadline: float,
+        frame: bytes,
+    ) -> "OfflineWriteIntent":
+        intent = object.__new__(cls)
+        object.__setattr__(intent, "_operation_name", operation_name)
+        object.__setattr__(intent, "_token", token)
+        object.__setattr__(intent, "_endpoint_uuid", endpoint_uuid)
+        object.__setattr__(intent, "_deadline", deadline)
+        _OFFLINE_WRITE_INTENT_FRAMES[intent] = bytes(frame)
+        return intent
+
+    @property
+    def operation_name(self) -> str:
+        return self._operation_name
+
+    @property
+    def token(self) -> VendorOperationToken:
+        return self._token
+
+    @property
+    def endpoint_uuid(self) -> str:
+        return self._endpoint_uuid
+
+    @property
+    def deadline(self) -> float:
+        return self._deadline
 
     @property
     def hardware_eligible(self) -> bool:
@@ -858,7 +927,10 @@ class OfflineWriteIntent:
         return "static_apk_only"
 
     def synthetic_bytes_for_test(self) -> bytes:
-        return bytes(self._frame)
+        try:
+            return bytes(_OFFLINE_WRITE_INTENT_FRAMES[self])
+        except KeyError as exc:
+            raise ValueError("offline write intent bytes are unavailable") from exc
 
     def __repr__(self) -> str:
         return (
@@ -1055,6 +1127,14 @@ class OfflineVendorTransactionEngine:
         current = self._observe_now(now)
         if type(operation) is not OfflineVendorOperation:
             raise TypeError("operation must be an OfflineVendorOperation")
+        operation.validate_for_fake_execution()
+        require_fake_singleton_terminal(operation.operation_id)
+        registry_entry = operation_registry_entry(operation.operation_id)
+        if (
+            not registry_entry.ring_facing
+            or registry_entry.terminal_status is not OperationTerminalStatus.OFFLINE_ONLY
+        ):
+            raise ProtocolError("operation is not eligible for fake execution")
         self._reject_reconnect_required()
         if self._phase is EnginePhase.DISCONNECTED:
             raise ProtocolError("cannot queue a vendor operation while disconnected")
@@ -1118,12 +1198,12 @@ class OfflineVendorTransactionEngine:
         self._queued = None
         self._write_pending = pending
         return VendorEngineUpdate(
-            write_intent=OfflineWriteIntent(
+            write_intent=OfflineWriteIntent._create(
                 operation_name=pending.operation.name,
                 token=pending.token,
                 endpoint_uuid=pending.operation.request_endpoint_uuid,
                 deadline=pending.deadline,
-                _frame=pending.operation.synthetic_request_for_test(),
+                frame=pending.operation.synthetic_request_for_test(),
             )
         )
 

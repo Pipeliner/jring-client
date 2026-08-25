@@ -997,6 +997,16 @@ for explicit parity tests without rendering either value.
 
 ## Offline vendor transaction model
 
+The accepted strict SDD is [VENDOR_GATT_TRANSACTION.md](VENDOR_GATT_TRANSACTION.md).
+`jring.vendor_gatt_transaction` is the future-adapter foundation: unlike the older
+simulator engine below, it requires the exact primary CCCD action to be dispatched and
+then completed by a successful platform callback before ready. It serializes optional
+RAW setup afterward, exposes durable primary failure and explicit optional degradation,
+checks exact deadlines before every callback, and consumes the connection after one
+possibly dispatched operation. Connection tokens bind disconnects; stale callbacks
+and delayed duplicate responses are inert. Accepted writes and terminal attempts use
+the normalized result contract rather than open success claims. No live adapter exists.
+
 `jring.vendor_transport` models the fail-closed ordering required before any live
 vendor read can exist. It accepts only the closed typed static-query encoders, fixes
 their request/response endpoint roles internally, and uses the corresponding strict

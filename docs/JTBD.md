@@ -379,6 +379,28 @@ Desired outcomes:
 - Account for raw-notification enable and disable orchestration as non-runnable static
   evidence, so a broken disable branch cannot be mistaken for a usable subscription.
 
+### Recover safely from one vendor command attempt
+
+When I authorize one future vendor operation, I want setup, possible dispatch, and an
+exact application response reported separately, so I know whether anything may have
+changed and whether repeating the command is safe.
+
+Desired outcomes:
+
+- Never call a connection ready until the exact primary notification descriptor has a
+  successful platform completion callback.
+- See primary setup failure even when no command was waiting, and continue without RAW
+  only when the failure is definitely confined to that optional capability.
+- Know “no command was sent” versus “the command may have been sent.”
+- Ignore old-generation descriptor, write, notification, and disconnect callbacks.
+- Never automatically repeat a read, setter, control, or unknown-idempotence operation.
+- Reconnect after any possibly dispatched attempt and quarantine delayed duplicates so
+  they cannot close another operation.
+- Keep target identities, frames, values, device identifiers, and addresses out of
+  ordinary output.
+- Disarm assistive input immediately when its exact source capability is not ready,
+  with no catch-up events after reconnect.
+
 ## Opportunity ordering
 
 1. Trust repair: radio-active operations, simulation, provenance, and accepted options

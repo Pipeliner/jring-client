@@ -495,6 +495,15 @@ class ScriptedVendorFakeTransport:
                 )
                 targets[id(target)] = (target, target.uuid)
                 targets_by_metadata_id[metadata_id] = target
+                descriptor_instance_ids = (
+                    record.descriptor_instance_ids
+                    or tuple(
+                        f"{instance_id}-descriptor-{descriptor_index}"
+                        for descriptor_index, _descriptor_uuid in enumerate(
+                            record.descriptor_uuids, start=1
+                        )
+                    )
+                )
                 records.append(
                     GattCharacteristicMetadata(
                         service_uuid=record.service_uuid,
@@ -502,7 +511,7 @@ class ScriptedVendorFakeTransport:
                         properties=record.properties,
                         descriptor_uuids=record.descriptor_uuids,
                         instance_id=instance_id,
-                        descriptor_instance_ids=record.descriptor_instance_ids,
+                        descriptor_instance_ids=descriptor_instance_ids,
                         target=target,
                     )
                 )

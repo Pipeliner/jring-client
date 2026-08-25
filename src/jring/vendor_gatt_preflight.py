@@ -8,11 +8,14 @@ not owner authorization or evidence that the route works on hardware.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import Enum
 from uuid import UUID
 
-from .transport import GattCharacteristicMetadata, GattCharacteristicTarget
+from .transport import (
+    GattCharacteristicMetadata,
+    GattCharacteristicTarget,
+    GattDescriptorTarget,
+)
 from .uuids import (
     VENDOR_CHARACTERISTIC_33F3,
     VENDOR_CHARACTERISTIC_33F4,
@@ -67,13 +70,58 @@ _ROUTE_UUIDS = {
 _CCCD = uuid16(0x2902)
 
 
-@dataclass(frozen=True, repr=False)
 class VendorGattPreflightResult:
-    route: VendorGattRoute
-    code: VendorGattPreflightCode
-    request_target: GattCharacteristicTarget | None = None
-    response_target: GattCharacteristicTarget | None = None
-    cccd_advertised: bool = False
+    __slots__ = (
+        "_route",
+        "_code",
+        "_request_target",
+        "_response_target",
+        "_cccd_target",
+        "_cccd_advertised",
+    )
+
+    def __init__(
+        self,
+        route: VendorGattRoute,
+        code: VendorGattPreflightCode,
+        request_target: GattCharacteristicTarget | None = None,
+        response_target: GattCharacteristicTarget | None = None,
+        cccd_target: GattDescriptorTarget | None = None,
+        cccd_advertised: bool = False,
+    ) -> None:
+        object.__setattr__(self, "_route", route)
+        object.__setattr__(self, "_code", code)
+        object.__setattr__(self, "_request_target", request_target)
+        object.__setattr__(self, "_response_target", response_target)
+        object.__setattr__(self, "_cccd_target", cccd_target)
+        object.__setattr__(self, "_cccd_advertised", cccd_advertised)
+
+    def __setattr__(self, _name: str, _value: object) -> None:
+        raise AttributeError("vendor GATT preflight results are immutable")
+
+    @property
+    def route(self) -> VendorGattRoute:
+        return self._route
+
+    @property
+    def code(self) -> VendorGattPreflightCode:
+        return self._code
+
+    @property
+    def request_target(self) -> GattCharacteristicTarget | None:
+        return self._request_target
+
+    @property
+    def response_target(self) -> GattCharacteristicTarget | None:
+        return self._response_target
+
+    @property
+    def cccd_target(self) -> GattDescriptorTarget | None:
+        return self._cccd_target
+
+    @property
+    def cccd_advertised(self) -> bool:
+        return self._cccd_advertised
 
     @property
     def structurally_ready(self) -> bool:
@@ -104,10 +152,26 @@ class VendorGattPreflightResult:
             f"structurally_ready={self.structurally_ready!r}, has_request_target="
             f"{self.request_target is not None!r}, has_response_target="
             f"{self.response_target is not None!r}, "
+            f"has_cccd_target={self.cccd_target is not None!r}, "
             f"cccd_advertised={self.cccd_advertised!r}, runnable=False, "
             "hardware_eligible=False, hardware_verified=False, "
             "owner_authorized=False)"
         )
+
+    def public_payload(self) -> dict[str, object]:
+        return {
+            "route": self.route.value,
+            "code": self.code.value,
+            "structurally_ready": self.structurally_ready,
+            "has_request_target": self.request_target is not None,
+            "has_response_target": self.response_target is not None,
+            "has_cccd_target": self.cccd_target is not None,
+            "cccd_advertised": self.cccd_advertised,
+            "runnable": False,
+            "hardware_eligible": False,
+            "hardware_verified": False,
+            "owner_authorized": False,
+        }
 
 
 def _failure(
@@ -262,6 +326,16 @@ def resolve_vendor_gatt_route(
         return _failure(route, VendorGattPreflightCode.CCCD_NOT_ADVERTISED)
     if cccd_count != 1:
         return _failure(route, VendorGattPreflightCode.CCCD_AMBIGUOUS)
+    if len(response.descriptor_instance_ids) != len(response.descriptor_uuids):
+        return _failure(route, VendorGattPreflightCode.TARGET_IDENTITY_MISSING)
+    cccd_index = next(
+        index
+        for index, descriptor in enumerate(response.descriptor_uuids)
+        if _uuid(descriptor) == _CCCD
+    )
+    cccd_instance_id = response.descriptor_instance_ids[cccd_index]
+    if not cccd_instance_id:
+        return _failure(route, VendorGattPreflightCode.TARGET_IDENTITY_MISSING)
 
     request_target = request.target
     response_target = response.target
@@ -294,6 +368,14 @@ def resolve_vendor_gatt_route(
         code=VendorGattPreflightCode.STRUCTURALLY_READY,
         request_target=request_target,
         response_target=response_target,
+        cccd_target=GattDescriptorTarget(
+            connection_generation=connection_generation,
+            service_uuid=VENDOR_SERVICE_56FF,
+            characteristic_uuid=response_uuid,
+            characteristic_instance_id=response_target.instance_id,
+            uuid=_CCCD,
+            instance_id=cccd_instance_id,
+        ),
         cccd_advertised=True,
     )
 

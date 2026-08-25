@@ -575,6 +575,22 @@ delivery and is never replayed. This
 model has no hardware transport/client integration and all objects remain static-only
 and hardware-ineligible.
 
+Given the strict future-adapter transaction engine, `connected` never means vendor
+ready. The exact primary descriptor action must have both a recorded dispatch and a
+successful platform callback. Primary setup failure remains visible without a queued
+operation. Optional RAW setup can become `ready_degraded` only after primary success
+and a definite optional failure; it names `raw_notifications` as unavailable. Optional
+dispatch uncertainty requires reconnect. A callback at the exact deadline loses to
+timeout, and an old connection's callback or disconnect is reported only as
+`stale_callback_ignored`.
+
+Human guidance leads with whether a command was sent. Pre-dispatch failures say “No
+command was sent; reconnect and retry setup.” Possible post-dispatch failures say “The
+command may have been sent; reconnect, do not repeat it, and verify the outcome before
+starting a new attempt.” Machine output keeps connection phase, operation stage,
+completeness, replay prohibition, and recovery separate. Assistive input is disarmed
+on any required-capability loss and never catches up events after reconnect.
+
 Given the fake-only vendor coordinator, only the exact scripted transport type is
 accepted. The shared pure route resolver accepts only the closed main and raw pairs,
 requires one connection-scoped target per endpoint, and rejects duplicate UUIDs across

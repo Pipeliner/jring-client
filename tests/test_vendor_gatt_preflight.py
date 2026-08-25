@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import asdict
+
 import pytest
 
 from jring.transport import GattCharacteristicMetadata, GattCharacteristicTarget
@@ -52,6 +54,10 @@ def _metadata(
         properties=properties,
         descriptor_uuids=descriptors,
         instance_id=instance_id,
+        descriptor_instance_ids=tuple(
+            f"{instance_id}-descriptor-{index}"
+            for index, _descriptor in enumerate(descriptors, start=1)
+        ),
         target=target,
     )
 
@@ -99,6 +105,10 @@ def test_closed_main_and_raw_routes_resolve_connection_scoped_targets(route):
     assert result.route is route
     assert result.request_target is metadata[0].target
     assert result.response_target is metadata[1].target
+    assert result.cccd_target is not None
+    assert result.cccd_target.connection_generation == GENERATION
+    assert result.cccd_target.characteristic_instance_id == metadata[1].instance_id
+    assert result.cccd_target.instance_id == f"{route.value}-response-descriptor-1"
     assert result.cccd_advertised is True
     assert result.runnable is False
     assert result.hardware_eligible is False
@@ -129,6 +139,8 @@ def test_preflight_is_pure_metadata_and_exposes_no_runtime_authority():
     assert "payload" not in rendered
     assert "frame" not in rendered
     assert "hardware_eligible=False" in rendered
+    with pytest.raises(TypeError):
+        asdict(result)
 
 
 @pytest.mark.parametrize(
@@ -441,4 +453,28 @@ def test_instance_identity_must_be_unique_across_complete_snapshot():
     )
 
     assert result.code is VendorGattPreflightCode.TARGET_IDENTITY_AMBIGUOUS
+    assert result.structurally_ready is False
+
+
+def test_cccd_without_enumerated_descriptor_identity_is_not_ready():
+    request, response = _route_metadata(VendorGattRoute.MAIN)
+    response_without_descriptor_identity = GattCharacteristicMetadata(
+        service_uuid=response.service_uuid,
+        uuid=response.uuid,
+        properties=response.properties,
+        descriptor_uuids=response.descriptor_uuids,
+        instance_id=response.instance_id,
+        descriptor_instance_ids=(),
+        target=response.target,
+    )
+
+    result = resolve_vendor_gatt_route(
+        VendorGattRoute.MAIN,
+        services={VENDOR_SERVICE_56FF},
+        metadata=(request, response_without_descriptor_identity),
+        connection_generation=GENERATION,
+    )
+
+    assert result.code is VendorGattPreflightCode.TARGET_IDENTITY_MISSING
+    assert result.cccd_target is None
     assert result.structurally_ready is False

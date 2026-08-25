@@ -64,6 +64,17 @@ and classifies an unknown post-dispatch write outcome as uncertain. Subscription
 readiness means only that the transport's high-level activation call completed; it
 does not claim an explicit CCCD write or peripheral descriptor acknowledgement. The
 model has no BLE/client import and cannot make an operation hardware-eligible.
+`jring.vendor_gatt_transaction` is the stricter future-adapter foundation and does not
+replace that legacy simulator model. It consumes only the closed MAIN preflight plus
+the optional RAW preflight, carries exact connection-scoped descriptor and
+characteristic targets, and requires distinct action-dispatch and platform-completion
+records. Primary descriptor completion is mandatory; optional RAW definite failure is
+an explicit degraded state, while uncertain setup requires reconnect. It admits one
+closed registry operation only after readiness and permanently consumes the connection
+after a write may have escaped, so delayed duplicate notifications cannot close later
+work. Accepted writes and terminals emit the shared normalized `OperationResult`;
+parsed values remain outside serializable update state. It emits inert actions only
+and has no client, Bleak, or hardware integration.
 `jring.vendor_runtime_fake` and `jring.vendor_runtime_simulator` exercise that ordering
 against one exact scripted in-memory transport. The coordinator refuses subclasses and
 real transports. `jring.vendor_gatt_preflight` is the shared pure resolver for only the
@@ -106,7 +117,10 @@ arbitrary writes and destructive SUOTA are documented without recreating their a
 The SUOTA model's closed UUID-role inventory is capability metadata only: six required
 transfer/status roles and four optional metadata roles remain non-runnable and
 hardware-ineligible.
-`jring.transport` defines a small async BLE interface and a fake implementation.
+`jring.transport` defines a small async BLE interface and a fake implementation. Its
+descriptor target identifies the exact enumerated CCCD selected by preflight but is
+not runtime authority; a future live transport must additionally validate current
+object ownership.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`
 loads Bleak lazily. `jring.cli` requires either same-process confirmed selection or an
