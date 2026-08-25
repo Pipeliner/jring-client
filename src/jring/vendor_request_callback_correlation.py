@@ -7,6 +7,7 @@ unknown completion, without storing packets or constructing a transport.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 
 from .vendor_codec_registry import REQUEST_CODEC_LOCATORS
@@ -50,6 +51,19 @@ class RecoveredRequestCallbackCorrelations:
         return sum(
             row.relationship_state == "explicitly_unresolved" for row in self.rows
         )
+
+    @property
+    def rows_with_unresolved_reasons_count(self) -> int:
+        """Count every row retaining a caveat, not only wholly unclosed rows."""
+
+        return sum(bool(row.unresolved_reasons) for row in self.rows)
+
+    @property
+    def terminal_rule_counts(self) -> tuple[tuple[str, int], ...]:
+        """Return the complete terminal-rule denominator in stable order."""
+
+        counts = Counter(row.terminal_rule for row in self.rows)
+        return tuple(sorted(counts.items()))
 
     @property
     def maturity(self) -> str:

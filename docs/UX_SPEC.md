@@ -303,7 +303,12 @@ therefore makes the recovered enable-on-disable defect visible without making it
 
 Given `jring protocol-coverage`, a person receives a local-only summary of all request
 and callback entries, offline codec counts, route/source totals, and zero live or
-hardware-verified vendor operations. A separately labeled supplemental section reports
+hardware-verified vendor operations. Correlation reporting distinguishes the 20 wholly
+unclosed rows from all 58 rows carrying explicit caveats and enumerates every terminal
+rule: 36 single matched responses, 29 with no proven terminal, 17 per-frame-only, two
+local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown. It never
+presents the wholly unclosed count as the complete terminal-gap denominator. A
+separately labeled supplemental section reports
 recovered session transitions, adversarial races, and source-labeled binding reactions;
 it explicitly says these are not interface entries and therefore never inflates the
 112-request or 105-callback ledgers. The same supplement begins with `Static source

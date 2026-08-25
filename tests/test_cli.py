@@ -318,7 +318,12 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     ) in output
     assert (
         "Request/callback correlation: 85/85 deterministic request rows; "
-        "0 unspecified; 20 explicitly unresolved."
+        "0 unspecified; 20 wholly unclosed; 58 carry explicit caveats."
+    ) in output
+    assert (
+        "Terminal rules: 36 single matched response; 29 none proven; "
+        "17 per-frame only; 2 local quiet unknown; 1 metadata/marker or local "
+        "quiet unknown."
     ) in output
     assert (
         "Owned app interface use: 51/112 request targets across 152 direct "
@@ -373,6 +378,17 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["request_correlation_rows"] == 85
     assert result["summary"]["request_correlation_unspecified"] == 0
     assert result["summary"]["request_correlation_explicitly_unresolved"] == 20
+    assert result["summary"]["request_correlation_rows_with_caveats"] == 58
+    assert result["summary"]["request_correlation_terminal_rules"] == [
+        {"rule": "local_quiet_unknown", "count": 2},
+        {
+            "rule": "metadata_or_explicit_marker_else_local_quiet_unknown",
+            "count": 1,
+        },
+        {"rule": "none_proven", "count": 29},
+        {"rule": "per_frame_only", "count": 17},
+        {"rule": "single_matched_response", "count": 36},
+    ]
     assert result["summary"]["app_direct_request_targets"] == 51
     assert result["summary"]["app_direct_request_invokes"] == 152
     assert result["summary"]["directly_invoked_callbacks"] == 103
@@ -469,6 +485,17 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert len(request_correlations["rows"]) == 85
     assert request_correlations["unspecified_count"] == 0
     assert request_correlations["explicitly_unresolved_count"] == 20
+    assert request_correlations["rows_with_unresolved_reasons_count"] == 58
+    assert request_correlations["terminal_rule_counts"] == [
+        {"rule": "local_quiet_unknown", "count": 2},
+        {
+            "rule": "metadata_or_explicit_marker_else_local_quiet_unknown",
+            "count": 1,
+        },
+        {"rule": "none_proven", "count": 29},
+        {"rule": "per_frame_only", "count": 17},
+        {"rule": "single_matched_response", "count": 36},
+    ]
     assert request_correlations["runnable"] is False
     assert request_correlations["hardware_eligible"] is False
     assert len(binder["callback"]["rows"]) == 105

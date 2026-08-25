@@ -137,11 +137,14 @@ fixed 20-byte, checksum-free builders; 31 use the source main queue and six the 
 queue. Only sensor-session start/stop are front-inserted. Source gates, logging, queue
 draining, alarm partial-enqueue behavior, and dial-state queue clearing are explicitly
 not reproduced.
-The report also gives every deterministic request codec one closed request/callback
+The report also gives every deterministic request codec one request/callback
 correlation row. Proven single responses, shared streams, stateful families, raw event
 candidates, callback-silent failures, and explicit unknowns remain distinct. Twenty
-rows still have no exact terminal relationship; local quiet is never promoted to
-success, and matching requires an operation token plus connection generation.
+rows are wholly unclosed, while 58 of 85 retain at least one explicit caveat. Terminal
+rules comprise 36 single matched responses, 29 with no proven terminal, 17 per-frame
+only, two local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown.
+Local quiet is never promoted to success, and matching requires an operation token
+plus connection generation.
 The fake-only transaction simulator can now compose all seven query families, the
 screen-light subcommand, and all eight typed settings families. A synthetic mutation
 acknowledgement is parsed through the same closed correlation rules; this still creates

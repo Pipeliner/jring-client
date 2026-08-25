@@ -19,6 +19,15 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
     assert all(row.relationship_state != "unspecified" for row in rows.values())
     assert all(row.callbacks or row.unresolved_reasons for row in rows.values())
     assert evidence.unspecified_count == 0
+    assert evidence.explicitly_unresolved_count == 20
+    assert evidence.rows_with_unresolved_reasons_count == 58
+    assert evidence.terminal_rule_counts == (
+        ("local_quiet_unknown", 2),
+        ("metadata_or_explicit_marker_else_local_quiet_unknown", 1),
+        ("none_proven", 29),
+        ("per_frame_only", 17),
+        ("single_matched_response", 36),
+    )
     assert evidence.runnable is False
     assert evidence.hardware_eligible is False
     assert evidence.hardware_verified is False

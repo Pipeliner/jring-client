@@ -365,6 +365,13 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "request_correlation_explicitly_unresolved": (
                 request_correlations.explicitly_unresolved_count
             ),
+            "request_correlation_rows_with_caveats": (
+                request_correlations.rows_with_unresolved_reasons_count
+            ),
+            "request_correlation_terminal_rules": [
+                {"rule": rule, "count": count}
+                for rule, count in request_correlations.terminal_rule_counts
+            ],
             "app_direct_request_targets": app_use.direct_request_target_count,
             "app_direct_request_invokes": app_use.direct_request_invoke_count,
             "directly_invoked_callbacks": (
@@ -598,6 +605,13 @@ def _protocol_coverage_payload() -> dict[str, object]:
                 "explicitly_unresolved_count": (
                     request_correlations.explicitly_unresolved_count
                 ),
+                "rows_with_unresolved_reasons_count": (
+                    request_correlations.rows_with_unresolved_reasons_count
+                ),
+                "terminal_rule_counts": [
+                    {"rule": rule, "count": count}
+                    for rule, count in request_correlations.terminal_rule_counts
+                ],
                 "maturity": request_correlations.maturity,
                 "runnable": request_correlations.runnable,
                 "python_callable": request_correlations.python_callable,
@@ -947,7 +961,21 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         "Request/callback correlation: "
         f"{summary['request_correlation_rows']}/85 deterministic request rows; "
         f"{summary['request_correlation_unspecified']} unspecified; "
-        f"{summary['request_correlation_explicitly_unresolved']} explicitly unresolved."
+        f"{summary['request_correlation_explicitly_unresolved']} wholly unclosed; "
+        f"{summary['request_correlation_rows_with_caveats']} carry explicit caveats."
+    )
+    terminal_rules = {
+        item["rule"]: item["count"]
+        for item in summary["request_correlation_terminal_rules"]
+    }
+    print(
+        "Terminal rules: "
+        f"{terminal_rules['single_matched_response']} single matched response; "
+        f"{terminal_rules['none_proven']} none proven; "
+        f"{terminal_rules['per_frame_only']} per-frame only; "
+        f"{terminal_rules['local_quiet_unknown']} local quiet unknown; "
+        f"{terminal_rules['metadata_or_explicit_marker_else_local_quiet_unknown']} "
+        "metadata/marker or local quiet unknown."
     )
     print(
         "Owned app interface use: "
