@@ -42,9 +42,19 @@ _PYTHON_PRIVATE_VALUE = re.compile(
     r"(?:raw_bytes|raw_payload|raw_report|report_map)\s*=\s*"
     r"(?:[rubf]*['\"][0-9a-f]|[-+]?\d))"
 )
+_OWNER_AUTHORIZED_SOURCE = "owner_" + "authorized"
+_PRIVATE_DEVICE_INFO_KIND = "private_owner_" + "device_info_observation"
 _EMBEDDED_OWNER_LEDGER = re.compile(
     r"(?im)['\"]?source['\"]?\s*"
-    r"(?::|(?<![=!])=(?!=))\s*['\"]?owner_authorized['\"]?"
+    r"(?::|(?<![=!])=(?!=))\s*['\"]?"
+    + re.escape(_OWNER_AUTHORIZED_SOURCE)
+    + r"['\"]?"
+)
+_EMBEDDED_PRIVATE_DEVICE_INFO = re.compile(
+    r"(?im)['\"]?manifest_kind['\"]?\s*"
+    r"(?::|(?<![=!])=(?!=))\s*['\"]?"
+    + re.escape(_PRIVATE_DEVICE_INFO_KIND)
+    + r"['\"]?"
 )
 _EMBEDDED_MEASUREMENT = re.compile(
     r"(?im)(?:['\"](?:blood_pressure|heart_rate|spo2|temperature)['\"]|"
@@ -117,7 +127,7 @@ _TOP_LEVEL_FIELDS = {
 }
 _OPERATIONS = {"service_inventory", "device_information", "neutral_event"}
 _CONFIDENCE = {"synthetic", "low", "medium", "high"}
-_SOURCES = {"synthetic", "owner_authorized"}
+_SOURCES = {"synthetic", _OWNER_AUTHORIZED_SOURCE}
 _METHODS = {"synthetic_construction", "manual_gatt_inventory", "sanitized_tool_export"}
 _PUBLIC_CLAIM_FIELDS = {
     "schema_version",
@@ -198,6 +208,85 @@ _NO_RUNTIME_AUTHORITY = {
     "hardware_eligible": False,
     "hardware_verified": False,
     "generic_vendor_io_authorized": False,
+}
+_PRIVATE_DEVICE_INFO_FIELDS = {
+    "schema_version",
+    "manifest_kind",
+    "evidence_id",
+    "provenance",
+    "consent",
+    "evidence_scope",
+    "operation",
+    "route_observation",
+    "dispatch_observation",
+    "response_observation",
+    "cleanup_observation",
+    "attempt_outcome",
+    "redactions",
+    "authority",
+}
+_PRIVATE_DEVICE_INFO_PROVENANCE = {
+    "source": _OWNER_AUTHORIZED_SOURCE,
+    "collection_method": "self_declared_historical_record",
+    "original_retained": False,
+}
+_PRIVATE_DEVICE_INFO_CONSENT = {
+    "collection": "granted_for_observed_single_attempt",
+    "operation_execution": "granted_for_observed_single_attempt",
+    "repeat_execution": "not_granted",
+    "publication": "not_granted",
+}
+_PRIVATE_DEVICE_INFO_OPERATION = {
+    "operation_id": _DEVICE_INFO_OPERATION,
+    "route": "main",
+    "write_kind": "gatt_write_with_response",
+    "terminal_rule": "single_matched_response",
+    "retry_policy": "none",
+}
+_PRIVATE_DEVICE_INFO_REDACTIONS = {
+    "bluetooth_addresses",
+    "bluez_paths",
+    "account_identifiers",
+    "precise_timestamps",
+    "unique_device_identifiers",
+    "exact_model",
+    "exact_firmware",
+    "raw_requests",
+    "raw_responses",
+    "decoded_device_information",
+    "health_measurements",
+}
+_PRIVATE_DEVICE_INFO_AUTHORITY = {
+    "purpose": "evidence_only",
+    "runtime_authorized": False,
+    "repeat_execution_authorized": False,
+    "live_eligible": False,
+    "publication_authorized": False,
+    "generic_vendor_io_authorized": False,
+    "hardware_support_claimed": False,
+    "model_family_support_claimed": False,
+    "firmware_major_support_claimed": False,
+}
+_PREFLIGHT_CODES = {
+    "structurally_ready",
+    "invalid_connection_generation",
+    "malformed_service_inventory",
+    "malformed_metadata",
+    "service_not_advertised",
+    "request_endpoint_missing",
+    "response_endpoint_missing",
+    "request_endpoint_ambiguous",
+    "response_endpoint_ambiguous",
+    "request_endpoint_wrong_service",
+    "response_endpoint_wrong_service",
+    "response_write_unavailable",
+    "notify_unavailable",
+    "cccd_not_advertised",
+    "cccd_ambiguous",
+    "target_identity_missing",
+    "target_identity_ambiguous",
+    "target_generation_mismatch",
+    "target_metadata_mismatch",
 }
 _FORBIDDEN_NAMES = (".pcap", ".pcapng", ".btsnoop", ".hcidump")
 _FORBIDDEN_SUFFIXES = {".har", ".apk", ".xapk"}
@@ -348,7 +437,7 @@ def validate_manifest(manifest: object) -> dict[str, Any]:
     ):
         _reject("invalid_manifest", "synthetic provenance")
     if (
-        provenance["source"] == "owner_authorized"
+        provenance["source"] == _OWNER_AUTHORIZED_SOURCE
         and provenance["collection_method"] == "synthetic_construction"
     ):
         _reject("invalid_manifest", "owner provenance")
@@ -477,6 +566,449 @@ def validate_public_claim(claim: object) -> dict[str, Any]:
     return root
 
 
+def validate_private_device_info_manifest(manifest: object) -> dict[str, Any]:
+    """Validate one historical, private device-info observation.
+
+    This validates internal consistency only. It authenticates neither the owner nor
+    the observation and never grants authority for another Bluetooth attempt.
+    """
+
+    _scan_sensitive(manifest)
+    root = _mapping(manifest, "private manifest")
+    _exact_fields(root, _PRIVATE_DEVICE_INFO_FIELDS, "private manifest fields")
+    if type(root.get("schema_version")) is not int or root["schema_version"] != 2:
+        _reject("invalid_manifest", "schema_version")
+    if root.get("manifest_kind") != _PRIVATE_DEVICE_INFO_KIND:
+        _reject("invalid_manifest", "manifest_kind")
+    if root.get("evidence_id") != "withheld":
+        _reject("invalid_manifest", "evidence_id")
+
+    for field, expected in (
+        ("provenance", _PRIVATE_DEVICE_INFO_PROVENANCE),
+        ("consent", _PRIVATE_DEVICE_INFO_CONSENT),
+        ("operation", _PRIVATE_DEVICE_INFO_OPERATION),
+        ("authority", _PRIVATE_DEVICE_INFO_AUTHORITY),
+    ):
+        if not _strict_equal(root.get(field), expected):
+            _reject("invalid_manifest", field)
+
+    scope = _mapping(root.get("evidence_scope"), "evidence_scope")
+    _exact_fields(
+        scope,
+        {
+            "observation_scope",
+            "generation_ref",
+            "model_family",
+            "firmware_major",
+            "model_scope",
+            "firmware_scope",
+            "protocol_evidence_contract",
+            "generalization",
+        },
+        "evidence_scope fields",
+    )
+    fixed_scope = {
+        "observation_scope": "single_attempt_single_generation",
+        "generation_ref": "manifest_local_generation_1",
+        "model_family": "withheld",
+        "firmware_major": "withheld",
+        "model_scope": "not_recorded",
+        "firmware_scope": "not_recorded",
+        "protocol_evidence_contract": "device_info_static_aggregate_v1",
+        "generalization": "none",
+    }
+    if any(scope.get(name) != value for name, value in fixed_scope.items()):
+        _reject("invalid_manifest", "evidence_scope")
+
+    route = _mapping(root.get("route_observation"), "route_observation")
+    _exact_fields(
+        route,
+        {
+            "generation_ref",
+            "connection_attempt_count",
+            "connection_outcome",
+            "metadata_snapshot",
+            "preflight_result",
+            "request_target_ownership",
+            "response_target_ownership",
+            "values_read",
+        },
+        "route_observation fields",
+    )
+    if route.get("generation_ref") != scope["generation_ref"]:
+        _reject("invalid_manifest", "route_observation.generation_ref")
+    if type(route.get("connection_attempt_count")) is not int or route[
+        "connection_attempt_count"
+    ] not in {0, 1}:
+        _reject("invalid_manifest", "route_observation.connection_attempt_count")
+    if route.get("connection_outcome") not in {
+        "not_attempted",
+        "failed",
+        "connected",
+        "outcome_unknown",
+    }:
+        _reject("invalid_manifest", "route_observation.connection_outcome")
+    if (route["connection_attempt_count"] == 0) != (
+        route["connection_outcome"] == "not_attempted"
+    ):
+        _reject("invalid_manifest", "route_observation connection count")
+    if route.get("metadata_snapshot") not in {
+        "not_evaluated",
+        "complete",
+        "unavailable",
+        "timed_out",
+    }:
+        _reject("invalid_manifest", "route_observation.metadata_snapshot")
+    if route.get("preflight_result") not in _PREFLIGHT_CODES | {"not_evaluated"}:
+        _reject("invalid_manifest", "route_observation.preflight_result")
+    ownership = {"not_established", "confirmed_current_generation"}
+    if route.get("request_target_ownership") not in ownership or route.get(
+        "response_target_ownership"
+    ) not in ownership:
+        _reject("invalid_manifest", "route_observation target ownership")
+    if route.get("values_read") is not False:
+        _reject("invalid_manifest", "route_observation.values_read")
+
+    connected = route["connection_outcome"] == "connected"
+    connection_unknown = route["connection_outcome"] == "outcome_unknown"
+    ready = route["preflight_result"] == "structurally_ready"
+    targets_owned = (
+        route["request_target_ownership"] == "confirmed_current_generation"
+        and route["response_target_ownership"] == "confirmed_current_generation"
+    )
+    if ready != (connected and route["metadata_snapshot"] == "complete" and targets_owned):
+        _reject("invalid_manifest", "route_observation readiness")
+    if not ready and any(
+        route[name] != "not_established"
+        for name in ("request_target_ownership", "response_target_ownership")
+    ):
+        _reject("invalid_manifest", "route_observation target ownership")
+    if not connected and (
+        route["metadata_snapshot"] != "not_evaluated"
+        or route["preflight_result"] != "not_evaluated"
+    ):
+        _reject("invalid_manifest", "route_observation connection")
+    if connected and route["metadata_snapshot"] != "complete" and route[
+        "preflight_result"
+    ] != "not_evaluated":
+        _reject("invalid_manifest", "route_observation metadata")
+
+    dispatch = _mapping(root.get("dispatch_observation"), "dispatch_observation")
+    _exact_fields(
+        dispatch,
+        {
+            "subscription_attempt_count",
+            "subscription_outcome",
+            "cccd_acknowledgement",
+            "write_attempt_count",
+            "write_outcome",
+            "write_order",
+            "retry_count",
+        },
+        "dispatch_observation fields",
+    )
+    for name in ("subscription_attempt_count", "write_attempt_count"):
+        if type(dispatch.get(name)) is not int or dispatch[name] not in {0, 1}:
+            _reject("invalid_manifest", f"dispatch_observation.{name}")
+    if type(dispatch.get("retry_count")) is not int or dispatch["retry_count"] != 0:
+        _reject("invalid_manifest", "dispatch_observation.retry_count")
+    subscription_states = {
+        "not_attempted",
+        "transport_call_completed",
+        "failed_before_completion",
+        "outcome_unknown",
+    }
+    write_states = {
+        "not_attempted",
+        "att_write_response_completed",
+        "definitely_not_dispatched",
+        "outcome_unknown",
+    }
+    if dispatch.get("subscription_outcome") not in subscription_states:
+        _reject("invalid_manifest", "dispatch_observation.subscription_outcome")
+    if dispatch.get("write_outcome") not in write_states:
+        _reject("invalid_manifest", "dispatch_observation.write_outcome")
+    if dispatch.get("cccd_acknowledgement") != "not_independently_observed":
+        _reject("invalid_manifest", "dispatch_observation.cccd_acknowledgement")
+    if (dispatch["subscription_attempt_count"] == 0) != (
+        dispatch["subscription_outcome"] == "not_attempted"
+    ):
+        _reject("invalid_manifest", "dispatch_observation subscription count")
+    if (dispatch["write_attempt_count"] == 0) != (
+        dispatch["write_outcome"] == "not_attempted"
+    ):
+        _reject("invalid_manifest", "dispatch_observation write count")
+    expected_write_order = (
+        "not_applicable"
+        if dispatch["write_attempt_count"] == 0
+        else "after_subscription_completion"
+    )
+    if dispatch.get("write_order") != expected_write_order:
+        _reject("invalid_manifest", "dispatch_observation.write_order")
+    if not ready and (
+        dispatch["subscription_attempt_count"] != 0
+        or dispatch["write_attempt_count"] != 0
+    ):
+        _reject("invalid_manifest", "dispatch_observation route gate")
+    if dispatch["write_attempt_count"] and dispatch[
+        "subscription_outcome"
+    ] != "transport_call_completed":
+        _reject("invalid_manifest", "dispatch_observation subscription gate")
+
+    response = _mapping(root.get("response_observation"), "response_observation")
+    _exact_fields(
+        response,
+        {
+            "terminal_outcome",
+            "matched_terminal_count",
+            "callback_projection",
+            "parser_outcome",
+            "integrity_outcome",
+            "identifier_projection",
+            "decoded_projection",
+            "generation_match",
+            "terminal_acceptance",
+            "absence_reason",
+        },
+        "response_observation fields",
+    )
+    terminal = response.get("terminal_outcome")
+    response_matrix = {
+        "not_observed": (0, "not_observed", "not_attempted", {"not_evaluated"}),
+        "success_response": (1, "accepted", "accepted", {"valid", "invalid"}),
+        "device_failure": (
+            1,
+            "suppressed_failure",
+            "not_attempted",
+            {"not_evaluated"},
+        ),
+        "malformed_response": (
+            1,
+            "suppressed_malformed",
+            "rejected",
+            {"not_evaluated"},
+        ),
+    }
+    if terminal not in response_matrix:
+        _reject("invalid_manifest", "response_observation.terminal_outcome")
+    count, callback, parser, integrities = response_matrix[terminal]
+    if (
+        type(response.get("matched_terminal_count")) is not int
+        or response["matched_terminal_count"] != count
+        or response.get("callback_projection") != callback
+        or response.get("parser_outcome") != parser
+        or response.get("integrity_outcome") not in integrities
+    ):
+        _reject("invalid_manifest", "response_observation state")
+    if response.get("identifier_projection") != "not_materialized" or response.get(
+        "decoded_projection"
+    ) != "not_retained":
+        _reject("invalid_manifest", "response_observation privacy")
+    absence_reasons = {
+        "write_not_dispatched",
+        "deadline_elapsed_after_possible_dispatch",
+        "cancelled_after_possible_dispatch",
+        "disconnected_after_possible_dispatch",
+        "unrelated_notifications_only",
+        "callback_overflow",
+    }
+    if terminal == "not_observed":
+        if response.get("generation_match") != "not_observed" or response.get(
+            "terminal_acceptance"
+        ) != "not_applicable":
+            _reject("invalid_manifest", "response_observation acceptance")
+        if response.get("absence_reason") not in absence_reasons:
+            _reject("invalid_manifest", "response_observation.absence_reason")
+    else:
+        expected_acceptance = (
+            "after_write_completion_current_generation"
+            if dispatch["write_outcome"] == "att_write_response_completed"
+            else "observed_current_generation_write_completion_unconfirmed"
+        )
+        if (
+            response.get("generation_match") != "confirmed_current_generation"
+            or response.get("terminal_acceptance") != expected_acceptance
+            or response.get("absence_reason") != "not_applicable"
+        ):
+            _reject("invalid_manifest", "response_observation acceptance")
+    if terminal != "not_observed" and (
+        dispatch["write_attempt_count"] != 1
+        or dispatch["write_outcome"]
+        not in {"att_write_response_completed", "outcome_unknown"}
+    ):
+        _reject("invalid_manifest", "response_observation dispatch gate")
+    if (
+        dispatch["write_outcome"] in {"not_attempted", "definitely_not_dispatched"}
+        and terminal != "not_observed"
+    ):
+        _reject("invalid_manifest", "response_observation dispatch outcome")
+    possible_dispatch = dispatch["write_outcome"] in {
+        "att_write_response_completed",
+        "outcome_unknown",
+    }
+    if terminal == "not_observed" and (
+        (response["absence_reason"] == "write_not_dispatched") == possible_dispatch
+    ):
+        _reject("invalid_manifest", "response_observation absence dispatch")
+
+    cleanup = _mapping(root.get("cleanup_observation"), "cleanup_observation")
+    _exact_fields(
+        cleanup,
+        {
+            "callback_acceptance",
+            "unsubscribe_attempt_count",
+            "unsubscribe_outcome",
+            "disconnect_attempt_count",
+            "disconnect_outcome",
+            "late_callback_disposition",
+            "cleanup_sequence",
+            "cleanup_outcome",
+        },
+        "cleanup_observation fields",
+    )
+    if cleanup.get("callback_acceptance") not in {
+        "disabled_before_cleanup",
+        "not_confirmed",
+    }:
+        _reject("invalid_manifest", "cleanup_observation.callback_acceptance")
+    for name in ("unsubscribe_attempt_count", "disconnect_attempt_count"):
+        if type(cleanup.get(name)) is not int or cleanup[name] not in {0, 1}:
+            _reject("invalid_manifest", f"cleanup_observation.{name}")
+    unsubscribe_actions = {
+        "completed",
+        "failed",
+        "outcome_unknown",
+    }
+    disconnect_actions = {
+        "completed",
+        "failed",
+        "outcome_unknown",
+        "already_disconnected",
+    }
+    if cleanup.get("unsubscribe_outcome") not in unsubscribe_actions | {
+        "not_required"
+    } or cleanup.get("disconnect_outcome") not in disconnect_actions | {
+        "not_required"
+    }:
+        _reject("invalid_manifest", "cleanup_observation action outcome")
+    if cleanup.get("late_callback_disposition") not in {
+        "none_observed",
+        "discarded",
+        "not_observable",
+    }:
+        _reject("invalid_manifest", "cleanup_observation late callback")
+    if dispatch["subscription_attempt_count"] == 0 and cleanup[
+        "late_callback_disposition"
+    ] != "none_observed":
+        _reject("invalid_manifest", "cleanup_observation late callback")
+    if cleanup["callback_acceptance"] == "not_confirmed" and cleanup[
+        "late_callback_disposition"
+    ] != "not_observable":
+        _reject("invalid_manifest", "cleanup_observation callback visibility")
+    if cleanup["callback_acceptance"] == "disabled_before_cleanup" and cleanup[
+        "late_callback_disposition"
+    ] == "not_observable":
+        _reject("invalid_manifest", "cleanup_observation callback visibility")
+    if cleanup.get("cleanup_outcome") not in {
+        "confirmed",
+        "failed",
+        "outcome_unknown",
+        "not_required",
+    }:
+        _reject("invalid_manifest", "cleanup_observation.cleanup_outcome")
+    if (dispatch["subscription_attempt_count"] == 0) != (
+        cleanup["unsubscribe_attempt_count"] == 0
+        and cleanup["unsubscribe_outcome"] == "not_required"
+    ):
+        _reject("invalid_manifest", "cleanup_observation unsubscribe")
+    if dispatch["subscription_attempt_count"] == 1 and (
+        cleanup["unsubscribe_attempt_count"] != 1
+        or cleanup["unsubscribe_outcome"] == "not_required"
+    ):
+        _reject("invalid_manifest", "cleanup_observation unsubscribe")
+    must_disconnect = connected or connection_unknown
+    if must_disconnect != (cleanup["disconnect_attempt_count"] == 1):
+        _reject("invalid_manifest", "cleanup_observation disconnect count")
+    if must_disconnect == (cleanup["disconnect_outcome"] == "not_required"):
+        _reject("invalid_manifest", "cleanup_observation disconnect")
+    if cleanup["unsubscribe_attempt_count"] == 0:
+        expected_sequence = (
+            "disconnect_only"
+            if cleanup["disconnect_attempt_count"] == 1
+            else "no_cleanup_actions"
+        )
+    else:
+        expected_sequence = "unsubscribe_then_disconnect"
+    if cleanup.get("cleanup_sequence") != expected_sequence:
+        _reject("invalid_manifest", "cleanup_observation.cleanup_sequence")
+
+    action_states = (cleanup["unsubscribe_outcome"], cleanup["disconnect_outcome"])
+    unsubscribe_confirmed = cleanup["unsubscribe_outcome"] in {
+        "not_required",
+        "completed",
+    }
+    disconnect_confirmed = cleanup["disconnect_outcome"] in {
+        "not_required",
+        "completed",
+        "already_disconnected",
+    }
+    action_confirmed = (
+        unsubscribe_confirmed
+        and disconnect_confirmed
+        and cleanup["callback_acceptance"] == "disabled_before_cleanup"
+    )
+    if action_confirmed:
+        expected_cleanup = (
+            "not_required"
+            if all(state == "not_required" for state in action_states)
+            else "confirmed"
+        )
+    elif "failed" in action_states:
+        expected_cleanup = "failed"
+    else:
+        expected_cleanup = "outcome_unknown"
+    if cleanup["cleanup_outcome"] != expected_cleanup:
+        _reject("invalid_manifest", "cleanup_observation aggregate")
+
+    if connection_unknown:
+        expected_attempt = "uncertain"
+    elif dispatch["write_outcome"] == "outcome_unknown":
+        expected_attempt = "uncertain"
+    elif (
+        dispatch["write_outcome"] == "att_write_response_completed"
+        and terminal == "success_response"
+        and response["integrity_outcome"] == "valid"
+        and cleanup["cleanup_outcome"] == "confirmed"
+    ):
+        expected_attempt = "succeeded"
+    elif terminal == "device_failure" and cleanup["cleanup_outcome"] == "confirmed":
+        expected_attempt = "device_rejected"
+    elif (
+        terminal == "success_response"
+        and response["integrity_outcome"] == "invalid"
+        and cleanup["cleanup_outcome"] == "confirmed"
+    ):
+        expected_attempt = "rejected_bad_integrity"
+    elif terminal == "malformed_response" and cleanup["cleanup_outcome"] == "confirmed":
+        expected_attempt = "rejected_malformed_response"
+    elif (
+        dispatch["write_outcome"] in {"not_attempted", "definitely_not_dispatched"}
+        and terminal == "not_observed"
+        and cleanup["cleanup_outcome"] in {"confirmed", "not_required"}
+    ):
+        expected_attempt = "aborted"
+    else:
+        expected_attempt = "uncertain"
+    if root.get("attempt_outcome") != expected_attempt:
+        _reject("invalid_manifest", "attempt_outcome")
+
+    redactions = _mapping(root.get("redactions"), "redactions")
+    _exact_fields(redactions, _PRIVATE_DEVICE_INFO_REDACTIONS, "redactions")
+    if any(value is not True for value in redactions.values()):
+        _reject("invalid_manifest", "redactions")
+    return root
+
+
 def derive_fixture(manifest: object) -> dict[str, Any]:
     safe = validate_manifest(manifest)
     source = safe["provenance"]["source"]
@@ -521,25 +1053,75 @@ def serialize_fixture(fixture: dict[str, Any]) -> str:
     return json.dumps(fixture, indent=2, sort_keys=True) + "\n"
 
 
-def load_manifest(path: Path) -> dict[str, Any]:
+def _artifact_kind(payload: object) -> str:
+    if not isinstance(payload, dict):
+        _reject("invalid_manifest", "artifact kind")
+    version = payload.get("schema_version")
+    if type(version) is not int:
+        _reject("invalid_manifest", "schema_version")
+    if version == 1:
+        return "legacy_manifest"
+    if version != 2:
+        _reject("invalid_manifest", "schema_version")
+    if "manifest_kind" in payload:
+        if payload.get("manifest_kind") != _PRIVATE_DEVICE_INFO_KIND:
+            _reject("invalid_manifest", "manifest_kind")
+        if "claim_id" in payload:
+            _reject("invalid_manifest", "artifact kind")
+        return "private_device_info_observation"
+    if "claim_id" in payload:
+        return "public_claim"
+    _reject("invalid_manifest", "artifact kind")
+
+
+def _read_artifact(path: Path) -> tuple[object, os.stat_result]:
+    flags = os.O_RDONLY | os.O_NONBLOCK
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = -1
     try:
-        details = path.lstat()
+        descriptor = os.open(path, flags)
+        details = os.fstat(descriptor)
         if not stat.S_ISREG(details.st_mode) or details.st_size > _MAX_MANIFEST_BYTES:
             _reject("invalid_manifest", "input file")
-        with path.open("r", encoding="utf-8") as handle:
-            manifest = json.load(handle)
+        chunks = []
+        remaining = _MAX_MANIFEST_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, remaining)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        content = b"".join(chunks)
+        if len(content) > _MAX_MANIFEST_BYTES:
+            _reject("invalid_manifest", "input file")
+        artifact = json.loads(content.decode("utf-8"))
     except EvidenceError:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise EvidenceError("invalid_manifest", "input file") from exc
-    version = manifest.get("schema_version") if isinstance(manifest, dict) else None
-    if type(version) is not int:
-        _reject("invalid_manifest", "schema_version")
-    safe = validate_manifest(manifest) if version == 1 else validate_public_claim(manifest)
-    if (
-        version == 1
-        and safe["provenance"]["source"] == "owner_authorized"
-        and details.st_mode & 0o077
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    return artifact, details
+
+
+def load_manifest(path: Path) -> dict[str, Any]:
+    artifact, details = _read_artifact(path)
+    kind = _artifact_kind(artifact)
+    validators = {
+        "legacy_manifest": validate_manifest,
+        "public_claim": validate_public_claim,
+        "private_device_info_observation": validate_private_device_info_manifest,
+    }
+    safe = validators[kind](artifact)
+    private = kind == "private_device_info_observation" or (
+        kind == "legacy_manifest"
+        and safe["provenance"]["source"] == _OWNER_AUTHORIZED_SOURCE
+    )
+    if private and (
+        details.st_uid != os.geteuid()
+        or stat.S_IMODE(details.st_mode) not in {0o400, 0o600}
     ):
         _reject("unsafe_permissions", "input file")
     return safe
@@ -622,13 +1204,38 @@ def _looks_like_evidence(payload: object) -> bool:
         return False
     fields = set(payload)
     return (
-        {"provenance", "redactions"} <= fields
+        "manifest_kind" in fields
+        or {"provenance", "redactions"} <= fields
         or {"operation", "protocol", "runtime_authority"} <= fields
     )
 
 
+def _is_private_evidence(payload: object) -> bool:
+    if isinstance(payload, str):
+        return _contains_embedded_private_evidence(payload)
+    if isinstance(payload, list):
+        return any(_is_private_evidence(item) for item in payload)
+    if not isinstance(payload, dict):
+        return False
+    if payload.get("manifest_kind") == _PRIVATE_DEVICE_INFO_KIND:
+        return True
+    provenance = payload.get("provenance")
+    if isinstance(provenance, dict) and provenance.get("source") == (
+        _OWNER_AUTHORIZED_SOURCE
+    ):
+        return True
+    return any(_is_private_evidence(value) for value in payload.values())
+
+
+def _contains_embedded_private_evidence(text: str) -> bool:
+    return bool(
+        _EMBEDDED_OWNER_LEDGER.search(text)
+        or _EMBEDDED_PRIVATE_DEVICE_INFO.search(text)
+    )
+
+
 def _scan_repository_text(text: str, path: Path) -> None:
-    if _EMBEDDED_OWNER_LEDGER.search(text):
+    if _contains_embedded_private_evidence(text):
         _reject("private_evidence", "repository evidence")
     public_json_claim_markers = (
         re.search(r"(?is)['\"]schema_version['\"]\s*:\s*2\b", text),
@@ -696,8 +1303,9 @@ def scan_repository(root: Path) -> None:
         is_evidence = reserved_suffix is not None and path.name.endswith(
             reserved_suffix
         )
-        if reserved_suffix is not None and not is_evidence:
-            _reject("invalid_fixture", "repository evidence")
+        has_case_variant_evidence_suffix = (
+            reserved_suffix is not None and not is_evidence
+        )
 
         try:
             text_content = path.read_text(encoding="utf-8")
@@ -708,6 +1316,8 @@ def scan_repository(root: Path) -> None:
                 raise EvidenceError("unsafe_content", "repository data") from exc
         except OSError as exc:
             raise EvidenceError("unsafe_content", "repository data") from exc
+        if _contains_embedded_private_evidence(text_content):
+            _reject("private_evidence", "repository evidence")
         parsed_json: object | None = None
         if text_content is not None and (
             path.suffix.casefold() == ".json"
@@ -720,13 +1330,11 @@ def scan_repository(root: Path) -> None:
                     raise EvidenceError(
                         "unsafe_content", "repository data"
                     ) from exc
+        if _is_private_evidence(parsed_json):
+            _reject("private_evidence", "repository evidence")
+        if has_case_variant_evidence_suffix:
+            _reject("invalid_fixture", "repository evidence")
         if not is_evidence and _looks_like_evidence(parsed_json):
-            provenance = parsed_json.get("provenance")
-            if (
-                isinstance(provenance, dict)
-                and provenance.get("source") == "owner_authorized"
-            ):
-                _reject("private_evidence", "repository evidence")
             _reject("invalid_fixture", "repository evidence")
         if not is_evidence:
             if parsed_json is not None:
@@ -736,7 +1344,10 @@ def scan_repository(root: Path) -> None:
                     try:
                         for line in text_content.splitlines():
                             if line.strip():
-                                _scan_sensitive(json.loads(line))
+                                item = json.loads(line)
+                                if _is_private_evidence(item):
+                                    _reject("private_evidence", "repository evidence")
+                                _scan_sensitive(item)
                     except json.JSONDecodeError as exc:
                         raise EvidenceError("unsafe_content", "repository data") from exc
                 else:
@@ -748,7 +1359,7 @@ def scan_repository(root: Path) -> None:
             raise EvidenceError("invalid_manifest", "repository evidence") from exc
         if path.name.endswith("-manifest.json"):
             manifest = validate_manifest(payload)
-            if manifest["provenance"]["source"] == "owner_authorized":
+            if manifest["provenance"]["source"] == _OWNER_AUTHORIZED_SOURCE:
                 _reject("private_evidence", "repository evidence")
             manifests[path] = manifest
         elif path.name.endswith("-claim.json"):
@@ -784,7 +1395,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     for command in ("validate", "derive"):
         child = subparsers.add_parser(command)
-        child.add_argument("manifest", type=Path)
+        child.add_argument("artifact", type=Path)
     scan = subparsers.add_parser("scan")
     scan.add_argument("repository", type=Path, nargs="?", default=Path("."))
     return parser
@@ -797,20 +1408,28 @@ def main(argv: list[str] | None = None) -> int:
             scan_repository(args.repository)
             print("Repository evidence scan passed.")
         else:
-            manifest = load_manifest(args.manifest)
+            artifact = load_manifest(args.artifact)
+            kind = _artifact_kind(artifact)
             if args.command == "validate":
-                message = (
-                    "Evidence manifest passed fail-closed validation."
-                    if manifest["schema_version"] == 1
-                    else "Public evidence candidate passed fail-closed validation; "
-                    "runtime and hardware authority remain false."
-                )
+                if kind == "legacy_manifest":
+                    message = "Evidence manifest passed fail-closed validation."
+                elif kind == "public_claim":
+                    message = (
+                        "Public evidence candidate passed fail-closed validation; "
+                        "runtime and hardware authority remain false."
+                    )
+                else:
+                    message = (
+                        "Private owner device-info observation manifest passed local "
+                        "validation; validation performed no Bluetooth operation; "
+                        "not publishable."
+                    )
                 print(message)
             else:
-                derived = (
-                    derive_fixture(manifest)
-                    if manifest["schema_version"] == 1
-                    else derive_public_claim(manifest)
+                if kind == "private_device_info_observation":
+                    _reject("private_evidence", "private observation")
+                derived = derive_fixture(artifact) if kind == "legacy_manifest" else (
+                    derive_public_claim(artifact)
                 )
                 print(serialize_fixture(derived), end="")
     except EvidenceError as error:

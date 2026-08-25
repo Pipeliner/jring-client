@@ -28,9 +28,19 @@ material, stop and follow [SECURITY.md](SECURITY.md) instead of opening a public
 Schema-2 `*-claim.json` files are public review candidates and must have an exact
 `*-fixture.json` derivation. The current allowlist contains only the sealed vendor-main
 device-info canary shape. Do not turn a private owner manifest into a tracked claim:
-derive and review the minimal public candidate separately. Schema validation grants no
+construct and review the minimal public candidate separately. Schema validation grants no
 permission to connect, activate notifications, write, publish private evidence, or
 claim hardware support.
+
+A schema-2 private device-info observation is a self-declared record of one historical
+attempt only. It withholds identifiers and model/firmware context. Keep it
+outside the repository, owned by the current user, and mode 0600 (or read-only 0400),
+then run only `python3 scripts/evidence_tool.py validate path/to/observation.json`.
+Validation performs no Bluetooth operation and authenticates neither the owner nor the
+observation. `derive` deliberately refuses this artifact; do not commit, attach, paste,
+or publish it. A future pre-run plan, its one attempt, this post-run observation, and
+any separately consented public candidate are four different artifacts and decisions.
+
 The `-manifest.json`, `-claim.json`, and `-fixture.json` suffixes are reserved across
 the repository; moving an unpaired artifact outside `tests/fixtures/evidence` does not
 bypass validation.

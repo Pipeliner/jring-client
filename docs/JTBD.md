@@ -322,6 +322,22 @@ Desired outcomes:
    aliases while keeping identity confirmation explicit.
 5. Vendor history/live metrics: blocked on owner-authorized evidence.
 
+### Review one private device-info attempt without rerunning it
+
+When I have a sanitized record of one previously authorized device-info attempt, I want
+to validate its route, dispatch, response, and cleanup states locally, so I can find
+inconsistencies without exposing identifiers or accidentally granting another run.
+
+I need connect timeouts, possible write dispatch without a terminal, and cleanup
+uncertainty to remain distinct from definite failure, so the record tells me whether it
+is safe to retry later without claiming that a device family is incompatible.
+
+The historical observation remains distinct from a future pre-run plan, the transport
+attempt itself, a separately consented public candidate, and runtime eligibility.
+Negative and uncertain outcomes are useful evidence. A hand-edited success is not
+authenticated hardware proof, and validation must never connect, subscribe, write,
+derive a public artifact, or broaden support to a model or firmware family.
+
 The v0.5 slice repairs adversarially identified trust failures: simulated operations
 cannot touch radios, active scans require explicit authorization, outputs retain
 provenance, optional data cannot hide capabilities, errors redact identifiers, and

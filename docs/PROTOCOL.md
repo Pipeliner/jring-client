@@ -918,9 +918,9 @@ value. `derive` writes a deterministic minimal fixture to stdout only after the 
 manifest passes. Review that output manually before publication; the tool deliberately
 does not attempt to redact unsafe input automatically.
 
-An `owner_authorized` schema-1 manifest is a private local ledger. Mode 0600 is
-required for local validation and the repository scanner rejects it even with those
-permissions. It never becomes the paired source of a committed fixture.
+An owner-authorized schema-1 manifest is a private local ledger. Mode 0600 or read-only
+0400 is required for local validation and the repository scanner rejects it even with
+those permissions. It never becomes the paired source of a committed fixture.
 
 Schema 2 adds a standalone, commit-eligible public candidate paired with its own
 minimal fixture. The initial closed allowlist is
@@ -941,9 +941,39 @@ result, or a Bluetooth capability. Its review state remains `candidate`, and its
 owner, runnable, hardware-eligibility, generic-I/O, and hardware-verification fields
 must all be false. A public-derived candidate says
 only that its private evidence reference was withheld; neither the candidate nor its
-fixture carries an owner-linkable evidence ID. The future private pre-run plan, sealed
-result-state schema, owner canary, and runtime registry remain separate work under
-issues #17, #18, and #21.
+fixture carries an owner-linkable evidence ID. The future private pre-run plan, owner
+canary, and runtime registry remain separate work under issues #17, #18, and #21.
+
+The sealed private result-state schema now validates one sanitized historical
+device-info observation locally. Its explicit artifact kind is disjoint from the public
+claim despite sharing schema version 2. It accepts failed and uncertain route, dispatch,
+response, and cleanup evidence without converting those states into “unsupported.” A
+reported success requires one matched success terminal, accepted parsing, valid seeded
+CRC, identifier non-materialization, decoded-value non-retention, and confirmed cleanup.
+An ATT write response does not prove the vendor terminal, and a completed notification
+API call does not prove direct CCCD acknowledgement. This validator performs no radio
+operation, authenticates no assertion, grants no repeat consent, and cannot derive or
+publish a candidate. The private pre-run plan and executable one-attempt transport are
+still future work.
+
+The observation is explicitly `self_declared_historical_record`; it does not pretend an
+exporter exists. Its evidence ID and model/firmware fields are fixed to withheld or
+not-recorded values. Connection invocation distinguishes not-attempted, failed,
+connected, and outcome-unknown states. A possible connection requires a disconnect
+attempt. Response absence records whether no write was dispatched or a deadline,
+cancellation, disconnect, unrelated traffic, or callback overflow followed possible
+dispatch. None of those states establishes incompatibility. A malformed terminal is
+only `rejected_malformed_response` for that attempt.
+
+Cleanup records an exact sequence: no actions, disconnect only, or unsubscribe then
+disconnect. “Completed” means the high-level transport call returned; it is not an
+independently observed CCCD-disable acknowledgement. Disconnect may also report that
+the transport was already disconnected. Failed or unknown actions, or unconfirmed
+callback acceptance, prevent historical success. A terminal is accepted only for the
+current generation after write completion; an early response may be buffered, but it
+cannot become a result before that gate. If write completion remains unknown, a
+current-generation terminal remains observed but explicitly unaccepted and the attempt
+stays uncertain.
 
 Each fixture covers one operation and includes only declared facts needed by a test.
 The repository scan checks every tracked, staged, and non-ignored new regular file,

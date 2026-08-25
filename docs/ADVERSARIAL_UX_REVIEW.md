@@ -86,6 +86,12 @@ Date: 2026-08-24
 | Version-specific wheel examples became stale every release | Packager and install examples use a `VERSION` placeholder and name the authoritative project metadata |
 | Shell and manual help could drift from argparse or expose suppressed compatibility flags | One stdlib-only generator derives all visible parser contexts, aliases, choices, and file values; byte-golden tests reject drift |
 | A schema-valid public protocol candidate could sound like owner approval or live support | Schema 2 calls itself a candidate, exposes the future notification/write effects, strips private evidence references, and fixes every runtime-authority flag false |
+| A historical owner observation could become a reusable consent token | Private validation authenticates neither consent nor truth, refuses derivation, and fixes repeat, publication, runtime, generic-I/O, and hardware authority false |
+| A successful write callback could be presented as successful device-info | The private state matrix separates ATT dispatch, matched terminal, CRC, and cleanup; only all required states can form a historical success |
+| Failed or uncertain evidence could be discarded as “unsupported” | Negative preflight and uncertain dispatch/cleanup remain valid observations without broad model or firmware claims |
+| A connect timeout could be recorded as a definite failure with no cleanup | Connection has an outcome-unknown state that requires a disconnect attempt and keeps the overall attempt uncertain |
+| A self-authored file could claim it came from a nonexistent exporter | Provenance says self-declared historical record; evidence ID and device context are fixed to withheld states |
+| No terminal could hide timeout, cancellation, disconnect, overflow, or unrelated traffic | Closed absence reasons preserve attempt-local uncertainty and never become incompatibility |
 | Renaming a private ledger or using Python/Markdown/extensionless text could bypass extension-based checks | The scanner recognizes evidence-shaped JSON by content, reserves case-normalized evidence suffixes globally, and checks identifier patterns in every regular file without echoing its name or value |
 | Generated help could absorb an address, secret environment, host path, or capture name | Hostile-environment generation is byte-identical and privacy-scanned; the generator never probes runtime state |
 | Completion installation could silently mutate a shell | Bash and man files ship only as inert package resources; no shell configuration or host help directory is changed |

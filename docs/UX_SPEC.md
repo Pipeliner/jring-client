@@ -677,9 +677,24 @@ uploaded or written automatically. The contributor manually reviews the output b
 publication and uses the private security channel for sensitive reports.
 
 An owner-authorized manifest is private input, not a commit-ready public artifact.
-Local validation requires mode 0600; repository scanning rejects it at any mode. The
+Local validation requires mode 0600 or read-only 0400; repository scanning rejects it at any mode. The
 scan inspects every repository file and rejects disguised capture, archive, Android,
 native, decompiler, and smali material without echoing a filename or rejected content.
+
+A separate private schema-2 observation may describe one historical device-info
+attempt. `validate` says exactly that local validation passed, validation itself
+performed no Bluetooth operation, and the object is not publishable. It accepts coherent failure and uncertainty
+rather than coercing them into success or unsupported hardware. `derive` fails with
+`private_evidence`, writes no JSON to stdout, and exposes no evidence ID or path. This
+object is not a pre-run plan, reusable permission, authenticated result, public claim,
+runtime registry entry, or model/firmware support statement.
+
+The record labels itself self-declared, withholds its evidence ID and device context,
+and distinguishes failed from outcome-unknown connection attempts. After possible
+dispatch, terminal absence names a bounded reason but remains uncertain. A current-
+generation terminal is accepted only after write completion; notification and
+unsubscribe completion describe high-level transport calls, never direct CCCD
+acknowledgement. Cleanup order is explicit, and failed/unknown cleanup blocks success.
 
 A schema-2 device-info candidate is a different public artifact. Its human meaning is
 “ready for protocol/privacy/runtime review,” never “ready to run.” Validation accepts
@@ -803,7 +818,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Option meaning is enforced | `test_non_applicable_global_options_are_rejected`, `test_timeout_must_be_finite_and_bounded` |
 | Private and sanitized selection | `test_address_file_must_be_private`, `test_cli_errors_redact_identifiers` |
 | Guided same-process selection | `test_guided_status_selects_only_after_confirmation`, `test_guided_selection_never_autoconnects`, `test_guided_selection_zero_or_invalid_results_do_not_connect`, `test_aliases_change_between_process_seeds` |
-| Privacy-safe evidence | `test_unsafe_evidence_is_rejected_without_echo`, `test_manifest_requires_provenance_consent_coverage_and_redactions`, `test_safe_synthetic_manifest_derives_deterministically`, `test_repository_evidence_scan_rejects_raw_artifacts` |
+| Privacy-safe evidence | `test_unsafe_evidence_is_rejected_without_echo`, `test_manifest_requires_provenance_consent_coverage_and_redactions`, `test_safe_synthetic_manifest_derives_deterministically`, `test_private_device_info_cli_validates_locally_but_never_derives`, `test_artifact_loader_rejects_links_non_files_and_oversize_growth`, `test_repository_scan_quarantines_private_device_info_at_any_json_name`, `test_repository_evidence_scan_rejects_raw_artifacts` |
 | Honest compatibility | `test_compatibility_report_rejects_sensitive_values_without_echo`, `test_untested_dimensions_cannot_claim_compatibility`, `test_synthetic_reports_merge_deterministically`, `test_zero_failure_synthetic_report_names_hardware_as_untested` |
 | Verified install artifact | `test_project_version_agrees_with_runtime`, `test_artifact_inspection_and_checksums_are_deterministic`, `test_sdist_normalization_removes_build_time_variance`, `test_release_workflow_is_pinned_and_has_no_publish_step`, `test_install_documentation_covers_lifecycle_and_verification`, `test_build_inputs_are_complete_and_exactly_pinned`, `test_release_workflow_proves_an_isolated_no_index_build_from_pinned_inputs` |
 | Parser-derived terminal help | `test_surface_exactly_tracks_visible_parser_contexts_aliases_and_choices`, `test_checked_in_artifacts_are_exact_parser_derived_bytes`, `test_generation_is_reproducible_private_and_host_independent`, `test_manual_leads_with_safety_and_covers_every_parser_item_once`, `test_roff_renderer_neutralizes_macro_and_control_injection`, `test_bash_completion_sources_and_preserves_command_scope` |

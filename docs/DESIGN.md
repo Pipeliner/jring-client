@@ -461,6 +461,31 @@ The `public_derived` provenance label is a self-declared review input, not an
 authenticated owner signature; the scanner verifies shape and privacy boundaries, not
 the truth of an observation.
 
+The private device-info observation uses a separate schema-2 discriminator and closed
+post-run state matrix. It records a single connection generation; metadata/preflight
+state; notification and response-requesting write attempt counts; definite, failed, or
+uncertain dispatch; matched terminal, parser, and CRC state; and unsubscribe/disconnect
+cleanup. Success is impossible before valid integrity and confirmed cleanup. An ATT
+write response is only a transport dispatch observation, and notification activation
+does not claim an independently observed CCCD acknowledgement.
+
+Loading opens one inode without following a symlink in the final path component,
+verifies a current-user regular file, caps the read at 64 KiB even if the file grows,
+and requires mode 0400 or 0600.
+Artifact routing uses its explicit kind rather than schema version alone. The CLI can
+validate the private object but cannot derive it, and the repository/release scanner
+quarantines it regardless of name or embedding syntax. No client/runtime module imports
+this schema, and past consent never becomes a future write token.
+
+The record is self-declared rather than attributed to a nonexistent exporter. It fixes
+the evidence identifier and model/firmware context to non-linkable withheld states.
+Connection uncertainty, possible-dispatch response-absence reasons, current-generation
+terminal acceptance after write completion, and cleanup ordering are all explicit.
+Unsubscribe completion describes the high-level API call only—not independent CCCD
+disable acknowledgement. Malformed input is rejected for this attempt and never becomes
+a family-level compatibility verdict. A terminal observed while write completion is
+unknown remains unaccepted and cannot produce success.
+
 Both artifact-build workflows run the same repository evidence scan before creating a
 wheel or source archive, so renaming or moving a malformed claim cannot bypass the
 release gate. Evidence suffixes are reserved repository-wide, and derived fixture

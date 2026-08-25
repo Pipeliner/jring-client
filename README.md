@@ -111,6 +111,11 @@ GitHub issues or commits. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the local
 fail-closed evidence workflow and [SECURITY.md](SECURITY.md) for private reporting.
 Schema-2 public candidates currently cover only one sealed vendor-main device-info
 canary shape; validation does not enable it, authorize hardware, or establish support.
+The local validator also accepts a separate owner-only, self-declared schema-2
+historical observation for that one operation. It withholds identifiers and device
+context and must remain outside Git at mode 0600 or read-only 0400; validation performs
+no Bluetooth action, and derivation/publication are refused. This is a privacy and
+consistency boundary, not Bluetooth parity or a reusable consent token.
 
 Maintainers can generate a hardware-independent compatibility row and deterministically
 merge reviewed reports without publishing them:
