@@ -260,10 +260,12 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "OFFLINE PROTOCOL COVERAGE — no ring contacted" in output
     assert "Requests: 112" in output
     assert "Callbacks: 105" in output
-    assert "Offline request codecs: 39" in output
+    assert "Offline request codecs: 84" in output
     assert "Offline response codecs: 86" in output
     assert "Offline local projections: 3" in output
+    assert "Offline control models: 1" in output
     assert "Live vendor operations: 0" in output
+    assert "Hardware-eligible vendor operations: 0" in output
     assert "Hardware-verified vendor operations: 0" in output
     assert "Static coverage never authorizes Bluetooth writes or subscriptions." in output
 
@@ -277,10 +279,13 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["ok"] is True
     assert result["summary"]["request_total"] == 112
     assert result["summary"]["callback_total"] == 105
-    assert result["summary"]["offline_request_codecs"] == 39
+    assert result["summary"]["offline_request_codecs"] == 84
     assert result["summary"]["offline_response_codecs"] == 86
     assert result["summary"]["offline_local_projections"] == 3
+    assert result["summary"]["offline_control_models"] == 1
     assert result["summary"]["live_vendor_operations"] == 0
+    assert result["summary"]["hardware_eligible_vendor_operations"] == 0
+    assert result["summary"]["hardware_verified_vendor_operations"] == 0
     assert len(result["requests"]) == 112
     assert len(result["callbacks"]) == 105
     assert "frame" not in json.dumps(result).lower()

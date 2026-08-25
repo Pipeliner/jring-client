@@ -3,24 +3,49 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
+
+
+class VendorPythonState(str, Enum):
+    NOT_REPRODUCED = "not_reproduced"
+    OFFLINE_REQUEST_AND_RESPONSE_CODEC = "offline_request_and_response_codec"
+    OFFLINE_RAW_REQUEST_CODEC = "offline_raw_request_codec"
+    OFFLINE_MAIN_REQUEST_CODEC = "offline_main_request_codec"
+    OFFLINE_MUTATION_CODEC = "offline_mutation_codec"
+    OFFLINE_CONTROL_MODEL = "offline_control_model"
+    OFFLINE_RESPONSE_CODEC = "offline_response_codec"
+    OFFLINE_LOCAL_PROJECTION = "offline_local_projection"
+    LIVE_VENDOR = "live_vendor"
+
+
+OFFLINE_REQUEST_CODEC_STATES = frozenset(
+    {
+        VendorPythonState.OFFLINE_REQUEST_AND_RESPONSE_CODEC,
+        VendorPythonState.OFFLINE_RAW_REQUEST_CODEC,
+        VendorPythonState.OFFLINE_MAIN_REQUEST_CODEC,
+        VendorPythonState.OFFLINE_MUTATION_CODEC,
+    }
+)
 
 
 @dataclass(frozen=True)
 class StaticVendorOperation:
     name: str
     route: str
-    python_state: str = "not_reproduced"
+    python_state: VendorPythonState = VendorPythonState.NOT_REPRODUCED
     maturity: str = "static_apk_only"
     hardware_eligible: bool = False
+    hardware_verified: bool = False
 
 
 @dataclass(frozen=True)
 class StaticVendorCallback:
     name: str
     source: str
-    python_state: str = "not_reproduced"
+    python_state: VendorPythonState = VendorPythonState.NOT_REPRODUCED
     maturity: str = "static_apk_only"
     hardware_eligible: bool = False
+    hardware_verified: bool = False
 
 
 _MAIN_COMMANDS = (
@@ -154,6 +179,56 @@ _OFFLINE_REQUEST_CODECS = frozenset(
     }
 )
 _OFFLINE_RAW_REQUEST_CODECS = frozenset(_RAW_COMMANDS)
+_OFFLINE_CONTROL_MODELS = frozenset(_RAW_NOTIFICATION_CONTROL)
+_OFFLINE_MAIN_REQUEST_CODECS = frozenset(
+    {
+        "SetScreenLightTime",
+        "getDataByDay",
+        "getDeviceCode",
+        "getDeviceDial",
+        "getDeviceDialCustom",
+        "getDeviceSystemStateInfo",
+        "getEcgHistory",
+        "getEqInfo",
+        "getMediaFileState",
+        "notifyDownloadFtpFileCompleted",
+        "openWifiApMode",
+        "queryOfflineSpeechRecognitionState",
+        "scanWifi",
+        "sendPhoneCallState",
+        "sendPhoneVolume",
+        "sendWeather",
+        "setAILang",
+        "setAiChatState",
+        "setAiConnectionMethod",
+        "setAppId",
+        "setAppState",
+        "setBindedInfo",
+        "setBloodOxygenMode",
+        "setChatgptContent",
+        "setContactCrc",
+        "setContactInfo",
+        "setDeviceTime",
+        "setECardInfoContent",
+        "setECardInfoCrc",
+        "setEcgMode",
+        "setEqInfo2",
+        "setGSensorIndState",
+        "setHeartRateMode",
+        "setOfflineSpeechRecognitionState",
+        "setPhoneMac",
+        "setSmsRspInfoContent",
+        "setSmsRspInfoCrc",
+        "setSmsRspSendAck",
+        "setTemperatureMode",
+        "setTouchMode",
+        "setUserInfo",
+        "setWifiHotSpotInfo",
+        "setWifiHotSpotInfoEx",
+        "setWorshipInfo",
+        "startFactoryTestMode",
+    }
+)
 _OFFLINE_MUTATION_CODECS = frozenset(
     {
         "editDeviceDialCustom",
@@ -205,13 +280,17 @@ def static_vendor_operation_coverage() -> tuple[StaticVendorOperation, ...]:
             name=name,
             route=route,
             python_state=(
-                "offline_request_and_response_codec"
+                VendorPythonState.OFFLINE_REQUEST_AND_RESPONSE_CODEC
                 if name in _OFFLINE_REQUEST_CODECS
-                else "offline_raw_request_codec"
+                else VendorPythonState.OFFLINE_RAW_REQUEST_CODEC
                 if name in _OFFLINE_RAW_REQUEST_CODECS
-                else "offline_mutation_codec"
+                else VendorPythonState.OFFLINE_CONTROL_MODEL
+                if name in _OFFLINE_CONTROL_MODELS
+                else VendorPythonState.OFFLINE_MAIN_REQUEST_CODEC
+                if name in _OFFLINE_MAIN_REQUEST_CODECS
+                else VendorPythonState.OFFLINE_MUTATION_CODEC
                 if name in _OFFLINE_MUTATION_CODECS
-                else "not_reproduced"
+                else VendorPythonState.NOT_REPRODUCED
             ),
         )
         for route, names in _ROUTES
@@ -460,11 +539,11 @@ def static_vendor_callback_coverage() -> tuple[StaticVendorCallback, ...]:
             name=name,
             source=source(name),
             python_state=(
-                "offline_response_codec"
+                VendorPythonState.OFFLINE_RESPONSE_CODEC
                 if name in _OFFLINE_RESPONSE_CODECS
-                else "offline_local_projection"
+                else VendorPythonState.OFFLINE_LOCAL_PROJECTION
                 if name in _LOCAL_PROJECTION_CALLBACKS
-                else "not_reproduced"
+                else VendorPythonState.NOT_REPRODUCED
             ),
         )
         for name in _CALLBACKS

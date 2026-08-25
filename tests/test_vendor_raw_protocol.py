@@ -3,7 +3,10 @@ import pytest
 from jring.protocol import ProtocolError
 from jring.uuids import VENDOR_CHARACTERISTIC_33F5, VENDOR_CHARACTERISTIC_33F6
 from jring.vendor_raw_protocol import (
+    RawNotificationControlEvidence,
+    RawCommandOperation,
     StaticRawCommand,
+    analyze_raw_notification_control,
     encode_raw_ai_audio_state,
     encode_raw_ai_command_type,
     encode_raw_ai_extra_action,
@@ -12,6 +15,64 @@ from jring.vendor_raw_protocol import (
     encode_raw_ai_state_query,
     parse_raw_vendor_notification,
 )
+
+
+@pytest.mark.parametrize(
+    "enabled,mtu,delay_ms,raw_cccd_action,dynamic_cccd_action",
+    [
+        (True, 247, 2000, "enable", "enable"),
+        (False, None, 0, "enable", "disable"),
+    ],
+)
+def test_raw_notification_control_is_evidence_not_a_runnable_plan(
+    enabled, mtu, delay_ms, raw_cccd_action, dynamic_cccd_action
+):
+    evidence = analyze_raw_notification_control(enabled)
+
+    assert isinstance(evidence, RawNotificationControlEvidence)
+    assert evidence.requested_enabled is enabled
+    assert evidence.requested_mtu == mtu
+    assert evidence.fixed_delay_ms == delay_ms
+    assert evidence.observed_raw_cccd_action == raw_cccd_action
+    assert evidence.observed_other_endpoints_action == dynamic_cccd_action
+    assert evidence.endpoint_uuid == VENDOR_CHARACTERISTIC_33F6
+    assert evidence.safe_live_plan_available is False
+    assert evidence.hardware_eligible is False
+    assert evidence.hardware_verified is False
+    assert evidence.maturity == "static_apk_only"
+    assert evidence.unsafe_recovered_branch is True
+    assert not hasattr(evidence, "execute")
+    assert not hasattr(evidence, "cccd_value")
+
+
+def test_raw_notification_control_requires_a_real_boolean():
+    for value in (0, 1, None, "yes"):
+        with pytest.raises(TypeError):
+            analyze_raw_notification_control(value)
+
+    with pytest.raises(TypeError):
+        RawNotificationControlEvidence(
+            requested_enabled=True,
+            requested_mtu=247,
+            fixed_delay_ms=0,
+            observed_raw_cccd_action="disable",
+            observed_other_endpoints_action="disable",
+        )
+
+
+def test_raw_command_type_is_closed_over_the_six_recovered_operations():
+    requests = (
+        encode_raw_ai_server_notification(True),
+        encode_raw_ai_extra_action(1),
+        encode_raw_ai_state(True),
+        encode_raw_ai_state_query(),
+        encode_raw_ai_audio_state(True),
+        encode_raw_ai_command_type(1),
+    )
+
+    assert {request.operation for request in requests} == set(RawCommandOperation)
+    with pytest.raises(TypeError):
+        StaticRawCommand(operation="arbitrary", _encoded=bytes(20))
 
 
 @pytest.mark.parametrize(
@@ -135,3 +196,13 @@ def test_raw_payload_decoder_enforces_explicit_size_bound():
 
     with pytest.raises(ProtocolError):
         parse_raw_vendor_notification(data, max_payload_bytes=3)
+
+
+def test_raw_scalar_and_state_notifications_share_the_frame_bound():
+    oversized_scalar = (0x0001).to_bytes(2, "little") + bytes(243)
+    oversized_state = (0x0006).to_bytes(2, "little") + bytes(243)
+
+    with pytest.raises(ProtocolError, match="frame bound"):
+        parse_raw_vendor_notification(oversized_scalar)
+    with pytest.raises(ProtocolError, match="frame bound"):
+        parse_raw_vendor_notification(oversized_state)

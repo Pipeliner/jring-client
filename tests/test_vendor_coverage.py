@@ -1,6 +1,8 @@
 from collections import Counter
 
 from jring.vendor_coverage import (
+    OFFLINE_REQUEST_CODEC_STATES,
+    VendorPythonState,
     static_vendor_callback_coverage,
     static_vendor_operation_coverage,
 )
@@ -61,6 +63,37 @@ def test_all_six_raw_commands_have_offline_request_codecs_only():
     }
 
 
+def test_raw_notification_control_is_accounted_for_as_a_non_runnable_model():
+    by_name = {entry.name: entry for entry in static_vendor_operation_coverage()}
+
+    assert by_name["openRawDataNotification"].python_state == "offline_control_model"
+    assert by_name["openRawDataNotification"].hardware_eligible is False
+
+
+def test_forty_five_additional_main_requests_have_offline_codecs():
+    implemented = {
+        entry.name
+        for entry in static_vendor_operation_coverage()
+        if entry.python_state is VendorPythonState.OFFLINE_MAIN_REQUEST_CODEC
+    }
+
+    assert implemented == {
+        "SetScreenLightTime", "getDataByDay", "getDeviceCode", "getDeviceDial",
+        "getDeviceDialCustom", "getDeviceSystemStateInfo", "getEcgHistory",
+        "getEqInfo", "getMediaFileState", "notifyDownloadFtpFileCompleted",
+        "openWifiApMode", "queryOfflineSpeechRecognitionState", "scanWifi",
+        "sendPhoneCallState", "sendPhoneVolume", "sendWeather", "setAILang",
+        "setAiChatState", "setAiConnectionMethod", "setAppId", "setAppState",
+        "setBindedInfo", "setBloodOxygenMode", "setChatgptContent",
+        "setContactCrc", "setContactInfo", "setDeviceTime", "setECardInfoContent",
+        "setECardInfoCrc", "setEcgMode", "setEqInfo2", "setGSensorIndState",
+        "setHeartRateMode", "setOfflineSpeechRecognitionState", "setPhoneMac",
+        "setSmsRspInfoContent", "setSmsRspInfoCrc", "setSmsRspSendAck",
+        "setTemperatureMode", "setTouchMode", "setUserInfo", "setWifiHotSpotInfo",
+        "setWifiHotSpotInfoEx", "setWorshipInfo", "startFactoryTestMode",
+    }
+
+
 def test_twenty_six_mutations_have_offline_codecs_without_live_eligibility():
     implemented = {
         entry.name
@@ -108,25 +141,41 @@ def test_static_coverage_never_promotes_an_operation_to_hardware():
 
     assert all(entry.maturity == "static_apk_only" for entry in coverage)
     assert all(entry.hardware_eligible is False for entry in coverage)
+    assert all(entry.hardware_verified is False for entry in coverage)
     assert all(entry.python_state != "live_vendor" for entry in coverage)
+
+
+def test_python_states_are_closed_and_codec_states_are_explicit():
+    requests = static_vendor_operation_coverage()
+    callbacks = static_vendor_callback_coverage()
+
+    assert all(type(entry.python_state) is VendorPythonState for entry in requests)
+    assert all(type(entry.python_state) is VendorPythonState for entry in callbacks)
+    assert OFFLINE_REQUEST_CODEC_STATES == {
+        VendorPythonState.OFFLINE_REQUEST_AND_RESPONSE_CODEC,
+        VendorPythonState.OFFLINE_RAW_REQUEST_CODEC,
+        VendorPythonState.OFFLINE_MAIN_REQUEST_CODEC,
+        VendorPythonState.OFFLINE_MUTATION_CODEC,
+    }
 
 
 def test_sensitive_and_destructive_surfaces_remain_visibly_unimplemented():
     by_name = {entry.name: entry for entry in static_vendor_operation_coverage()}
 
-    for name in (
-        "setContactInfo",
-        "setWifiHotSpotInfo",
-        "setChatgptContent",
-        "startFactoryTestMode",
-        "startFileOta",
-        "writeCharacteristic",
-    ):
+    for name in ("setNotify", "startFileOta", "writeCharacteristic"):
         assert by_name[name].python_state == "not_reproduced"
         assert by_name[name].hardware_eligible is False
 
     assert by_name["setDeviceMode"].python_state == "offline_mutation_codec"
     assert by_name["setDeviceMode"].hardware_eligible is False
+    for name in (
+        "setContactInfo",
+        "setWifiHotSpotInfo",
+        "setChatgptContent",
+        "startFactoryTestMode",
+    ):
+        assert by_name[name].python_state == "offline_main_request_codec"
+        assert by_name[name].hardware_eligible is False
 
 
 def test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once():

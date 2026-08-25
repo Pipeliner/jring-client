@@ -183,6 +183,15 @@ hardware-ineligible, absent from the client/transport, and unavailable as live w
 health, reproductive, reset, identifier, and private-text operations retain their risk
 boundaries.
 
+Given any of the 45 additional main-command codecs, the request reports a closed
+operation identity plus privacy/risk or wire-parity metadata. Wi-Fi scanning is an
+active network action, never a read-only query. Private phone-integration requests hide
+both content and frame counts, reject ambiguous or lossy inputs, and identify omitted
+timeout/local state. Notification content that depends on retained deduplication and a
+generated sequence stays typed unsupported. Together with the seven paired queries,
+six raw requests, and 26 settings mutations, the ledger reports 84 offline request
+codecs and one separate non-runnable control model.
+
 The machine-readable operation ledger accounts for all 112 SDK requests exactly once
 and keeps routing separate from Python maturity. Its presence does not imply 112 useful
 Bluetooth operations: local, cloud, filesystem, conversion, DFU, dynamic-GATT, and
@@ -196,7 +205,10 @@ Raw AI/audio/image codecs remain offline and are never subscribed by ordinary cl
 commands. Synthetic payload decoding rejects declared-length mismatches and configured
 size overruns, and returned object representations omit the data bytes. A raw request
 constructor cannot make a live write; raw notification disable is not implemented from
-the APK because its descriptor state machine is statically unsafe.
+the APK because its descriptor state machine is statically unsafe. The offline control
+model records the requested MTU, fixed delay, observed raw-endpoint action, and separately
+configured-endpoint action without exposing a CCCD value or executable method. It
+therefore makes the recovered enable-on-disable defect visible without making it usable.
 
 Given `jring protocol-coverage`, a person receives a local-only summary of all request
 and callback entries, offline codec counts, route/source totals, and zero live or
@@ -429,12 +441,13 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Complete request accounting | `test_static_vendor_operation_coverage_accounts_for_all_112_requests_once`, `test_only_seven_operations_have_offline_request_and_response_codecs`, `test_static_coverage_never_promotes_an_operation_to_hardware` |
 | Strict offline mutation encoders | `test_twenty_six_mutations_have_offline_codecs_without_live_eligibility`, `test_device_settings_preserve_the_exact_profile_layout_and_inverted_calling_bit`, `test_alarm_batch_builds_base_and_exact_content_chunks_without_state`, `test_request_bytes_and_sensitive_inputs_are_structurally_hidden`, `test_requests_are_closed_offline_private_and_never_hardware_eligible`, `test_safety_metadata_refuses_unsafe_apk_runtime_behaviors` |
+| Additional main-command codecs | `test_forty_five_additional_main_requests_have_offline_codecs`, `test_wifi_scan_is_an_active_network_action_not_a_read_only_query`, `test_every_main_operation_has_closed_privacy_and_risk_metadata`, `test_ai_language_is_opaque_explicit_utf8_and_never_uses_host_locale`, `test_private_text_rejects_controls_formatting_and_malformed_unicode`, `test_notification_is_typed_unsupported_without_retaining_private_content` |
 | Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_all_eighty_six_wire_callback_families_have_offline_response_codecs`, `test_three_apk_generated_end_callbacks_are_local_projections_not_wire_codecs` |
 | Offline device/config decoding | `test_device_code_discards_all_identifier_bytes`, `test_device_dial_decodes_every_field_in_the_twenty_byte_layout`, `test_eq_info_decodes_signed_values_and_requires_expected_kind`, `test_factory_test_bytes_are_hidden_and_byte_19_is_not_claimed` |
 | Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |
 | Operation-specific acknowledgements | `test_vendor_ack_decodes_operation_specific_success_and_failure`, `test_vendor_success_only_ack_rejects_guessed_failure_branch`, `test_notify_ack_requires_the_outbound_marker_for_success`, `test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode` |
 | Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
-| Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data` |
+| Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
 | Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors` |
 | Fail-closed offline vendor transaction | `test_cccd_confirmation_is_required_before_any_write_intent`, `test_late_cccd_confirmation_from_old_connection_cannot_ready_a_reconnect`, `test_notification_cannot_complete_before_characteristic_write_confirmation`, `test_success_requires_the_closed_operation_specific_parser`, `test_unrelated_frames_never_refresh_the_immutable_deadline`, `test_disconnect_closes_once_and_clears_every_pending_layer`, `test_operation_constructor_is_closed_over_typed_static_requests` |

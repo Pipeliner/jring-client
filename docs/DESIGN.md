@@ -63,6 +63,13 @@ It has no BLE/client import and cannot make an operation hardware-eligible.
 preserve proven valid layouts while rejecting SDK wrapping, implicit encodings,
 partial batches, retries, and queue side effects; sensitive fields and frames stay out
 of representations.
+`jring.vendor_main_commands`, `jring.vendor_commands`, and
+`jring.vendor_phone_integration` extend that offline boundary to queries, host-state
+projections, network actions, sensor controls, and private fragmented transfers.
+Operations expose explicit privacy/risk metadata, `scanWifi` is an active network
+action rather than a read-only query, and phone-integration parity is wire-frames-only.
+No object provides transport authority; unsafe stateful notification construction is
+typed unsupported.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`

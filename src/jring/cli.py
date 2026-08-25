@@ -34,6 +34,8 @@ from .protocol import ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
 from .vendor_coverage import (
+    OFFLINE_REQUEST_CODEC_STATES,
+    VendorPythonState,
     static_vendor_callback_coverage,
     static_vendor_operation_coverage,
 )
@@ -257,19 +259,28 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "request_total": len(requests),
             "callback_total": len(callbacks),
             "offline_request_codecs": sum(
-                entry.python_state.startswith("offline_") for entry in requests
+                entry.python_state in OFFLINE_REQUEST_CODEC_STATES for entry in requests
+            ),
+            "offline_control_models": sum(
+                entry.python_state is VendorPythonState.OFFLINE_CONTROL_MODEL
+                for entry in requests
             ),
             "offline_response_codecs": sum(
-                entry.python_state == "offline_response_codec" for entry in callbacks
+                entry.python_state is VendorPythonState.OFFLINE_RESPONSE_CODEC
+                for entry in callbacks
             ),
             "offline_local_projections": sum(
-                entry.python_state == "offline_local_projection" for entry in callbacks
+                entry.python_state is VendorPythonState.OFFLINE_LOCAL_PROJECTION
+                for entry in callbacks
             ),
             "live_vendor_operations": sum(
-                entry.python_state == "live_vendor" for entry in requests
+                entry.python_state is VendorPythonState.LIVE_VENDOR for entry in requests
+            ),
+            "hardware_eligible_vendor_operations": sum(
+                entry.hardware_eligible for entry in requests
             ),
             "hardware_verified_vendor_operations": sum(
-                entry.hardware_eligible for entry in requests
+                entry.hardware_verified for entry in requests
             ),
             "request_routes": dict(sorted(Counter(
                 entry.route for entry in requests
@@ -289,9 +300,14 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     print(f"Requests: {summary['request_total']}")
     print(f"Callbacks: {summary['callback_total']}")
     print(f"Offline request codecs: {summary['offline_request_codecs']}")
+    print(f"Offline control models: {summary['offline_control_models']}")
     print(f"Offline response codecs: {summary['offline_response_codecs']}")
     print(f"Offline local projections: {summary['offline_local_projections']}")
     print(f"Live vendor operations: {summary['live_vendor_operations']}")
+    print(
+        "Hardware-eligible vendor operations: "
+        f"{summary['hardware_eligible_vendor_operations']}"
+    )
     print(
         "Hardware-verified vendor operations: "
         f"{summary['hardware_verified_vendor_operations']}"

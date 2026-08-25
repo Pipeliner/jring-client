@@ -122,16 +122,18 @@ filesystem/conversion methods, one DFU method, and four no-op stubs. Thus 80 wra
 transitively reach the main queue, but the composite OTA-info operation is not counted
 twice.
 No AIDL request is statically wired to the declared secondary channel. The Python
-client implements zero live vendor requests; 39 request codecs (seven query, six raw,
-and 26 mutation families) and all 86 wire callback codecs are offline-only. Local album
+client implements zero live vendor requests; 84 request codecs (seven paired queries,
+six raw commands, 26 settings mutations, and 45 additional main-command families), one
+non-runnable raw control model, and all 86 wire callback codecs are offline-only. Local album
 saving, bitmap conversion, and worship-setting
 operations are now included in the parity ledger even though they do not belong in a
 Bluetooth client implementation.
 
 `jring.vendor_coverage.static_vendor_operation_coverage()` is the checked source for
 the request names and mutually exclusive routes. Tests require exactly 112 unique
-entries, exact route totals, 39 offline request codecs, zero live vendor methods,
-and false hardware eligibility for every entry. This corrects an earlier grouped count
+entries, exact route totals, 84 offline request codecs, zero live vendor methods,
+and false hardware eligibility and verification for every entry. Request maturity uses
+a closed state enum rather than labels inferred by substring. This corrects an earlier grouped count
 that treated only three interface methods as stubs; static call-site tracing shows that
 `getWifiState` is also a no-op in this build even though related response parsing exists.
 
@@ -219,13 +221,18 @@ never silently zero-pads a truncated frame. Unknown types and undersized records
 closed. Static evidence provides no transaction identifier, checksum, fragmentation,
 reassembly, or dependable request/response pairing.
 
-Raw notification control is deliberately absent. The APK requests MTU 247, waits a
-fixed two seconds rather than for negotiation, reports descriptor submission rather
-than acknowledgement, does not serialize the CCCD write, and can write the enable
-value while asked to disable. Python must not reproduce those defects. A future live
-implementation needs a successful MTU result where required, serialized descriptor
-writes, exact acknowledgement, a real disable value, payload consent, bounded memory,
-and logs that never contain audio, image, or command bytes.
+Raw command construction is closed over the six recovered operation types, and all
+notification variants share a configurable overall frame bound. Raw notification
+control has a non-runnable static behavior model only. It records that
+the enable path requests MTU 247 and waits a fixed two seconds rather than for
+negotiation; the disable path selects an enable action for `33f6` before disabling
+separately configured endpoints. Those fields are explicitly observed APK actions,
+including the unsafe enable action on a requested disable. The model exposes neither a CCCD value nor an execute
+method. It also preserves the wider defects: descriptor submission is treated as
+success and writes are not serialized. Python does not reproduce those behaviors. A
+future live implementation needs a successful MTU result where required, serialized
+descriptor writes, exact acknowledgement, a real disable value, payload consent,
+bounded memory, and logs that never contain audio, image, or command bytes.
 
 ## Static acknowledgements
 
@@ -277,11 +284,11 @@ logs. Explicit local SSID access is opt-in after a complete sequence.
 
 ## Static mutation encoders
 
-Three pure modules encode 26 additional main-channel mutation families as hidden,
+Three settings modules encode 26 additional main-channel mutation families as hidden,
 exactly 20-byte synthetic vectors: device behavior/schedules, profile and sensor-session
 settings, and reminder/dial/personal settings. Every request fixes its endpoint,
 reports `static_apk_only`, remains permanently hardware-ineligible, and has no client or
-transport integration. The coverage CLI now reports 39 offline request codecs in total.
+transport integration.
 
 The Python contracts deliberately correct unsafe SDK behavior: integers cannot wrap to
 low bytes, booleans and modes are closed types, strings use explicit UTF-8 and reject
@@ -296,6 +303,21 @@ reproductive schedules, sensor starts, device reset, identifiers, and personal t
 remain high-risk offline evidence—not general-use or live-write features. A valid
 synthetic vector does not grant consent, prove firmware behavior, or make timeout
 replay safe.
+
+Three further modules encode 45 main-channel families. They cover exact no-argument
+and parameterized queries; phone volume and other host-state projections; device,
+sensor, time, EQ, and factory controls; and private phone/contact/message/card/Wi-Fi
+fragment streams. The coverage CLI therefore reports 84 offline request codecs in
+total. Query/action roles and privacy/risk classes remain closed metadata: notably,
+`scanWifi` is a network-scan action and ECG/by-day operations are health-history
+queries. Timezone, locale, clock, weather, and phone state must be explicit inputs.
+
+Private-transfer codecs are `wire_frames_only`. They reject silent truncation,
+integer wrapping, ambiguous fingerprint widths, malformed/control text, empty Wi-Fi
+passwords, and the recovered exact-17-byte Wi-Fi loss case. The extended Wi-Fi form
+lists its omitted local timeout timer/callback state. Sync fingerprints are explicitly
+not security checks, sensitive representations reveal neither data nor frame counts,
+and stateful notification content remains typed unsupported rather than guessed.
 
 ## Static history streams
 

@@ -166,6 +166,8 @@ Desired outcomes:
   file, and OTA side effects outside the default input action path.
 - Inspect raw AI/action/audio/image framing offline without subscribing, writing,
   persisting private content, or repeating the APK's unsafe length and CCCD behavior.
+- Account for raw-notification enable and disable orchestration as non-runnable static
+  evidence, so a broken disable branch cannot be mistaken for a usable subscription.
 
 ## Opportunity ordering
 
