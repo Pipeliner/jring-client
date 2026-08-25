@@ -311,11 +311,13 @@ _COMPARISONS = (
         WarningComparisonCode.SDK_MAIN_DISPATCH_LABEL_SURFACE,
         WarningAuditScope.EMBEDDED_SDK,
         ComparisonState.SAME_TOOL_SURFACE_CORROBORATION,
-        "instruction review confirms 85 unique direct callback targets already present "
-        "in the ledger; these are not switch labels or cases",
+        "instruction review confirms 85 unique direct callback targets across 125 "
+        "syntactic invokes, of which 124 are reachable; an ordered comparison chain "
+        "covers 104 distinct opcode literals and contains no switch",
         (
-            "branch_opcode_and_field_semantics_remain_unresolved",
-            "target_presence_does_not_establish_reachability_or_hardware_behavior",
+            "semantic_meanings_and_hardware_behavior_remain_unresolved",
+            "unreviewed_helper_effects_remain_unresolved",
+            "static_route_presence_does_not_establish_runtime_reachability",
         ),
         count=85,
         instruction_review=InstructionReviewState.BOUNDED_FACT_CONFIRMED,

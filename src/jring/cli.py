@@ -42,6 +42,7 @@ from .vendor_coverage import (
     static_vendor_operation_coverage,
 )
 from .vendor_decompilation_evidence import recovered_decompilation_coverage
+from .vendor_dispatcher_evidence import recovered_dispatcher_evidence
 from .vendor_session_evidence import recovered_session_evidence
 from .vendor_warning_evidence import (
     ComparisonState,
@@ -267,6 +268,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     warning_audit = recovered_warning_audit()
     artifact = recovered_artifact_surface_evidence()
     callback_surfaces = recovered_callback_behavior_surfaces()
+    dispatcher = recovered_dispatcher_evidence()
     warning_scopes = {item.scope.value: item for item in warning_audit.scopes}
     return {
         "summary": {
@@ -363,6 +365,18 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "instruction_reviews_not_performed": (
                 warning_audit.instruction_review_not_performed_count
             ),
+            "dispatcher_unique_callback_targets": (
+                dispatcher.unique_callback_target_count
+            ),
+            "dispatcher_reachable_callback_invokes": (
+                dispatcher.reachable_callback_invoke_count
+            ),
+            "dispatcher_syntactic_callback_invokes": (
+                dispatcher.syntactic_callback_invoke_count
+            ),
+            "dispatcher_distinct_opcodes": (
+                dispatcher.distinct_casefolded_opcode_count
+            ),
             "artifact_missing_interface_rows": (
                 artifact.interface_parity.missing_public_row_count
             ),
@@ -399,6 +413,14 @@ def _protocol_coverage_payload() -> dict[str, object]:
         "requests": [asdict(entry) for entry in requests],
         "callbacks": [asdict(entry) for entry in callbacks],
         "supplemental": {
+            "dispatcher_evidence": {
+                **asdict(dispatcher),
+                "maturity": dispatcher.maturity,
+                "runnable": dispatcher.runnable,
+                "python_callable": dispatcher.python_callable,
+                "hardware_eligible": dispatcher.hardware_eligible,
+                "hardware_verified": dispatcher.hardware_verified,
+            },
             "callback_behavior_surfaces": [
                 {
                     **asdict(item),
@@ -618,6 +640,14 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     print(
         "Target instruction reviews not performed: "
         f"{summary['instruction_reviews_not_performed']}."
+    )
+    print(
+        "Dispatcher structure: "
+        f"{summary['dispatcher_unique_callback_targets']} targets; "
+        f"{summary['dispatcher_syntactic_callback_invokes']} "
+        "syntactic invokes "
+        f"({summary['dispatcher_reachable_callback_invokes']} reachable); "
+        f"{summary['dispatcher_distinct_opcodes']} distinct opcodes."
     )
     print("This audit is not exhaustive for dependency or transitive Bluetooth behavior.")
     artifact = payload["supplemental"]["artifact_surface"]

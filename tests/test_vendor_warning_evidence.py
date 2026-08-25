@@ -89,9 +89,12 @@ def test_same_tool_dispatch_surface_corroboration_does_not_validate_branches():
     assert dispatch.instruction_fact_scope is InstructionFactScope.INTRAPROCEDURAL
     assert dispatch.reviewed_span_count == 1
     assert dispatch.reviewed_occurrence_count == 125
-    assert "not switch labels or cases" in dispatch.observation
+    assert "ordered comparison chain" in dispatch.observation
+    assert "contains no switch" in dispatch.observation
     assert dispatch.semantic_correctness_established is False
-    assert "branch_opcode_and_field_semantics_remain_unresolved" in dispatch.limitations
+    assert "semantic_meanings_and_hardware_behavior_remain_unresolved" in (
+        dispatch.limitations
+    )
 
 
 def test_instruction_review_resolves_selector_and_receiver_control_flow_only():

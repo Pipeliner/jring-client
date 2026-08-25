@@ -142,8 +142,9 @@ twice.
 No AIDL request is statically wired to the declared secondary channel. The Python
 client implements zero live vendor requests; 85 request codecs (seven paired queries,
 six raw commands, 26 settings mutations, and 46 additional main-command families), 26
-non-runnable static behavior-evidence rows, one non-runnable raw control model, and all 86 wire
-callback codecs are offline-only. Local album
+non-runnable static behavior-evidence rows, one non-runnable raw control model, and all
+86 opcode-originated callback declarations have offline decoder coverage only. This is
+not a count of distinct wire families. Local album
 saving, bitmap conversion, and worship-setting
 operations are now included in the parity ledger even though they do not belong in a
 Bluetooth client implementation.
@@ -161,8 +162,8 @@ that treated only three interface methods as stubs; static call-site tracing sho
 exactly once. Eighty-six are reached by a structured main or raw Bluetooth opcode,
 14 originate in Android transport, scan, network, OTA, authorization, or cache flows,
 three end callbacks are APK-generated local timer/parser projections, and two
-declarations have no invocation site in this SDK build. All 86 wire callback families
-now have offline response codecs: the seven query families plus bounded
+declarations have no invocation site in this SDK build. All 86 opcode-originated
+callback declarations now have offline response decoder coverage: the seven query families plus bounded
 non-health state, action, counter, dial, schedule, current-data, and unknown-motion
 events, five raw notification families, operation-specific acknowledgements, and the
 generic by-day history decoder. The three local end projections are modeled separately
@@ -405,9 +406,12 @@ local end flag without accepted dispatch. A later local completion event is not 
 peripheral acknowledgement.
 
 The main dispatcher review also corrects its earlier surface terminology. The reviewed
-method contains 85 unique direct callback targets already represented in the public
-ledger, not 85 switch labels or cases. Target presence does not establish the branch to
-opcode mapping, field meaning, reachability, or correct behavior.
+method is an ordered case-insensitive comparison chain with no switch. Its 105 routing
+comparisons cover 104 distinct top-level opcodes: 99 have a reachable direct callback
+target and five do not. The method has 85 unique direct callback targets across 125
+syntactic invokes, of which 124 are reachable; a later duplicate `9a` branch is
+shadowed. The closed crosswalk records top-level opcode relationships without claiming
+field meaning, runtime reachability, helper side effects, or hardware behavior.
 
 The SDK's progress-named async handoff passes a GATT object, not a numeric OTA
 percentage, and the reviewed handoff has no connection-generation guard. It remains

@@ -368,7 +368,7 @@ def test_all_non_opcode_callbacks_have_closed_behavior_or_declaration_evidence()
     assert all(row.hardware_eligible is False for row in rows)
 
 
-def test_all_eighty_six_wire_callback_families_have_offline_response_codecs():
+def test_all_eighty_six_opcode_originated_declarations_have_response_codecs():
     implemented = {
         entry.name
         for entry in static_vendor_callback_coverage()

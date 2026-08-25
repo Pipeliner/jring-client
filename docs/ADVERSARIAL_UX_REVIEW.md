@@ -37,6 +37,8 @@ Date: 2026-08-24
 | Input-focused inventory hid blocked device actions | All 13 mapped actions are discoverable; seven side-effecting actions remain visibly blocked and input-ineligible |
 | HID Report UUID deduplication hid multiple report instances | Each observed report record keeps a numbered property/descriptor state and an explicit `not_read` value state |
 | `readable` sounded like a successful read | The state is `read_property_advertised`; human output says the value was not read |
+| Callback targets, invoke sites, and opcode branches were treated as one count | The dispatcher crosswalk separates 85 targets, 125 syntactic/124 reachable invokes, and 104 distinct opcodes |
+| A duplicated case-insensitive opcode made every invoke look reachable | The shadowed ECG failure invoke is retained as syntax evidence but excluded from reachable routes |
 | Backend errors could leak addresses or BlueZ paths | The final error boundary redacts identifiers, paths, and long payload hex |
 | Address selection required a sensitive argv value | Mode-0600 `--address-file` is the documented path; argv is marked legacy |
 | History silently replaced an existing file | Existing exports require `--force` |

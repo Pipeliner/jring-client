@@ -146,6 +146,12 @@ scope, reviewed-span count, sanitized observation, and limitations. A confirmed 
 fact cannot promote semantic completeness or hardware maturity; a whole-corpus direct
 reference absence remains inconclusive about reflection, JNI, native, or dynamic entry.
 
+The main dispatcher has an additional closed structural crosswalk. It keeps callback
+targets, syntactic and reachable invoke counts, recognized top-level opcode values, and
+shadowed/no-callback branches separate. It is non-runnable and carries no frames,
+private locators, source text, units, or physical meanings. A numeric opcode relationship
+does not imply a distinct wire family or one callback per frame.
+
 Whole-artifact surface evidence is another non-interface supplement. A private,
 digest-bound audit reconciles all three DEX units, the AIDL declaration and
 implementation sets, owned call/dispatch sites, direct Android Bluetooth helpers,

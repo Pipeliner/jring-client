@@ -246,6 +246,7 @@ class DynamicActivationSurfaceEvidence(_ClosedEvidence):
     binder_transact_file_count: int
     binder_on_transact_method_count: int
     direct_owned_service_binding_call_observed: bool
+    standalone_dial_service_binding_observed: bool
     relevant_binder_request_transaction_count: int
     app_relevant_binder_outbound_invoke_count: int
     relevant_callback_transaction_count: int
@@ -577,6 +578,7 @@ _DYNAMIC_ACTIVATION = _closed_instance(
     binder_transact_file_count=25,
     binder_on_transact_method_count=23,
     direct_owned_service_binding_call_observed=True,
+    standalone_dial_service_binding_observed=False,
     relevant_binder_request_transaction_count=9,
     app_relevant_binder_outbound_invoke_count=0,
     relevant_callback_transaction_count=7,

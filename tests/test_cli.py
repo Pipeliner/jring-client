@@ -279,6 +279,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "Instruction-reviewed facts contradicted: 0." in output
     assert "Instruction reviews inconclusive: 0." in output
     assert "Bounded instruction facts confirmed: 8." in output
+    assert (
+        "Dispatcher structure: 85 targets; 125 syntactic invokes (124 reachable); "
+        "104 distinct opcodes."
+    ) in output
     assert "Target instruction reviews not performed: 0." in output
     assert "Artifact-surface completeness: not established." in output
     assert "AIDL interface parity: 112 requests; 105 callbacks; 0 missing rows." in output
@@ -346,6 +350,9 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["instruction_bounded_facts_confirmed"] == 8
     assert result["summary"]["instruction_bounded_facts_contradicted"] == 0
     assert result["summary"]["instruction_reviews_inconclusive"] == 0
+    assert result["summary"]["dispatcher_unique_callback_targets"] == 85
+    assert result["summary"]["dispatcher_reachable_callback_invokes"] == 124
+    assert result["summary"]["dispatcher_distinct_opcodes"] == 104
     assert result["summary"]["offline_control_models"] == 1
     assert result["summary"]["offline_behavior_evidence"] == 26
     assert result["summary"]["unclassified_requests"] == 0
@@ -394,6 +401,10 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert len(warning_audit["comparisons"]) == 8
     artifact = result["supplemental"]["artifact_surface"]
     callback_surfaces = result["supplemental"]["callback_behavior_surfaces"]
+    dispatcher = result["supplemental"]["dispatcher_evidence"]
+    assert dispatcher["switch_instruction_count"] == 0
+    assert len(dispatcher["callback_routes"]) == 85
+    assert dispatcher["hardware_eligible"] is False
     assert len(callback_surfaces) == 16
     assert sum(row["direct_dispatch_observed"] for row in callback_surfaces) == 14
     assert all(row["runnable"] is False for row in callback_surfaces)

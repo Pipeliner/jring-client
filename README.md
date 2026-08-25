@@ -118,7 +118,8 @@ jring protocol-coverage --json
 The report accounts for 112 requests and 105 callbacks with zero unclassified ledger
 entries: 85 offline request codecs, 26 non-runnable static behavior-evidence rows,
 and one non-runnable control model. Evidence rows are not behavioral parity or callable
-features. All 86 wire callback families have offline codecs.
+features. All 86 callback declarations classified as opcode-originated have offline
+decoder coverage; this is not a count of distinct wire families.
 The report distinguishes those from absent,
 APK-generated, and non-Bluetooth behavior, and always reports zero live or
 hardware-verified vendor operations. It contains no payload bytes and grants no write
