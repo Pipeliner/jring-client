@@ -108,7 +108,7 @@ def test_callback_coverage_distinguishes_unused_and_non_ble_sources():
     assert by_name["onGetDeviceAction"].source == "bluetooth_opcode"
 
 
-def test_sixty_two_callback_families_have_offline_response_codecs():
+def test_seventy_five_callback_families_have_offline_response_codecs():
     implemented = {
         entry.name
         for entry in static_vendor_callback_coverage()
@@ -121,18 +121,25 @@ def test_sixty_two_callback_families_have_offline_response_codecs():
         "onGetAiCommandType",
         "onGetAiState",
         "onGetBandFunction",
+        "onGetChatgptAction",
         "onGetCurSportData",
         "onGetDeviceAction",
         "onGetDeviceBatery",
+        "onGetDeviceCode",
+        "onGetDeviceDial",
         "onGetDeviceDialCustom",
+        "onGetDeviceFileState",
         "onGetDeviceInfo",
         "onGetDeviceState",
         "onGetEcgHistory",
         "onGetEcgHistoryData",
         "onGetEcgStartEnd",
         "onGetEcgValue",
+        "onGetEqInfo2",
+        "onGetFactoryTestData",
         "onGetGSensorData",
         "onGetMultipleSportData",
+        "onGetOfflineSpeechRecognitionMode",
         "onGetOxygenOfflineData",
         "onGetPhoneVolume",
         "onGetRawData",
@@ -146,8 +153,13 @@ def test_sixty_two_callback_families_have_offline_response_codecs():
         "onReceiveSensorData",
         "onReceiveSensorOxygenData",
         "onRecvDeviceVoiceCommandConfirm",
+        "onDeviceTestCmd",
         "onEditDeviceDialCustom",
         "onSendVibrationSignal",
+        "onNotifyAiConnectionMethod",
+        "onNotifyBindedInfo",
+        "onNotifyDeviceSystemStateInfo",
+        "onNotifyDeviceWifiApState",
         "onSetAlarm",
         "onSetAntiLost",
         "onSetBPAdjust",
@@ -162,6 +174,7 @@ def test_sixty_two_callback_families_have_offline_response_codecs():
         "onSetDeviceTime",
         "onSetDeviceWallpaperState",
         "onSetEcgMode",
+        "onSetEqInfo2",
         "onSetFemaleReminder",
         "onSetGoalStep",
         "onSetHourFormat",

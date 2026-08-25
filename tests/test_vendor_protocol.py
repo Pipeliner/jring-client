@@ -5,6 +5,7 @@ from jring.vendor_protocol import (
     StaticQuery,
     StaticAckOperation,
     StaticValueEvent,
+    Static54ValueEvent,
     StaticVendorRequest,
     encode_day_query,
     encode_static_query,
@@ -37,6 +38,16 @@ from jring.vendor_protocol import (
     parse_vendor_sensor_values,
     parse_vendor_temperature_data,
     parse_vendor_value_event,
+    parse_vendor_54_value_event,
+    parse_vendor_binding_info,
+    parse_vendor_chat_action,
+    parse_vendor_device_code,
+    parse_vendor_device_dial,
+    parse_vendor_device_file_state,
+    parse_vendor_device_test_event,
+    parse_vendor_eq_info,
+    parse_vendor_factory_test_data,
+    parse_vendor_offline_speech_mode,
     static_protocol_coverage,
 )
 from jring.protocol import ProtocolError
@@ -677,3 +688,126 @@ def test_ecg_history_info_and_start_end_use_exact_little_endian_fields():
     assert (history.device_epoch_seconds, history.value) == (123, 7)
     assert (start_end.first_value, start_end.second_value) == (1, 2)
     assert start_end.device_epoch_seconds == 456
+
+
+def test_device_test_and_chat_action_events_are_strictly_distinct():
+    device_test = parse_vendor_device_test_event(bytes((0x3A,)) + bytes(19))
+    chat = parse_vendor_chat_action(bytes((0x4E, 7)) + bytes(18))
+
+    assert device_test.kind == "device_test_command"
+    assert device_test.hardware_verified is False
+    assert chat.value == 7
+    with pytest.raises(ProtocolError):
+        parse_vendor_device_test_event(bytes((0x4E,)) + bytes(19))
+
+
+def test_device_code_discards_all_identifier_bytes():
+    result = parse_vendor_device_code(bytes((0x1F,)) + bytes(range(1, 20)))
+
+    assert result.identifier_redacted is True
+    assert result.consumed_identifier_bytes == 18
+    assert result.trailing_byte_ignored_by_sdk is True
+    assert not hasattr(result, "identifier")
+    assert "0102030405" not in repr(result)
+
+
+def test_device_dial_decodes_every_field_in_the_twenty_byte_layout():
+    data = (
+        bytes((0x34,))
+        + (1).to_bytes(2, "little")
+        + (2).to_bytes(2, "little")
+        + (240).to_bytes(2, "little")
+        + (280).to_bytes(2, "little")
+        + (16).to_bytes(2, "little")
+        + bytes((3, 1))
+        + (9).to_bytes(2, "little")
+        + (120).to_bytes(2, "little")
+        + (140).to_bytes(2, "little")
+        + bytes((4,))
+    )
+
+    result = parse_vendor_device_dial(data)
+
+    assert result.codes == (1, 2)
+    assert result.dimensions == (240, 280)
+    assert result.unit_width == 16
+    assert (result.color_mode, result.custom_flag, result.dial_id) == (3, 1, 9)
+    assert result.preview_dimensions == (120, 140)
+    assert result.shape_code == 4
+
+
+def test_device_file_state_decodes_54_06_u32_only():
+    result = parse_vendor_device_file_state(
+        bytes((0x54, 0x06)) + (123_456).to_bytes(4, "little") + bytes(14)
+    )
+
+    assert result.value == 123_456
+    with pytest.raises(ProtocolError):
+        parse_vendor_device_file_state(bytes((0x54, 0x05)) + bytes(18))
+
+
+@pytest.mark.parametrize("kind,selector", [("set", 0), ("get", 1)])
+def test_eq_info_decodes_signed_values_and_requires_expected_kind(kind, selector):
+    signed = (-2, -1, 0, 1, 2)
+    encoded = bytes(value & 0xFF for value in signed)
+    data = bytes((0x53, selector, 7, 8, len(signed))) + encoded + bytes(10)
+
+    result = parse_vendor_eq_info(data, expected_kind=kind)
+
+    assert result.kind == kind
+    assert result.metadata == (7, 8)
+    assert result.values == signed
+    with pytest.raises(ProtocolError):
+        parse_vendor_eq_info(data, expected_kind="get" if kind == "set" else "set")
+
+
+def test_eq_info_rejects_count_beyond_statically_consumed_bytes():
+    with pytest.raises(ProtocolError):
+        parse_vendor_eq_info(
+            bytes((0x53, 1, 0, 0, 15)) + bytes(15),
+            expected_kind="get",
+        )
+
+
+def test_factory_test_bytes_are_hidden_and_byte_19_is_not_claimed():
+    result = parse_vendor_factory_test_data(bytes((0x50,)) + bytes(range(1, 20)))
+
+    assert result.consumed_bytes == 19
+    assert result.trailing_byte_ignored_by_sdk is True
+    assert result.synthetic_bytes_for_explicit_local_use() == bytes((0x50,)) + bytes(range(1, 19))
+    assert "0102030405" not in repr(result)
+
+
+@pytest.mark.parametrize("subcommand", [0x03, 0x0C])
+def test_offline_speech_mode_accepts_only_two_static_subcommands(subcommand):
+    result = parse_vendor_offline_speech_mode(
+        bytes((0x78, subcommand, 4)) + bytes(17)
+    )
+
+    assert result.subcommand == subcommand
+    assert result.value == 4
+
+
+@pytest.mark.parametrize(
+    "event,subcommand",
+    [
+        (Static54ValueEvent.DEVICE_SYSTEM_STATE, 0x12),
+        (Static54ValueEvent.WIFI_AP_STATE, 0x13),
+        (Static54ValueEvent.AI_CONNECTION_METHOD, 0x14),
+    ],
+)
+def test_54_value_events_are_subcommand_specific(event, subcommand):
+    result = parse_vendor_54_value_event(
+        bytes((0x54, subcommand, 9)) + bytes(17), event
+    )
+
+    assert result.event is event
+    assert result.value == 9
+
+
+def test_binding_info_preserves_neutral_fields_without_claiming_owner_state():
+    result = parse_vendor_binding_info(bytes((0x4B, 2, 3)) + bytes(17))
+
+    assert result.values == (2, 3)
+    assert result.meaning == "unknown"
+    assert result.hardware_verified is False

@@ -137,7 +137,7 @@ that treated only three interface methods as stubs; static call-site tracing sho
 `static_vendor_callback_coverage()` likewise accounts for all 105 callback declarations
 exactly once. Eighty-nine are reached by a structured main or raw Bluetooth opcode,
 14 originate in Android transport, scan, network, OTA, authorization, or cache flows,
-and two declarations have no invocation site in this SDK build. Sixty-two callback
+and two declarations have no invocation site in this SDK build. Seventy-five callback
 families now have offline response codecs: the seven query families plus bounded
 non-health state, action, counter, dial, schedule, current-data, and unknown-motion
 events, five raw notification families, and operation-specific acknowledgements. Every
@@ -251,6 +251,20 @@ sample frames. Six three-byte groups unpack into twelve unsigned 12-bit values. 
 functions perform no subscription or measurement start, keep device timestamps raw,
 and remain static-only. No physiological validation, diagnosis, owner measurement, or
 raw capture is stored in the repository.
+
+## Static device and configuration events
+
+Strict offline parsers now also cover device-test and chat-action events, redacted
+device-code responses, the complete 20-byte dial-information layout, device-file state,
+signed EQ values, factory-test bytes, offline speech mode, binding fields, and three
+`54` configuration-state subcommands. Identifier-like device-code bytes are discarded;
+factory bytes are hidden from representations and exposed only through an explicit
+local-use method. Binding fields remain neutral and cannot establish ownership.
+
+EQ set/get is correlated with an expected response kind and rejects a declared count
+beyond the 14 bytes this APK actually consumes. Dial fields cover every byte of the
+frame. None of these decoders enables the corresponding write, cloud, file, factory,
+binding, or OTA workflow.
 
 ## Required hardware evidence to advance
 

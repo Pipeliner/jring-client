@@ -60,6 +60,12 @@ class StaticValueEvent(str, Enum):
     SENSOR_OXYGEN_DATA = "sensor_oxygen_data"
 
 
+class Static54ValueEvent(str, Enum):
+    DEVICE_SYSTEM_STATE = "device_system_state"
+    WIFI_AP_STATE = "wifi_ap_state"
+    AI_CONNECTION_METHOD = "ai_connection_method"
+
+
 _ZERO_ARGUMENT_OPCODES = {
     StaticQuery.CURRENT_SPORT: 0x03,
     StaticQuery.BATTERY: 0x0B,
@@ -104,6 +110,11 @@ _VALUE_EVENT_OPCODES = {
     StaticValueEvent.TEMPERATURE_MODE_CHANGE: 0x3B,
     StaticValueEvent.BLOOD_OXYGEN_MODE: 0x3E,
     StaticValueEvent.SENSOR_OXYGEN_DATA: 0x3F,
+}
+_54_VALUE_EVENT_SUBCOMMANDS = {
+    Static54ValueEvent.DEVICE_SYSTEM_STATE: 0x12,
+    Static54ValueEvent.WIFI_AP_STATE: 0x13,
+    Static54ValueEvent.AI_CONNECTION_METHOD: 0x14,
 }
 
 
@@ -441,6 +452,79 @@ class VendorEcgStartEnd:
     first_value: int
     second_value: int
     device_epoch_seconds: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorVoidEvent:
+    kind: str
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorDeviceCode:
+    identifier_redacted: bool = True
+    consumed_identifier_bytes: int = 18
+    trailing_byte_ignored_by_sdk: bool = True
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorDeviceDial:
+    codes: tuple[int, int]
+    dimensions: tuple[int, int]
+    unit_width: int
+    color_mode: int
+    custom_flag: int
+    dial_id: int
+    preview_dimensions: tuple[int, int]
+    shape_code: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorDeviceFileState:
+    value: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorEqInfo:
+    kind: str
+    metadata: tuple[int, int]
+    values: tuple[int, ...]
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorFactoryTestData:
+    _data: bytes = field(repr=False)
+    consumed_bytes: int = 19
+    trailing_byte_ignored_by_sdk: bool = True
+    hardware_verified: bool = False
+
+    def synthetic_bytes_for_explicit_local_use(self) -> bytes:
+        return bytes(self._data)
+
+
+@dataclass(frozen=True)
+class VendorOfflineSpeechMode:
+    subcommand: int
+    value: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class Vendor54ValueEvent:
+    event: Static54ValueEvent
+    value: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorBindingInfo:
+    values: tuple[int, int]
+    meaning: str = "unknown"
     hardware_verified: bool = False
 
 
@@ -820,3 +904,97 @@ def parse_vendor_ecg_start_end(data: bytes) -> VendorEcgStartEnd:
         second_value=response[2],
         device_epoch_seconds=int.from_bytes(response[3:7], "little"),
     )
+
+
+def parse_vendor_device_test_event(data: bytes) -> VendorVoidEvent:
+    _response(data, 0x3A)
+    return VendorVoidEvent(kind="device_test_command")
+
+
+def parse_vendor_chat_action(data: bytes) -> VendorSingleValueState:
+    response = _response(data, 0x4E)
+    return VendorSingleValueState(value=response[1])
+
+
+def parse_vendor_device_code(data: bytes) -> VendorDeviceCode:
+    _response(data, 0x1F)
+    return VendorDeviceCode()
+
+
+def parse_vendor_device_dial(data: bytes) -> VendorDeviceDial:
+    response = _response(data, 0x34)
+    return VendorDeviceDial(
+        codes=(
+            int.from_bytes(response[1:3], "little"),
+            int.from_bytes(response[3:5], "little"),
+        ),
+        dimensions=(
+            int.from_bytes(response[5:7], "little"),
+            int.from_bytes(response[7:9], "little"),
+        ),
+        unit_width=int.from_bytes(response[9:11], "little"),
+        color_mode=response[11],
+        custom_flag=response[12],
+        dial_id=int.from_bytes(response[13:15], "little"),
+        preview_dimensions=(
+            int.from_bytes(response[15:17], "little"),
+            int.from_bytes(response[17:19], "little"),
+        ),
+        shape_code=response[19],
+    )
+
+
+def parse_vendor_device_file_state(data: bytes) -> VendorDeviceFileState:
+    response = _response(data, 0x54)
+    if response[1] != 0x06:
+        raise ProtocolError("unexpected vendor file-state subcommand")
+    return VendorDeviceFileState(value=int.from_bytes(response[2:6], "little"))
+
+
+def parse_vendor_eq_info(data: bytes, *, expected_kind: str) -> VendorEqInfo:
+    if expected_kind not in {"set", "get"}:
+        raise ValueError("EQ response kind must be set or get")
+    response = _response(data, 0x53)
+    actual_kind = "set" if response[1] == 0 else "get"
+    if actual_kind != expected_kind:
+        raise ProtocolError("unexpected vendor EQ response kind")
+    count = response[4]
+    if count > 14:
+        raise ProtocolError("vendor EQ value count exceeds static frame layout")
+    values = tuple(
+        value - 256 if value >= 128 else value
+        for value in response[5 : 5 + count]
+    )
+    return VendorEqInfo(
+        kind=actual_kind,
+        metadata=(response[2], response[3]),
+        values=values,
+    )
+
+
+def parse_vendor_factory_test_data(data: bytes) -> VendorFactoryTestData:
+    response = _response(data, 0x50)
+    return VendorFactoryTestData(_data=bytes(response[:19]))
+
+
+def parse_vendor_offline_speech_mode(data: bytes) -> VendorOfflineSpeechMode:
+    response = _response(data, 0x78)
+    if response[1] not in {0x03, 0x0C}:
+        raise ProtocolError("unexpected offline speech response subcommand")
+    return VendorOfflineSpeechMode(subcommand=response[1], value=response[2])
+
+
+def parse_vendor_54_value_event(
+    data: bytes, event: Static54ValueEvent
+) -> Vendor54ValueEvent:
+    if not isinstance(event, Static54ValueEvent):
+        raise TypeError("54 value event must be a Static54ValueEvent")
+    response = _response(data, 0x54)
+    if response[1] != _54_VALUE_EVENT_SUBCOMMANDS[event]:
+        raise ProtocolError("unexpected vendor 54 response subcommand")
+    return Vendor54ValueEvent(event=event, value=response[2])
+
+
+def parse_vendor_binding_info(data: bytes) -> VendorBindingInfo:
+    response = _response(data, 0x4B)
+    return VendorBindingInfo(values=(response[1], response[2]))
