@@ -43,6 +43,7 @@ Date: 2026-08-24
 | Python accepted unsigned values for callbacks the SDK suppresses | Integer-parsed four-byte fields enforce the APK signed ceiling while wider ECG paths remain unsigned |
 | A failed sensor command looked like observed device state | Requested direction is separate and actual `active` state is unknown on failure |
 | A recognized failure opcode implied callback delivery | Failure metadata identifies callback-silent `83`/`8b`/`8c` branches and both `a5` byte predicates |
+| Fixed-width callback strings lost leading zeroes as integers | Device revisions and dial codes preserve uppercase hexadecimal text and add numeric convenience properties |
 | Codec counts were disconnected from their implementations | Immutable registries resolve all 171 designated rows to code without invoking it |
 | Shared parsers/factories looked one-to-one | Pipeline, stateful, branching, and nine unresolved-family bindings are separate locator kinds |
 | Every AIDL request looked like one fixed GATT command | A 112-row route partition separates 85 deterministic codecs from shared state, dynamic writes, descriptor control, DFU, and 23 no-packet operations |

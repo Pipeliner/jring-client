@@ -187,6 +187,8 @@ Four-byte values on SDK paths backed by Java's signed integer parser fail closed
 `7fffffff`; ECG paths proven to use a wider parser keep the full unsigned range. A
 failed sensor open or close result reports requested direction separately and leaves
 actual active state unknown.
+Device revision and dial-code callback strings retain exact fixed width and uppercase
+hexadecimal representation; numeric properties are explicitly convenience views.
 
 Given a typed offline mutation request, its encoder preserves the proven 20-byte layout
 while rejecting low-byte wrapping, implicit host locale/charset use, partial alarm

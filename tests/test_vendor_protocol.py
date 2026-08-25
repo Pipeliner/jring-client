@@ -234,6 +234,8 @@ def test_device_info_redacts_unique_identifier_and_verifies_seeded_crc32():
     result = parse_vendor_device_info(data)
 
     assert result.device_type == 0x0201
+    assert result.hardware_revision_hex == "0A09"
+    assert result.software_revision_hex == "0C0B"
     assert result.hardware_revision == 0x0A09
     assert result.software_revision == 0x0C0B
     assert result.integrity_valid is True
@@ -795,7 +797,7 @@ def test_device_dial_decodes_every_field_in_the_twenty_byte_layout():
     data = (
         bytes((0x34,))
         + (1).to_bytes(2, "little")
-        + (2).to_bytes(2, "little")
+        + (0xABCD).to_bytes(2, "little")
         + (240).to_bytes(2, "little")
         + (280).to_bytes(2, "little")
         + (16).to_bytes(2, "little")
@@ -808,7 +810,8 @@ def test_device_dial_decodes_every_field_in_the_twenty_byte_layout():
 
     result = parse_vendor_device_dial(data)
 
-    assert result.codes == (1, 2)
+    assert result.code_hex == ("0001", "ABCD")
+    assert result.codes == (1, 0xABCD)
     assert result.dimensions == (240, 280)
     assert result.unit_width == 16
     assert (result.color_mode, result.custom_flag, result.dial_id) == (3, 1, 9)

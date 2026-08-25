@@ -212,10 +212,18 @@ class VendorCurrentSport:
 @dataclass(frozen=True)
 class VendorDeviceInfo:
     device_type: int
-    hardware_revision: int
-    software_revision: int
+    hardware_revision_hex: str
+    software_revision_hex: str
     integrity_valid: bool
     identifier_redacted: bool = True
+
+    @property
+    def hardware_revision(self) -> int:
+        return int(self.hardware_revision_hex, 16)
+
+    @property
+    def software_revision(self) -> int:
+        return int(self.software_revision_hex, 16)
 
 
 _STATIC_APP_FEATURE_INDEX = {
@@ -494,7 +502,7 @@ class VendorDeviceCode:
 
 @dataclass(frozen=True)
 class VendorDeviceDial:
-    codes: tuple[int, int]
+    code_hex: tuple[str, str]
     dimensions: tuple[int, int]
     unit_width: int
     color_mode: int
@@ -503,6 +511,10 @@ class VendorDeviceDial:
     preview_dimensions: tuple[int, int]
     shape_code: int
     hardware_verified: bool = False
+
+    @property
+    def codes(self) -> tuple[int, int]:
+        return tuple(int(value, 16) for value in self.code_hex)
 
 
 @dataclass(frozen=True)
@@ -783,8 +795,8 @@ def parse_vendor_device_info(data: bytes) -> VendorDeviceInfo:
     actual_crc = zlib.crc32(response[1:16], 1_247_391_573) & 0xFFFFFFFF
     return VendorDeviceInfo(
         device_type=int.from_bytes(response[1:3], "little"),
-        hardware_revision=int.from_bytes(response[9:11], "little"),
-        software_revision=int.from_bytes(response[11:13], "little"),
+        hardware_revision_hex=response[9:11][::-1].hex().upper(),
+        software_revision_hex=response[11:13][::-1].hex().upper(),
         integrity_valid=actual_crc == expected_crc,
     )
 
@@ -1095,9 +1107,9 @@ def parse_vendor_device_code(data: bytes) -> VendorDeviceCode:
 def parse_vendor_device_dial(data: bytes) -> VendorDeviceDial:
     response = _response(data, 0x34)
     return VendorDeviceDial(
-        codes=(
-            int.from_bytes(response[1:3], "little"),
-            int.from_bytes(response[3:5], "little"),
+        code_hex=(
+            response[1:3][::-1].hex().upper(),
+            response[3:5][::-1].hex().upper(),
         ),
         dimensions=(
             int.from_bytes(response[5:7], "little"),

@@ -112,7 +112,9 @@ The first strict response decoders cover:
   fields whose meanings remain unverified.
 - `0c`: device type and two revision values plus seeded CRC-32 over bytes 1–15.
   The six-byte device identifier at bytes 3–8 is intentionally discarded and cannot
-  appear in the returned object or its representation.
+  appear in the returned object or its representation. Revision values preserve the
+  callback's fixed-width uppercase hexadecimal strings; integer properties are
+  convenience projections.
 
 Failure opcodes (`8b`, `83`, and `8c` for these families), wrong opcodes, wrong frame
 lengths, and impossible battery percentages fail closed. A recognized branch is not
@@ -372,7 +374,9 @@ local-use method. Binding fields remain neutral and cannot establish ownership.
 
 EQ set/get is correlated with an expected response kind and preserves all 15 wire
 values while reporting that this APK's callback drops the fifteenth. Dial fields cover
-every byte of the frame. None of these decoders enables the corresponding write,
+every byte of the frame. Its first two callback arguments remain four-character
+uppercase hexadecimal strings, with integers available only as convenience
+projections. None of these decoders enables the corresponding write,
 cloud, file, factory, binding, or OTA workflow.
 
 Privacy-bearing Bluetooth names, app IDs, device identifiers, contact fingerprints,
