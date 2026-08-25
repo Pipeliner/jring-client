@@ -136,6 +136,35 @@ characteristic writes, require successful primary notification acknowledgement, 
 responses by an operation-specific shape, clear pending work on disconnect, redact
 frames from logs, and fail uncertain without automatically replaying a write.
 
+## Non-health and general-use findings
+
+The APK does not contain evidence that the ring exposes the standard HID service or
+HID report UUID family. The client's standard HID inventory remains useful for any
+model that advertises those assigned UUIDs, but it is a generic compatibility check,
+not a claim about this APK or tested JRing firmware.
+
+The strongest statically proven future input source is a main-channel device-action
+event. `parse_vendor_device_action()` accepts the 20-byte `06` event and the `22`
+weather/location variant. It classifies shutter, media navigation, and volume as
+possible input candidates; find-phone, call control, location refresh, camera
+lifecycle, time synchronization, and unknown codes remain non-candidates with visible
+side-effect classes. These labels describe the Android app's interpretation, not the
+physical ring gesture that produced the event. The decoder has no BLE subscription or
+input-sink integration and every result remains hardware-unverified.
+
+`parse_vendor_step_counter()` decodes the receive-only `51` cumulative 32-bit counter.
+It is explicitly `experimental_counter_only`, not a button event and not input-eligible.
+A future owner-verified adapter must baseline on each connection, ignore the initial
+value, handle reset/wrap, avoid replaying batched increments as click bursts, debounce,
+and rate-limit output.
+
+The motion path uses opcode family `78` and can yield nine signed 16-bit channels, but
+axis order, units, sampling interval, subcommand scope, and gesture meanings are not
+proven. It therefore has no Python parser yet. Raw `33f5`/`33f6` traffic includes
+AI/audio/image material and is privacy-sensitive; Wi-Fi, call control, files/dials,
+arbitrary writes, and executable `fef5` OTA are outside the default input path. The
+declared `57ff`, `ffe5`, and `ffe9` UUIDs have no executable call site in this build.
+
 ## Required hardware evidence to advance
 
 Hardware evidence is owner-authorized and processed locally; autonomous work never

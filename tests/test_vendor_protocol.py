@@ -11,8 +11,10 @@ from jring.vendor_protocol import (
     parse_vendor_band_functions,
     parse_vendor_current_sport,
     parse_vendor_device_info,
+    parse_vendor_device_action,
     parse_vendor_multi_sport_day,
     parse_vendor_oxygen_day,
+    parse_vendor_step_counter,
     static_protocol_coverage,
 )
 from jring.protocol import ProtocolError
@@ -310,3 +312,61 @@ def test_static_protocol_coverage_is_complete_and_cannot_claim_hardware_support(
     assert all(entry.response_endpoint_uuid == VENDOR_CHARACTERISTIC_33F4 for entry in coverage)
     assert all(entry.maturity == "static_apk_only" for entry in coverage)
     assert all(entry.hardware_eligible is False for entry in coverage)
+
+
+@pytest.mark.parametrize(
+    "code,label,input_candidate,side_effect",
+    [
+        (2, "camera_shutter", True, "host_camera"),
+        (4, "call_hangup", False, "phone_call"),
+        (16, "media_play_pause", True, "host_media"),
+        (32, "media_next", True, "host_media"),
+        (64, "media_previous", True, "host_media"),
+        (68, "volume_up", True, "host_audio"),
+        (69, "volume_down", True, "host_audio"),
+        (255, "unknown", False, "unknown"),
+    ],
+)
+def test_device_action_decoder_classifies_input_candidates_and_side_effects(
+    code, label, input_candidate, side_effect
+):
+    result = parse_vendor_device_action(bytes((0x06, code)) + bytes(18))
+
+    assert result.code == code
+    assert result.label == label
+    assert result.input_candidate is input_candidate
+    assert result.side_effect_class == side_effect
+    assert result.hardware_verified is False
+
+
+def test_weather_action_opcode_uses_its_static_action_without_payload_guessing():
+    result = parse_vendor_device_action(bytes((0x22, 99)) + bytes(18))
+
+    assert result.code == 5
+    assert result.label == "weather_location_refresh"
+    assert result.input_candidate is False
+
+
+def test_step_counter_is_cumulative_and_not_a_verified_button_event():
+    result = parse_vendor_step_counter(
+        bytes((0x51,)) + (123_456).to_bytes(4, "little") + bytes(15)
+    )
+
+    assert result.cumulative_steps == 123_456
+    assert result.event_semantics == "experimental_counter_only"
+    assert result.hardware_verified is False
+    assert result.input_eligible is False
+
+
+@pytest.mark.parametrize(
+    "parser,data",
+    [
+        (parse_vendor_device_action, bytes((0x86,)) + bytes(19)),
+        (parse_vendor_device_action, bytes(19)),
+        (parse_vendor_step_counter, bytes((0xD1,)) + bytes(19)),
+        (parse_vendor_step_counter, bytes(21)),
+    ],
+)
+def test_non_health_event_decoders_fail_closed(parser, data):
+    with pytest.raises(ProtocolError):
+        parser(data)

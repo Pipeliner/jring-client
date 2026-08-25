@@ -205,6 +205,40 @@ class VendorAdvancedSensorDay:
     end_of_history: bool = False
 
 
+_DEVICE_ACTIONS = {
+    1: ("find_phone_alarm", False, "host_alarm"),
+    2: ("camera_shutter", True, "host_camera"),
+    4: ("call_hangup", False, "phone_call"),
+    5: ("weather_location_refresh", False, "location_access"),
+    8: ("call_answer", False, "phone_call"),
+    16: ("media_play_pause", True, "host_media"),
+    32: ("media_next", True, "host_media"),
+    64: ("media_previous", True, "host_media"),
+    65: ("camera_open", False, "host_camera_lifecycle"),
+    66: ("camera_close", False, "host_camera_lifecycle"),
+    67: ("time_sync_request", False, "device_write_request"),
+    68: ("volume_up", True, "host_audio"),
+    69: ("volume_down", True, "host_audio"),
+}
+
+
+@dataclass(frozen=True)
+class VendorDeviceAction:
+    code: int
+    label: str
+    input_candidate: bool
+    side_effect_class: str
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorStepCounter:
+    cumulative_steps: int
+    event_semantics: str = "experimental_counter_only"
+    hardware_verified: bool = False
+    input_eligible: bool = False
+
+
 def _request(operation: StaticQuery, *fields: int) -> StaticVendorRequest:
     encoded = bytes((operation_opcode(operation), *fields)) + bytes(19 - len(fields))
     return StaticVendorRequest(operation=operation, _encoded=encoded)
@@ -360,3 +394,24 @@ def parse_vendor_advanced_sensor_day(data: bytes) -> VendorAdvancedSensorDay:
         for index in range(3)
     )
     return VendorAdvancedSensorDay(device_epoch_seconds=base, samples=samples)
+
+
+def parse_vendor_device_action(data: bytes) -> VendorDeviceAction:
+    response = _response(data, 0x06, 0x22)
+    code = response[1] if response[0] == 0x06 else 5
+    label, input_candidate, side_effect = _DEVICE_ACTIONS.get(
+        code, ("unknown", False, "unknown")
+    )
+    return VendorDeviceAction(
+        code=code,
+        label=label,
+        input_candidate=input_candidate,
+        side_effect_class=side_effect,
+    )
+
+
+def parse_vendor_step_counter(data: bytes) -> VendorStepCounter:
+    response = _response(data, 0x51)
+    return VendorStepCounter(
+        cumulative_steps=int.from_bytes(response[1:5], "little")
+    )

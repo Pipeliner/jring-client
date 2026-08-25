@@ -158,6 +158,14 @@ Given no ring, when a person runs
 `jring input --simulate --map step=click:left`, then the client exercises a simulated
 step, describes the mouse click it would emit, and produces no operating-system input.
 
+Static APK evidence distinguishes two non-health event families without making either
+live: discrete device actions and a cumulative step counter. Offline action decoding
+labels media navigation, volume, and shutter codes as possible future input candidates,
+while phone, location, camera-lifecycle, and time-write actions remain side-effecting.
+Unknown action codes are never candidates. The cumulative counter is not interpreted
+as a click: reconnect baselines, resets, batching, debounce, and rate limits require
+owner-hardware evidence first.
+
 ### Discoverable and accessible input vocabulary
 
 Given no ring and no optional input package, when a person runs `jring input-actions`,
@@ -308,6 +316,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Standard HID visibility | `test_standard_hid_service_is_reported` |
 | Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_cli_capability_inventory_is_private` |
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
+| Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |
 | Accessible action discovery | `test_input_action_inventory_is_complete_and_stable`, `test_input_actions_are_screen_reader_ordered`, `test_mouse_aliases_are_deterministic` |

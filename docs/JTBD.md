@@ -148,6 +148,10 @@ Desired outcomes:
 - Expose only the kernel input capability selected by the mapping.
 - Exercise the full mapping path with simulated `step` events while hardware motion
   packets remain unverified.
+- Distinguish discrete app-action events from cumulative step counters and raw motion;
+  only the former may become direct input candidates without gesture inference.
+- Keep phone-call, location, camera-lifecycle, time-write, raw audio/image, Wi-Fi,
+  file, and OTA side effects outside the default input action path.
 
 ## Opportunity ordering
 
