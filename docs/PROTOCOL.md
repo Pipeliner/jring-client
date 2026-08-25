@@ -203,6 +203,13 @@ sensor-session start and stop use front insertion. This is byte-layout evidence,
 queue parity: policy/connection gates, full-message logging, drain timing, alarm
 partial enqueue, and dial-state queue clearing are not reproduced.
 
+Decoded values stay wire-neutral even where the reviewed app's consumption is known.
+Battery state codes still have meaning `unknown`; separate derived properties expose
+only the exact app branches for state 1 at 100% (full notification) and state 0 at or
+below 10% (low notification). Likewise, device-state bits 0–2 remain neutral fields
+while app-projection properties show their storage into snooze-repeat, snooze, and
+alarm-enabled state. These labels describe this app's behavior, not firmware semantics.
+
 The app-use evidence answers a different question: what this APK directly references,
 not what the bundled SDK exposes. It partitions all 112 request rows into 51 direct
 app interface targets (152 invoke sites), 43 uninvoked SDK wire entries, 14 uninvoked

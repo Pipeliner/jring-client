@@ -195,6 +195,22 @@ class VendorBattery:
     def state_meaning(self) -> str:
         return "unknown"
 
+    @property
+    def app_requests_full_notification(self) -> bool:
+        """Whether the reviewed app takes its full-charge notification branch."""
+
+        return self.state_code == 1 and self.percent == 100
+
+    @property
+    def app_requests_low_notification(self) -> bool:
+        """Whether the reviewed app takes its low-charge notification branch."""
+
+        return self.state_code == 0 and self.percent <= 10
+
+    @property
+    def app_projection_scope(self) -> str:
+        return "reviewed_app_condition_not_wire_semantics"
+
 
 @dataclass(frozen=True)
 class VendorCurrentSport:
@@ -361,6 +377,22 @@ class VendorDeviceState:
     flag_1: bool
     flag_2: bool
     unused_bits_present: bool
+
+    @property
+    def app_snooze_repeat_state(self) -> bool:
+        return self.flag_0
+
+    @property
+    def app_snooze_state(self) -> bool:
+        return self.flag_1
+
+    @property
+    def app_alarm_enabled_state(self) -> bool:
+        return self.flag_2
+
+    @property
+    def app_projection_scope(self) -> str:
+        return "reviewed_app_storage_not_wire_semantics"
 
 
 @dataclass(frozen=True)

@@ -137,6 +137,30 @@ def test_vendor_battery_response_is_typed_without_guessing_state_meaning():
     assert response.percent == 84
     assert response.state_code == 1
     assert response.state_meaning == "unknown"
+    assert response.app_requests_full_notification is False
+    assert response.app_requests_low_notification is False
+    assert response.app_projection_scope == "reviewed_app_condition_not_wire_semantics"
+
+
+@pytest.mark.parametrize(
+    "percent,state,full,low",
+    [
+        (100, 1, True, False),
+        (99, 1, False, False),
+        (10, 0, False, True),
+        (0, 0, False, True),
+        (11, 0, False, False),
+        (100, 0, False, False),
+    ],
+)
+def test_vendor_battery_exposes_exact_app_notification_conditions_only(
+    percent, state, full, low
+):
+    result = parse_vendor_battery(bytes((0x0B, percent, state)) + bytes(17))
+
+    assert result.app_requests_full_notification is full
+    assert result.app_requests_low_notification is low
+    assert result.state_meaning == "unknown"
 
 
 @pytest.mark.parametrize(
@@ -483,6 +507,10 @@ def test_device_state_decodes_only_the_three_statically_used_bits():
     assert result.flag_1 is False
     assert result.flag_2 is True
     assert result.unused_bits_present is True
+    assert result.app_snooze_repeat_state is True
+    assert result.app_snooze_state is False
+    assert result.app_alarm_enabled_state is True
+    assert result.app_projection_scope == "reviewed_app_storage_not_wire_semantics"
 
 
 def test_device_dial_custom_preserves_four_neutral_values():
