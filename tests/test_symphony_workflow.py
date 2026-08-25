@@ -4,6 +4,10 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 WORKFLOW = (ROOT / "WORKFLOW.md").read_text(encoding="utf-8")
 TEXT = " ".join(WORKFLOW.split())
+ROADMAP = (ROOT / "docs" / "ROADMAP.md").read_text(encoding="utf-8")
+JTBD = (ROOT / "docs" / "JTBD.md").read_text(encoding="utf-8")
+ROADMAP_TEXT = " ".join(ROADMAP.split())
+JTBD_TEXT = " ".join(JTBD.split())
 
 
 def test_symphony_workflow_closes_issue_and_verification_contracts():
@@ -39,3 +43,21 @@ def test_symphony_workflow_cannot_authorize_hardware_or_package_publication():
     ):
         assert blocked in TEXT
     assert "A passing local suite does not imply CI success" in TEXT
+
+
+def test_complete_implementation_tracker_is_milestoned_and_decision_complete():
+    for milestone in range(7):
+        assert f"M{milestone} —" in ROADMAP
+    for issue in range(32, 49):
+        assert f"issues/{issue}" in ROADMAP
+    for status in (
+        "hardware_verified",
+        "proven_unavailable",
+        "blocked_vendor_authorization",
+        "unsafe",
+        "excluded_non_ring",
+    ):
+        assert f"`{status}`" in ROADMAP
+    assert "Fish completion remains out of scope" in ROADMAP_TEXT
+    assert "JSON Lines, MPRIS, and allowlisted `uinput`" in JTBD_TEXT
+    assert "Vendor accounts, advertising/social integrations, and Android-only plumbing" in JTBD_TEXT

@@ -115,6 +115,24 @@ Date: 2026-08-25
 | Completion installation could silently mutate a shell | Bash and man files ship only as inert package resources; no shell configuration or host help directory is changed |
 | Manual readers could encounter active commands before safety boundaries | The offline/no-scan/no-connect/no-write/no-uinput contract precedes every generated command and option listing |
 
+## Complete implementation tracker review
+
+The M0–M6 tracker was challenged again before publication from every workflow persona:
+
+| Persona | Adversarial question | Tracker resolution |
+|---|---|---|
+| New Linux owner | Where do I start, and does “complete” mean it works on my ring? | One completion epic orders milestones and requires a named model/firmware scope; unknown firmware stays untested |
+| Assistive-technology user | Can a speculative step or stale reconnect event emit input? | Neutral-event verification precedes profiles and `uinput`; preview, disarm, rate limits, and release guarantees remain explicit |
+| Privacy-sensitive owner | Could task setup turn private evidence, notifications, health data, or credentials public? | Public schemas retain sanitized status only; private ledgers, content, measurements, and captures remain excluded |
+| Automation author | Must I scrape prose or accept arbitrary shell execution? | A versioned Python/JSON Lines contract precedes adapters; arbitrary shell execution is excluded |
+| Distro packager | Are packaging and protocol completion conflated? | Distribution is a separate final milestone with provenance, install, distro, and release gates |
+| Protocol contributor | Can an offline codec quietly become a live operation? | The registry rejects static-only promotion without exact endpoint, matcher, evidence, firmware, and consent metadata |
+| Maintainer | Can broad issues hide missing implementation families? | Seventeen bounded tasks cover sensor, history, setting, content, action, input, transfer, service, and OTA families, while #16 checks every terminal status |
+
+The review found no need for a new implementation family. It did find that simulator
+and shell-completion work could distract from live client parity; simulator work is now
+last and minimal, and Fish completion is explicitly excluded.
+
 ## Release gates before live sensor-to-input bridging
 
 The current `step` path remains a one-event simulator. Real motion input must not be

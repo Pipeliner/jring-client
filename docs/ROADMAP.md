@@ -1,71 +1,116 @@
-# JRing roadmap
+# JRing implementation roadmap
 
-Future work is tracked in public GitHub issues rather than an unowned documentation
-list. Every implementation issue carries a user job, a behavior and safety contract,
-RED-first test expectations, an artifact boundary, and an explicit block condition.
-The `symphony` label marks work eligible for the fail-closed issue workflow; it does not
-authorize hardware access, input injection, publication, or a decision reserved for the
-owner.
+The public tracker is the executable roadmap. [Issue #16](https://github.com/Pipeliner/jring-client/issues/16)
+is the completion epic; its checklist and the milestones below are the only completion
+graph. Every implementation issue contains a JTBD outcome, SDD behavior/safety
+contract, RED-first TDD evidence, allowed artifacts, dependencies, and a definition of
+done. The `symphony` label makes a task eligible for the fail-closed continuation loop;
+it does not itself authorize hardware, input, private evidence, writes, publication, or
+package release.
 
-## Evidence and general device functionality
+Complete ring-facing parity requires every recovered ring-facing row to finish as
+`hardware_verified`, `proven_unavailable`, `blocked_vendor_authorization`, or `unsafe`
+for a named supported model/firmware scope. Non-ring-facing APK plumbing must be
+`excluded_non_ring`. An `offline_only` codec, static UUID/opcode, simulator result, or
+untested firmware cannot close the epic.
 
-- [#1 Privacy-safe hardware evidence and fixtures](https://github.com/Pipeliner/jring-client/issues/1)
-- [#2 Non-health services, HID descriptors, and sensor inventory](https://github.com/Pipeliner/jring-client/issues/2)
-- [#3 Verified non-health motion events](https://github.com/Pipeliner/jring-client/issues/3)
-- [#11 Privacy-safe real-hardware compatibility matrix](https://github.com/Pipeliner/jring-client/issues/11)
-- [#16 Complete clean-room APK-to-Python BLE protocol parity](https://github.com/Pipeliner/jring-client/issues/16)
-- [#17 Harden evidence scanning and private-ledger separation](https://github.com/Pipeliner/jring-client/issues/17)
-- [#22 Publish an exhaustive offline protocol coverage ledger](https://github.com/Pipeliner/jring-client/issues/22)
+## M0 — Evidence and operation contracts
 
-## Vendor transport and owner hardware
+- [#17 Evidence scanning and private/public ledgers](https://github.com/Pipeliner/jring-client/issues/17)
+- [#22 Exhaustive offline protocol coverage ledger](https://github.com/Pipeliner/jring-client/issues/22)
+- [#32 Versioned live operation registry](https://github.com/Pipeliner/jring-client/issues/32)
+- [#33 Normalized event and operation-result contracts](https://github.com/Pipeliner/jring-client/issues/33)
 
-- [#18 Promote read-only vendor queries through owner hardware canaries](https://github.com/Pipeliner/jring-client/issues/18)
-- [#21 Build a fail-closed vendor GATT transaction engine](https://github.com/Pipeliner/jring-client/issues/21)
-- [#23 Detect authorization-gated firmware without vendor cloud requests](https://github.com/Pipeliner/jring-client/issues/23)
-- [#24 Verify owner-controlled vendor binding without cloud replay](https://github.com/Pipeliner/jring-client/issues/24)
+This milestone establishes the closed schemas that prevent static evidence from
+becoming live authority. Every later runtime consumes exact registered types.
 
-## Desktop input and accessibility
+## M1 — Safe owner-hardware runtime
+
+- [#21 Fail-closed vendor transaction engine](https://github.com/Pipeliner/jring-client/issues/21)
+- [#23 Local detection of vendor-authorization gates](https://github.com/Pipeliner/jring-client/issues/23)
+- [#34 Owner-hardware evidence runner and compatibility ledger](https://github.com/Pipeliner/jring-client/issues/34)
+- [#35 Generation-bound live vendor event engine](https://github.com/Pipeliner/jring-client/issues/35)
+
+This milestone supplies exact endpoint ownership, operation-specific matching,
+generation safety, bounded cleanup, and private-to-public evidence promotion. Owner
+authorization permits planned hardware tests, but every run still requires explicit
+selection and fresh operation-specific consent.
+
+## M2 — Read-only data and events
+
+- [#3 Verified neutral motion events](https://github.com/Pipeliner/jring-client/issues/3)
+- [#18 Read-only vendor query families](https://github.com/Pipeliner/jring-client/issues/18)
+- [#20 Raw and non-health observation](https://github.com/Pipeliner/jring-client/issues/20)
+- [#36 Live fitness and sensor readings](https://github.com/Pipeliner/jring-client/issues/36)
+- [#37 Activity and sensor history synchronization/export](https://github.com/Pipeliner/jring-client/issues/37)
+
+Read-only work promotes one firmware-scoped family at a time. Unknown motion stays
+neutral, raw/audio activation remains gated by its threat model, and history silence
+never becomes device-confirmed completion.
+
+## M3 — Configuration and host integration
+
+- [#38 Reviewed device settings](https://github.com/Pipeliner/jring-client/issues/38)
+- [#39 Schedules and reminders without false batch success](https://github.com/Pipeliner/jring-client/issues/39)
+- [#40 Private-content synchronization from local sources](https://github.com/Pipeliner/jring-client/issues/40)
+- [#41 Host-action events and MPRIS media control](https://github.com/Pipeliner/jring-client/issues/41)
+
+These tasks implement named operations only. They never expose arbitrary payloads,
+reuse vendor services, retry uncertain writes, or infer whole-batch delivery from
+per-frame/local callbacks.
+
+## M4 — Linux remote and accessibility
 
 - [#4 Fail-safe live sensor-to-keyboard/mouse runtime](https://github.com/Pipeliner/jring-client/issues/4)
-- [#5 Accessible mappings and action inventory](https://github.com/Pipeliner/jring-client/issues/5)
-- [#20 Inventory and safely expose raw and non-health capabilities](https://github.com/Pipeliner/jring-client/issues/20)
-- [#25 Make simulator profiles consistent across commands](https://github.com/Pipeliner/jring-client/issues/25)
-- [#30 Expose task-first non-health and HID capability UX](https://github.com/Pipeliner/jring-client/issues/30)
+- [#30 Task-first non-health/HID capability UX](https://github.com/Pipeliner/jring-client/issues/30)
+- [#42 Stable Python and JSON Lines event API](https://github.com/Pipeliner/jring-client/issues/42)
+- [#43 Permission-checked XDG TOML mapping profiles](https://github.com/Pipeliner/jring-client/issues/43)
 
-## High-risk and bulk capabilities
+Core first-party adapters are local JSON Lines, MPRIS, and allowlisted `uinput`.
+Profiles contain no authority or arbitrary code. MQTT, D-Bus, OSC, MIDI, and arbitrary
+shell execution remain external consumers rather than built-in integrations.
 
-- [#19 Threat-model private-data, bulk-transfer, and destructive features](https://github.com/Pipeliner/jring-client/issues/19)
+## M5 — Binding, bulk transfer, and OTA
 
-## Everyday hardware UX and automation
+- [#19 High-risk/private/bulk threat model](https://github.com/Pipeliner/jring-client/issues/19)
+- [#24 Owner-controlled vendor binding](https://github.com/Pipeliner/jring-client/issues/24)
+- [#44 Wi-Fi/AP, FTP, and device-file workflows](https://github.com/Pipeliner/jring-client/issues/44)
+- [#45 Dial and wallpaper transfer](https://github.com/Pipeliner/jring-client/issues/45)
+- [#46 Model- and recovery-gated factory/service operations](https://github.com/Pipeliner/jring-client/issues/46)
+- [#47 Recovery-aware SUOTA firmware updates](https://github.com/Pipeliner/jring-client/issues/47)
 
-- [#6 Guided selection with ephemeral aliases](https://github.com/Pipeliner/jring-client/issues/6)
-- [#7 Passive BlueZ operational diagnostics](https://github.com/Pipeliner/jring-client/issues/7)
-- [#8 Partial Device Information states under one deadline](https://github.com/Pipeliner/jring-client/issues/8)
-- [#9 Versioned JSON errors and stable exit codes](https://github.com/Pipeliner/jring-client/issues/9)
-- [#26 Make doctor diagnostics portable without silent busctl dependence](https://github.com/Pipeliner/jring-client/issues/26)
+Each mutation boundary has separate disclosure and consent. Destructive operations
+require independently tested recovery, never auto-retry, and never infer completion
+from an uncorrelated status or disconnect.
 
-## Installation portability
+## M6 — Distribution and 1.0 closure
 
-- [#13 Portable installation across major Linux distro families](https://github.com/Pipeliner/jring-client/issues/13)
-- [#27 Provide an honest installable distribution path](https://github.com/Pipeliner/jring-client/issues/27)
-- [#28 Design a verifiably offline installation path](https://github.com/Pipeliner/jring-client/issues/28)
-- [#29 Split Linux prerequisites by capability and test literal recipes](https://github.com/Pipeliner/jring-client/issues/29)
-
-## Distribution and governance
-
-- [#10 Reproducible signed end-user release flow](https://github.com/Pipeliner/jring-client/issues/10)
-- [#12 Explicit project license](https://github.com/Pipeliner/jring-client/issues/12)
 - [#14 Gated PyPI Trusted Publishing](https://github.com/Pipeliner/jring-client/issues/14)
-- [#15 Tested package discovery keywords and project URLs](https://github.com/Pipeliner/jring-client/issues/15)
-- [#31 Improve packager and terminal discovery UX](https://github.com/Pipeliner/jring-client/issues/31)
+- [#25 Minimal simulator consistency regression](https://github.com/Pipeliner/jring-client/issues/25)
+- [#26 Portable passive diagnostics](https://github.com/Pipeliner/jring-client/issues/26)
+- [#27 Honest installable distribution](https://github.com/Pipeliner/jring-client/issues/27)
+- [#28 Verifiably offline installation](https://github.com/Pipeliner/jring-client/issues/28)
+- [#29 Capability-tiered Linux prerequisites](https://github.com/Pipeliner/jring-client/issues/29)
+- [#31 Packager, Bash completion, and manual UX](https://github.com/Pipeliner/jring-client/issues/31)
+- [#48 1.0 ring-facing parity audit and release acceptance](https://github.com/Pipeliner/jring-client/issues/48)
 
-Dependencies remain explicit: evidence handling precedes hardware event decoding;
-verified neutral events precede live input; and tested package metadata and owner-controlled
-release gates precede publication. Issues may refine or split their scope, but newly
-discovered work must become another tracked issue instead of surviving only as a TODO
-or review note.
+Simulator work is last and limited to existing regression consistency. Fish completion
+remains out of scope.
+PyPI, protected-environment approval, tagging, and release publication retain their
+separate owner-controlled gates even after the implementation suite passes.
 
-The repository-owned [Symphony workflow](../WORKFLOW.md) defines how eligible issues
-move through reproduction, RED-first tests, bounded implementation, adversarial UX
-review, dual-environment verification, commit/push, and proof-of-work handoff. The
-workflow does not grant hardware, privacy, publication, or package-index authority.
+## Closed foundations
+
+Issues [#1](https://github.com/Pipeliner/jring-client/issues/1),
+[#2](https://github.com/Pipeliner/jring-client/issues/2),
+[#5](https://github.com/Pipeliner/jring-client/issues/5)–[#13](https://github.com/Pipeliner/jring-client/issues/13),
+and [#15](https://github.com/Pipeliner/jring-client/issues/15) established evidence
+handling, initial inventories, accessibility mappings, selection, diagnostics, JSON
+errors, release foundations, compatibility structure, licensing, distro guidance, and
+package discovery metadata. A closed foundation is not a live protocol or firmware
+compatibility claim.
+
+The repository-owned [Symphony workflow](../WORKFLOW.md) defines RED-first execution,
+dual-environment verification, adversarial UX review, commit/push behavior, sanitized
+workpads, and continuation. Newly discovered work must become a fully specified linked
+issue rather than an unowned TODO.

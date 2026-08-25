@@ -1,6 +1,22 @@
 # JRing jobs to be done
 
-Status: reprioritized after adversarial review for v0.5
+Status: complete implementation portfolio tracked in milestones M0–M6
+
+## Product completion target
+
+JRing is a local-first Linux companion for every ring-facing Bluetooth capability in
+the clean-room specification. Completion means a capability is runnable and verified
+on a named model/firmware scope or repeatably proven unavailable, vendor-gated, or
+unsafe there. Static codecs and simulated behavior do not count as live completion.
+
+The core Linux integrations are a stable Python event API, JSON Lines, MPRIS, and
+allowlisted `uinput`, with permission-checked XDG TOML profiles. Vendor accounts,
+advertising/social integrations, and Android-only plumbing are excluded. MQTT, D-Bus,
+OSC, MIDI, arbitrary shell execution, Fish completions, and simulator expansion are
+not first-party completion requirements.
+
+The decision-complete dependency graph lives in [ROADMAP.md](ROADMAP.md) and public
+[completion epic #16](https://github.com/Pipeliner/jring-client/issues/16).
 
 ## Core jobs
 
