@@ -55,6 +55,12 @@ class BleakTransport:
         self._client_generation = 0
         self._client = self._build_client(self._client_generation)
 
+    @property
+    def connection_generation(self) -> int:
+        """Current connection generation without exposing a backend object."""
+
+        return self._connection_generation
+
     def _build_client(self, generation: int) -> object:
         return self._client_factory(
             self._address,

@@ -204,6 +204,19 @@ distinguish service `advertised`, characteristic `read_property_advertised` or
 `unsupported`, malformed optional descriptor metadata, `not_verified` usability, and
 `not_checked` OS attachment.
 
+The vendor section always presents exactly two rows in main-then-raw order. For each,
+service and metadata inventory availability, the stable structural preflight result,
+and current-snapshot transport target ownership are distinct fields. If either source
+inventory is unavailable or timed out, preflight is `not_evaluated`; an empty fallback
+is never mislabeled unsupported or missing. A structural success requires the exact
+service-bound request/response pair, response-capable request write property, notify,
+one advertised CCCD, matching current connection generation, and consistent opaque
+target metadata. Both targets must independently pass `owns_target` to receive the
+`current_snapshot_owned` label. Output never includes either target, an instance ID,
+connection generation, backend object/path, descriptor instance ID, value, payload, or
+frame. Every row remains metadata-only, non-runnable, live-ineligible,
+owner-unauthorized, hardware-ineligible, and hardware-unverified.
+
 `read_property_advertised` means only that the GATT characteristic metadata advertises
 a read property; no value was read or understood. Inventory never reads the HID Report Map, captures a
 report, subscribes to HID/vendor/health notifications, starts a measurement, or prints
@@ -728,7 +741,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Passive setup diagnosis | `test_doctor_explains_hardware_setup_without_failing`, `test_bluez_layers_remain_distinct`, `test_missing_busctl_is_a_named_diagnostic_gap_not_a_dbus_failure`, `test_present_busctl_can_report_broken_dbus_separately`, `test_passive_bluez_probe_uses_only_read_queries` |
 | Readiness automation | `test_doctor_json_can_strictly_require_hardware` |
 | Standard HID visibility | `test_standard_hid_service_is_reported` |
-| Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_cli_capability_inventory_is_private` |
+| Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_vendor_route_readiness_uses_metadata_and_current_target_ownership_only`, `test_timed_out_vendor_metadata_is_not_misreported_as_missing_endpoints`, `test_timed_out_service_inventory_does_not_run_vendor_preflight`, `test_stale_vendor_targets_fail_generation_before_ownership`, `test_malformed_vendor_metadata_is_sanitized_instead_of_raising`, `test_cli_capability_inventory_is_private` |
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_multi_sport_frame_also_reports_generic_sensor_mode_success`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Complete request accounting | `test_static_vendor_operation_coverage_accounts_for_all_112_requests_once`, `test_only_seven_operations_have_offline_request_and_response_codecs`, `test_static_coverage_never_promotes_an_operation_to_hardware` |
 | APK-owned interface use | `test_every_request_has_one_exact_app_use_classification`, `test_direct_app_use_counts_are_occurrences_not_distinct_methods`, `test_every_callback_has_exact_invoke_origin_counts_or_is_unobserved`, `test_callback_origin_counts_preserve_overlap_and_repeated_invokes` |

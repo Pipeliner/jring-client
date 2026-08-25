@@ -21,6 +21,11 @@ from .transport import (
     GattCharacteristicTarget,
     HeartRateSubscriptionToken,
 )
+from .vendor_gatt_preflight import (
+    VendorGattPreflightCode,
+    VendorGattRoute,
+    resolve_vendor_gatt_route,
+)
 from .uuids import (
     BATTERY_LEVEL, BOOT_KEYBOARD_INPUT, BOOT_KEYBOARD_OUTPUT, BOOT_MOUSE_INPUT,
     CURRENT_TIME, DEVICE_INFO_SERVICE, FIRMWARE, HARDWARE, HEART_RATE_MEASUREMENT,
@@ -87,6 +92,25 @@ class VendorGattObservation:
 
 
 @dataclass(frozen=True)
+class VendorRouteCapability:
+    route: str
+    service_inventory_state: str
+    metadata_inventory_state: str
+    structural_state: str
+    structurally_ready: bool
+    transport_target_state: str
+    metadata_only: bool = True
+    values_read: bool = False
+    subscription_attempted: bool = False
+    write_attempted: bool = False
+    runnable: bool = False
+    live_eligible: bool = False
+    owner_authorized: bool = False
+    hardware_eligible: bool = False
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
 class HidReportMetadataInstance:
     instance: int
     characteristic_instance_id: str
@@ -125,6 +149,75 @@ class CapabilityInventory:
     os_attachment_state: str = "not_checked"
     neutral_event_state: str = "unsupported"
     neutral_events: tuple[str, ...] = ()
+    vendor_routes: tuple[VendorRouteCapability, ...] = ()
+
+
+def _vendor_route_capabilities(
+    services: set[str],
+    services_state: str,
+    metadata: tuple[object, ...],
+    metadata_state: str,
+    transport: BleTransport,
+) -> tuple[VendorRouteCapability, ...]:
+    rows = []
+    try:
+        connection_generation = getattr(transport, "connection_generation", 0)
+    except Exception:
+        connection_generation = 0
+    for route in VendorGattRoute:
+        if services_state != "available" or metadata_state != "available":
+            rows.append(
+                VendorRouteCapability(
+                    route=route.value,
+                    service_inventory_state=services_state,
+                    metadata_inventory_state=metadata_state,
+                    structural_state="not_evaluated",
+                    structurally_ready=False,
+                    transport_target_state="not_evaluated",
+                )
+            )
+            continue
+        preflight = resolve_vendor_gatt_route(
+            route,
+            services=services,
+            metadata=metadata,
+            connection_generation=connection_generation,
+        )
+        target_state = "not_evaluated"
+        if preflight.structurally_ready:
+            request_target = preflight.request_target
+            response_target = preflight.response_target
+            if request_target is None or response_target is None:
+                raise RuntimeError("ready vendor route omitted closed targets")
+            try:
+                request_owned = transport.owns_target(request_target)
+            except Exception:
+                request_owned = False
+            try:
+                response_owned = transport.owns_target(response_target)
+            except Exception:
+                response_owned = False
+            target_state = (
+                "current_snapshot_owned"
+                if request_owned and response_owned
+                else "not_current_snapshot_owned"
+            )
+        rows.append(
+            VendorRouteCapability(
+                route=route.value,
+                service_inventory_state=services_state,
+                metadata_inventory_state=metadata_state,
+                structural_state=(
+                    "request_write_unavailable"
+                    if preflight.code
+                    is VendorGattPreflightCode.RESPONSE_WRITE_UNAVAILABLE
+                    else preflight.code.value
+                ),
+                structurally_ready=preflight.structurally_ready,
+                transport_target_state=target_state,
+            )
+        )
+    return tuple(rows)
 
 
 _HID_FEATURES = (
@@ -388,8 +481,14 @@ class JRingClient:
         for record in metadata:
             if not isinstance(record, GattCharacteristicMetadata):
                 continue
-            service_uuid = record.service_uuid.lower()
-            characteristic_uuid = record.uuid.lower()
+            service_uuid = (
+                record.service_uuid.lower()
+                if isinstance(record.service_uuid, str)
+                else ""
+            )
+            characteristic_uuid = (
+                record.uuid.lower() if isinstance(record.uuid, str) else ""
+            )
             if service_uuid in VENDOR_UUIDS:
                 vendor_observations.add((service_uuid, "service"))
             if characteristic_uuid in VENDOR_UUIDS:
@@ -397,6 +496,8 @@ class JRingClient:
         hid_records = tuple(
             record for record in metadata
             if isinstance(record, GattCharacteristicMetadata)
+            and isinstance(record.service_uuid, str)
+            and isinstance(record.uuid, str)
             and record.service_uuid.lower() == HUMAN_INTERFACE_DEVICE_SERVICE
         )
         if HUMAN_INTERFACE_DEVICE_SERVICE in services or hid_records:
@@ -585,6 +686,13 @@ class JRingClient:
                     vendor_observations,
                     key=lambda item: (item[0], 0 if item[1] == "service" else 1),
                 )
+            ),
+            vendor_routes=_vendor_route_capabilities(
+                services,
+                services_state,
+                metadata,
+                metadata_state,
+                self.transport,
             ),
         )
 

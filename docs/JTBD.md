@@ -201,6 +201,10 @@ Desired outcomes:
   acknowledgement, terminal, local-store implementation, or runnable path implied.
 - See deterministic main/raw packet routes separately from shared preflight, dynamic
   writes, descriptor control, DFU, and operations that produce no fixed packet.
+- On an explicitly selected ring, see whether the current metadata snapshot can
+  structurally identify each main/raw endpoint pair and whether both opaque targets
+  still belong to the transport, without reading, subscribing, writing, or treating
+  structural readiness as live, owner-authorized, or hardware-verified support.
 - Expose process-local/system broadcast mismatches, unhandled registered actions,
   sender-permission gaps, and teardown-domain mismatches as app defects, not features.
 - Treat resource keyword counts as UI/localization surface, never capability counts.

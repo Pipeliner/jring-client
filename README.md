@@ -78,7 +78,9 @@ auto-selects a sole result. Discovery JSON includes the same
 `likely_jring_basis=client_name_heuristic` boundary. This guided path is human-only and
 does not support `--json`; scripts should keep using the mode-0600 address file.
 The capabilities path reads service/characteristic metadata only; it never reads
-values, subscribes, or writes.
+values, subscribes, or writes. It evaluates fixed main/raw vendor route structure and
+current-snapshot target ownership without exposing target identities. Structural
+readiness grants no live eligibility, owner authorization, or hardware support.
 
 `jring heart-rate` collects exactly one standard Bluetooth Heart Rate Measurement and
 then disables its notification before displaying a result. Hardware use requires
@@ -378,6 +380,10 @@ or report value and never subscribes. A read property is only advertised metadat
 value was read. Repeated HID Report characteristics remain separate numbered metadata
 instances with their own Report Reference descriptor state.
 HID usability and operating-system attachment remain unverified/not checked.
+The same snapshot produces exactly two sanitized vendor-route rows, main then raw.
+Each keeps service/metadata availability, structural preflight, and transport target
+ownership separate; no characteristic value, target ID, generation, subscription, or
+write is exposed or attempted.
 
 `time-sync` is the sole hardware write and targets the standard Bluetooth Current Time
 characteristic. Some rings may not expose it; failure is safe. History export accepts

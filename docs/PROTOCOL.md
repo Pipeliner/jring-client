@@ -37,6 +37,13 @@ connection is closed before CLI success is exposed. Absence, ambiguity, malforme
 metadata or value, timeout, overflow, disconnect, cancellation, or uncertain cleanup
 returns no measurement. `capabilities` exposes this endpoint as metadata only, with
 value `not_read`, subscription `not_attempted`, and live delivery `not_tested`.
+The same metadata snapshot is projected through the pure main/raw vendor GATT
+preflight. Schema-1 output has two fixed-order sanitized rows and reports service and
+metadata inventory state, a stable structural reason, and whether both opaque targets
+belong to the current transport snapshot. It performs no additional discovery, value
+read, subscription, descriptor action, or write. A structurally ready route is not a
+working vendor operation and grants no live eligibility, owner authorization, or
+hardware verification.
 
 ## Static parity boundary
 

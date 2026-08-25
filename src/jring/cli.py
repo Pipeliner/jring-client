@@ -1517,6 +1517,7 @@ def _capability_payload(inventory: object) -> dict[str, object]:
             "events": list(inventory.neutral_events),
         },
         "vendor_gatt": [asdict(item) for item in inventory.vendor_gatt],
+        "vendor_routes": [asdict(item) for item in inventory.vendor_routes],
     }
 
 
@@ -1576,6 +1577,25 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
             )
     else:
         print("Known vendor UUID observations: none")
+    print("Vendor routes (metadata only; no vendor characteristic I/O)")
+    for route in payload["vendor_routes"]:
+        route_label = route["route"].replace("_", " ")
+        structural_state = route["structural_state"].replace("_", " ")
+        target_state = route["transport_target_state"].replace("_", " ")
+        print(
+            f"Vendor {route_label} route: {structural_state}; "
+            f"targets {target_state}; service inventory "
+            f"{route['service_inventory_state'].replace('_', ' ')}; metadata "
+            f"{route['metadata_inventory_state'].replace('_', ' ')}"
+        )
+    print(
+        "Vendor routes are metadata only: values not read; subscriptions not "
+        "attempted; writes disabled"
+    )
+    print(
+        "Route readiness grants no live eligibility, owner authorization, or "
+        "hardware eligibility"
+    )
     print("Vendor meanings: unknown; values not read; writes disabled")
 
 

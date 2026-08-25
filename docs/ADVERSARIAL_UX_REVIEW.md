@@ -25,6 +25,7 @@ Date: 2026-08-24
 | Accepted flags could be ignored | Non-applicable global flags are rejected; input JSON is implemented |
 | Simulated results looked like real health data | Human banners and structured/export provenance identify the simulator |
 | Missing optional battery data hid all capabilities | Status returns partial optional fields and still inventories services |
+| Vendor UUID presence looked like a usable command route | Capabilities now reports fixed main/raw structural and transport-ownership states from metadata only, with live, owner, hardware, and I/O denials adjacent |
 | HID service presence was called usable | Output says `service advertised` and keeps usability unknown |
 | Interface count was inflated by helper and call-site methods | Whole-artifact output reconciles exact AIDL rows and labels 903 classified methods as supplemental |
 | Embedded-SDK classic socket references were omitted | The artifact inventory includes socket creation and close in one OTA helper, labels them as lifecycle references rather than a transport, and notes that actual transfer uses GATT |

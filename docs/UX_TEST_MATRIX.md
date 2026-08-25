@@ -17,6 +17,8 @@ vendor implementation or hardware verification.
 | User with classic Bluetooth disabled | Vendor GATT is available | Do not request OS bonding merely to read vendor GATT | Android bond remains `not_required` for the transaction |
 | Slow adapter | Service discovery times out | Name endpoint discovery, retain a bounded deadline, and offer reconnect rather than a command retry | No write token exists; outcome is `aborted` |
 | Firmware with duplicate UUIDs | More than one candidate route exists | Refuse with a compatibility explanation; do not choose by UUID alone | Route preflight fails before subscription or write |
+| Capability user sees a structurally ready vendor route | Current metadata has one main/raw endpoint pair | Separate structural state from current target ownership and all authority gates | Metadata-only row; no value read, subscription, write, owner authorization, live eligibility, or hardware claim |
+| Capability inventory is partial | Service or characteristic metadata times out or is unavailable | Say route preflight was not evaluated | Empty fallback data never becomes unsupported or an endpoint-missing claim |
 | Disconnect/reconnect race | Old descriptor or write callback arrives late | Ignore it silently or note a stale event in redacted debug output | Generation mismatch cannot advance current state |
 | Fast peripheral | Response arrives before the write callback | Keep it bounded to the current operation and wait for the write outcome | Early response is buffered with generation and operation token |
 | Noisy peripheral | Unrelated notification arrives while waiting | Keep waiting without extending the deadline | Matcher rejects it; deadline is unchanged |

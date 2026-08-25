@@ -72,7 +72,14 @@ instance, response-capable write, notify, one advertised CCCD, and consistent
 connection-generation metadata; that is structural validation, not transport
 ownership. Each exact fake coordinator separately calls `owns_target` before using its
 instance-targeted subscribe, response-write, and unsubscribe boundaries. Bleak keeps a
-current-snapshot identity map but exposes no live target I/O, and its generic write
+current-snapshot identity map and exposes its generation as read-only metadata, but no
+live vendor target I/O. `capability_inventory` feeds its one already-collected service
+and characteristic snapshot into the same preflight, then independently checks both
+opaque targets with `owns_target`. Its fixed main/raw projections serialize no target,
+instance, generation, backend object, descriptor identity, or value. Upstream timeout
+or unavailability remains `not_evaluated`; structural success and target ownership
+remain separate from live eligibility, owner authorization, and hardware verification.
+The generic write
 boundary resolves exactly one writable standard Current Time characteristic beneath
 the Current Time service and accepts only a canonical payload. The fake runtime binds
 callbacks to a connection generation, buffers response-before-write races, and poisons
