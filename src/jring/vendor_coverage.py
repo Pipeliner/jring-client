@@ -14,6 +14,15 @@ class StaticVendorOperation:
     hardware_eligible: bool = False
 
 
+@dataclass(frozen=True)
+class StaticVendorCallback:
+    name: str
+    source: str
+    python_state: str = "not_reproduced"
+    maturity: str = "static_apk_only"
+    hardware_eligible: bool = False
+
+
 _MAIN_COMMANDS = (
     "SetScreenLightTime",
     "editDeviceDialCustom",
@@ -172,4 +181,168 @@ def static_vendor_operation_coverage() -> tuple[StaticVendorOperation, ...]:
         )
         for route, names in _ROUTES
         for name in names
+    )
+
+
+_CALLBACKS = (
+    "onAuthDeviceResult",
+    "onAuthSdkResult",
+    "onCharacteristicChanged",
+    "onCharacteristicWrite",
+    "onConnectStateChanged",
+    "onDeviceConnectedWifi",
+    "onDeviceTestCmd",
+    "onEditDeviceDialCustom",
+    "onGetAdvSensorOfflineData",
+    "onGetAdvSensorOfflineDataEnd",
+    "onGetAiAction",
+    "onGetAiCommandType",
+    "onGetAiState",
+    "onGetBandFunction",
+    "onGetChatgptAction",
+    "onGetCurSportData",
+    "onGetDataByDay",
+    "onGetDataByDayEnd",
+    "onGetDeviceAction",
+    "onGetDeviceBatery",
+    "onGetDeviceCode",
+    "onGetDeviceDial",
+    "onGetDeviceDialCustom",
+    "onGetDeviceFileState",
+    "onGetDeviceInfo",
+    "onGetDeviceRssi",
+    "onGetDeviceState",
+    "onGetDeviceTime",
+    "onGetEcgHistory",
+    "onGetEcgHistoryData",
+    "onGetEcgStartEnd",
+    "onGetEcgValue",
+    "onGetEqInfo2",
+    "onGetFactoryTestData",
+    "onGetGSensorData",
+    "onGetMultipleSportData",
+    "onGetOfflineSpeechRecognitionMode",
+    "onGetOtaInfo",
+    "onGetOtaUpdate",
+    "onGetOxygenOfflineData",
+    "onGetOxygenOfflineDataEnd",
+    "onGetPhoneVolume",
+    "onGetRawData",
+    "onGetScreenLightTime",
+    "onGetSenserData",
+    "onGetSportSteps",
+    "onGetTemperatureData",
+    "onGetTouchMode",
+    "onGetWifiSsid",
+    "onGetWifiSsidCount",
+    "onGetWifiState",
+    "onGetWorshipInfo",
+    "onGetWorshipTimesData",
+    "onNotifyAiConnectionMethod",
+    "onNotifyAppId",
+    "onNotifyBindedInfo",
+    "onNotifyClassicBtInfo",
+    "onNotifyClassicBtName",
+    "onNotifyContactCrc",
+    "onNotifyDeviceSystemStateInfo",
+    "onNotifyDeviceWifiApState",
+    "onNotifyDialJsonContent",
+    "onNotifyECardNeedUpdate",
+    "onNotifyFtpStateInfo",
+    "onNotifyNewMediaInfo",
+    "onNotifySmsRspNeedUpdate",
+    "onNotifySmsRspSend",
+    "onOpenRawDataNotificationState",
+    "onReadCurrentSportData",
+    "onReceiveSensorData",
+    "onReceiveSensorOxygenData",
+    "onRecvDeviceVoiceCommandConfirm",
+    "onScanCallback",
+    "onSendVibrationSignal",
+    "onSendWeather",
+    "onSensorStateChange",
+    "onSetAlarm",
+    "onSetAntiLost",
+    "onSetBPAdjust",
+    "onSetBloodOxygenMode",
+    "onSetBloodPressureMode",
+    "onSetDeviceCode",
+    "onSetDeviceDialState",
+    "onSetDeviceHeartRateArea",
+    "onSetDeviceInfo",
+    "onSetDeviceMode",
+    "onSetDeviceName",
+    "onSetDeviceTime",
+    "onSetDeviceWallpaperState",
+    "onSetEcgMode",
+    "onSetEqInfo2",
+    "onSetFemaleReminder",
+    "onSetGoalStep",
+    "onSetHourFormat",
+    "onSetIdleTime",
+    "onSetLanguage",
+    "onSetNotify",
+    "onSetPhontMode",
+    "onSetReminder",
+    "onSetReminderText",
+    "onSetSleepTime",
+    "onSetTemperatureMode",
+    "onSetUserInfo",
+    "onTemperatureModeChange",
+    "setAutoHeartMode",
+)
+
+_NON_BLE_CALLBACKS = frozenset(
+    {
+        "onAuthDeviceResult",
+        "onAuthSdkResult",
+        "onCharacteristicChanged",
+        "onCharacteristicWrite",
+        "onConnectStateChanged",
+        "onDeviceConnectedWifi",
+        "onGetDeviceRssi",
+        "onGetOtaInfo",
+        "onGetOtaUpdate",
+        "onNotifyDialJsonContent",
+        "onNotifyFtpStateInfo",
+        "onNotifyNewMediaInfo",
+        "onOpenRawDataNotificationState",
+        "onScanCallback",
+    }
+)
+_UNUSED_CALLBACKS = frozenset({"onGetDeviceTime", "onSendWeather"})
+_OFFLINE_RESPONSE_CODECS = frozenset(
+    {
+        "onGetAdvSensorOfflineData",
+        "onGetBandFunction",
+        "onGetCurSportData",
+        "onGetDeviceAction",
+        "onGetDeviceBatery",
+        "onGetDeviceInfo",
+        "onGetMultipleSportData",
+        "onGetOxygenOfflineData",
+        "onGetSportSteps",
+    }
+)
+
+
+def static_vendor_callback_coverage() -> tuple[StaticVendorCallback, ...]:
+    def source(name: str) -> str:
+        if name in _NON_BLE_CALLBACKS:
+            return "android_network_ota_or_transport"
+        if name in _UNUSED_CALLBACKS:
+            return "declared_without_invocation"
+        return "bluetooth_opcode"
+
+    return tuple(
+        StaticVendorCallback(
+            name=name,
+            source=source(name),
+            python_state=(
+                "offline_response_codec"
+                if name in _OFFLINE_RESPONSE_CODECS
+                else "not_reproduced"
+            ),
+        )
+        for name in _CALLBACKS
     )

@@ -134,6 +134,14 @@ and false hardware eligibility for every entry. This corrects an earlier grouped
 that treated only three interface methods as stubs; static call-site tracing shows that
 `getWifiState` is also a no-op in this build even though related response parsing exists.
 
+`static_vendor_callback_coverage()` likewise accounts for all 105 callback declarations
+exactly once. Eighty-nine are reached by a structured main or raw Bluetooth opcode,
+14 originate in Android transport, scan, network, OTA, authorization, or cache flows,
+and two declarations have no invocation site in this SDK build. Nine callback families
+now have offline response codecs: the seven query families plus device-action and
+cumulative-step events. Every other callback remains `not_reproduced`; all 105 remain
+hardware-ineligible.
+
 Three authorization domains remain separate: vendor developer-cloud SDK validation,
 device-cloud authorization, and a local BLE binding exchange. The independent Python
 client does not copy cloud credentials or endpoints and does not forge or replay cloud

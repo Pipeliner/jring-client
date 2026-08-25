@@ -156,6 +156,10 @@ The machine-readable operation ledger accounts for all 112 SDK requests exactly 
 and keeps routing separate from Python maturity. Its presence does not imply 112 useful
 Bluetooth operations: local, cloud, filesystem, conversion, DFU, dynamic-GATT, and
 no-op interface methods remain visibly distinct, and every live vendor state is false.
+The paired callback ledger accounts for 105 declarations and separates 89 Bluetooth
+opcode callbacks, 14 platform/network/transport callbacks, and two declarations with
+no invocation site. This prevents an interface declaration from being presented as a
+working firmware event.
 
 ### Safe step-to-input preview
 
@@ -329,6 +333,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_cli_capability_inventory_is_private` |
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Complete request accounting | `test_static_vendor_operation_coverage_accounts_for_all_112_requests_once`, `test_only_seven_operations_have_offline_request_and_response_codecs`, `test_static_coverage_never_promotes_an_operation_to_hardware` |
+| Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_nine_callback_families_have_offline_response_codecs` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |

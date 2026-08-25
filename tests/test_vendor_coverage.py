@@ -1,6 +1,9 @@
 from collections import Counter
 
-from jring.vendor_coverage import static_vendor_operation_coverage
+from jring.vendor_coverage import (
+    static_vendor_callback_coverage,
+    static_vendor_operation_coverage,
+)
 
 
 def test_static_vendor_operation_coverage_accounts_for_all_112_requests_once():
@@ -64,3 +67,50 @@ def test_sensitive_and_destructive_surfaces_remain_visibly_unimplemented():
     ):
         assert by_name[name].python_state == "not_reproduced"
         assert by_name[name].hardware_eligible is False
+
+
+def test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once():
+    coverage = static_vendor_callback_coverage()
+    names = [entry.name for entry in coverage]
+
+    assert len(names) == 105
+    assert len(set(names)) == 105
+    assert Counter(entry.source for entry in coverage) == {
+        "bluetooth_opcode": 89,
+        "android_network_ota_or_transport": 14,
+        "declared_without_invocation": 2,
+    }
+
+
+def test_callback_coverage_distinguishes_unused_and_non_ble_sources():
+    by_name = {entry.name: entry for entry in static_vendor_callback_coverage()}
+
+    assert by_name["onGetDeviceTime"].source == "declared_without_invocation"
+    assert by_name["onSendWeather"].source == "declared_without_invocation"
+    assert by_name["onCharacteristicChanged"].source == "android_network_ota_or_transport"
+    assert by_name["onAuthSdkResult"].source == "android_network_ota_or_transport"
+    assert by_name["onGetDeviceAction"].source == "bluetooth_opcode"
+
+
+def test_nine_callback_families_have_offline_response_codecs():
+    implemented = {
+        entry.name
+        for entry in static_vendor_callback_coverage()
+        if entry.python_state == "offline_response_codec"
+    }
+
+    assert implemented == {
+        "onGetAdvSensorOfflineData",
+        "onGetBandFunction",
+        "onGetCurSportData",
+        "onGetDeviceAction",
+        "onGetDeviceBatery",
+        "onGetDeviceInfo",
+        "onGetMultipleSportData",
+        "onGetOxygenOfflineData",
+        "onGetSportSteps",
+    }
+    assert all(
+        entry.hardware_eligible is False
+        for entry in static_vendor_callback_coverage()
+    )
