@@ -6,6 +6,7 @@ import pytest
 from jring.input import (
     InputAction,
     InputMapper,
+    ExperimentalStepCounterAdapter,
     SensorEvent,
     UInputSink,
     input_action_inventory,
@@ -115,3 +116,35 @@ def test_unsupported_action_fails_before_uinput_import(monkeypatch):
 
     with pytest.raises(ValueError, match="unsupported input action"):
         UInputSink((unsupported,))
+
+
+def test_experimental_step_counter_baselines_and_emits_only_single_increments():
+    adapter = ExperimentalStepCounterAdapter(minimum_interval=0.5)
+
+    assert adapter.observe(connection_epoch=1, cumulative_steps=100, observed_at=1.0) is None
+    assert adapter.observe(connection_epoch=1, cumulative_steps=101, observed_at=2.0) == SensorEvent("step")
+    assert adapter.observe(connection_epoch=1, cumulative_steps=102, observed_at=2.1) is None
+    assert adapter.observe(connection_epoch=1, cumulative_steps=103, observed_at=3.0) == SensorEvent("step")
+
+
+def test_experimental_step_counter_never_replays_batches_resets_or_reconnects():
+    adapter = ExperimentalStepCounterAdapter(minimum_interval=0.0)
+
+    assert adapter.observe(connection_epoch=1, cumulative_steps=10, observed_at=1.0) is None
+    assert adapter.observe(connection_epoch=1, cumulative_steps=14, observed_at=2.0) is None
+    assert adapter.observe(connection_epoch=1, cumulative_steps=15, observed_at=3.0) == SensorEvent("step")
+    assert adapter.observe(connection_epoch=1, cumulative_steps=2, observed_at=4.0) is None
+    assert adapter.observe(connection_epoch=1, cumulative_steps=3, observed_at=5.0) == SensorEvent("step")
+    assert adapter.observe(connection_epoch=2, cumulative_steps=200, observed_at=6.0) is None
+
+
+def test_experimental_step_counter_is_not_hardware_eligible_and_rejects_bad_input():
+    adapter = ExperimentalStepCounterAdapter()
+
+    assert adapter.hardware_eligible is False
+    with pytest.raises((TypeError, ValueError)):
+        adapter.observe(connection_epoch=1, cumulative_steps=True, observed_at=1.0)
+    with pytest.raises((TypeError, ValueError)):
+        adapter.observe(connection_epoch=1, cumulative_steps=2**32, observed_at=1.0)
+    with pytest.raises((TypeError, ValueError)):
+        adapter.observe(connection_epoch=1, cumulative_steps=1, observed_at=float("nan"))

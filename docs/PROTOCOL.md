@@ -158,6 +158,11 @@ A future owner-verified adapter must baseline on each connection, ignore the ini
 value, handle reset/wrap, avoid replaying batched increments as click bursts, debounce,
 and rate-limit output.
 
+`ExperimentalStepCounterAdapter` implements those transformations for synthetic input
+only: a new connection or reset establishes a baseline, a multi-step jump is discarded
+rather than replayed, and exact single increments are rate-limited. The adapter is
+unconditionally hardware-ineligible and is not connected to the transport or uinput.
+
 The motion path uses opcode family `78` and can yield nine signed 16-bit channels, but
 axis order, units, sampling interval, subcommand scope, and gesture meanings are not
 proven. It therefore has no Python parser yet. Raw `33f5`/`33f6` traffic includes

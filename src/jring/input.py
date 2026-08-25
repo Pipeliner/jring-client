@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Protocol
 
 from .errors import UnavailableError
@@ -137,6 +138,70 @@ class InputMapper:
             return False
         sink.emit(action)
         return True
+
+
+class ExperimentalStepCounterAdapter:
+    """Turn isolated counter increments into neutral events without replaying batches."""
+
+    def __init__(self, *, minimum_interval: float = 0.5):
+        if not isinstance(minimum_interval, (int, float)) or isinstance(
+            minimum_interval, bool
+        ):
+            raise TypeError("minimum interval must be a finite number")
+        if not math.isfinite(minimum_interval) or minimum_interval < 0:
+            raise ValueError("minimum interval must be finite and non-negative")
+        self._minimum_interval = float(minimum_interval)
+        self._connection_epoch: object | None = None
+        self._counter: int | None = None
+        self._last_observed_at: float | None = None
+        self._last_emitted_at: float | None = None
+
+    @property
+    def hardware_eligible(self) -> bool:
+        return False
+
+    def observe(
+        self,
+        *,
+        connection_epoch: object,
+        cumulative_steps: int,
+        observed_at: float,
+    ) -> SensorEvent | None:
+        if type(cumulative_steps) is not int:
+            raise TypeError("cumulative step count must be an integer")
+        if not 0 <= cumulative_steps <= 0xFFFFFFFF:
+            raise ValueError("cumulative step count must fit an unsigned 32-bit value")
+        if not isinstance(observed_at, (int, float)) or isinstance(observed_at, bool):
+            raise TypeError("observation time must be a finite number")
+        observed_at = float(observed_at)
+        if not math.isfinite(observed_at):
+            raise ValueError("observation time must be finite")
+        if (
+            self._last_observed_at is not None
+            and observed_at < self._last_observed_at
+        ):
+            raise ValueError("observation time must be monotonic")
+        self._last_observed_at = observed_at
+
+        if connection_epoch != self._connection_epoch:
+            self._connection_epoch = connection_epoch
+            self._counter = cumulative_steps
+            self._last_emitted_at = None
+            return None
+
+        previous = self._counter
+        self._counter = cumulative_steps
+        if previous is None or cumulative_steps <= previous:
+            return None
+        if cumulative_steps - previous != 1:
+            return None
+        if (
+            self._last_emitted_at is not None
+            and observed_at - self._last_emitted_at < self._minimum_interval
+        ):
+            return None
+        self._last_emitted_at = observed_at
+        return SensorEvent("step")
 
 
 def _supported_action(action: InputAction) -> bool:
