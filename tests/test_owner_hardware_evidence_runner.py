@@ -606,6 +606,10 @@ def test_review_decision_is_explicit_and_cannot_promote_uncertain_attempt(
 def test_success_with_unknown_environment_dimensions_cannot_be_promoted(
     monkeypatch, tmp_path
 ):
+    monkeypatch.setattr(
+        "jring.owner_hardware_evidence._environment",
+        lambda: ("synthetic-linux", "3.13", "unknown", "0"),
+    )
     _install_bleak_backend(monkeypatch)
     result = _run(_plan(tmp_path))
 
