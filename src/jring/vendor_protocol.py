@@ -553,27 +553,45 @@ class VendorTemperatureData:
     hardware_verified: bool = False
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class VendorEcgValues:
     kind: str
     discriminator: int
     values: tuple[int, ...]
     hardware_verified: bool = False
 
+    def __repr__(self) -> str:
+        return (
+            f"VendorEcgValues(kind={self.kind!r}, sample_count={len(self.values)}, "
+            f"values=<redacted>, hardware_verified={self.hardware_verified!r})"
+        )
 
-@dataclass(frozen=True)
+
+@dataclass(frozen=True, repr=False)
 class VendorEcgHistoryInfo:
     device_epoch_seconds: int
     value: int
     hardware_verified: bool = False
 
+    def __repr__(self) -> str:
+        return (
+            "VendorEcgHistoryInfo(fields=<redacted>, "
+            f"hardware_verified={self.hardware_verified!r})"
+        )
 
-@dataclass(frozen=True)
+
+@dataclass(frozen=True, repr=False)
 class VendorEcgStartEnd:
     first_value: int
     second_value: int
     device_epoch_seconds: int
     hardware_verified: bool = False
+
+    def __repr__(self) -> str:
+        return (
+            "VendorEcgStartEnd(fields=<redacted>, "
+            f"hardware_verified={self.hardware_verified!r})"
+        )
 
 
 @dataclass(frozen=True)

@@ -856,6 +856,30 @@ def test_ecg_history_info_and_start_end_use_exact_little_endian_fields():
     assert start_end.device_epoch_seconds == 456
 
 
+def test_ecg_result_representations_redact_samples_fields_and_timestamps():
+    values = parse_vendor_ecg_values(
+        bytes((0x2E, 9)) + bytes((0x23, 0x61, 0x45)) * 6,
+        kind="history",
+    )
+    history = parse_vendor_ecg_history_info(
+        bytes((0x2C,)) + (123_456_789).to_bytes(4, "little") + bytes((77,)) + bytes(14)
+    )
+    start_end = parse_vendor_ecg_start_end(
+        bytes((0x2D, 91, 92)) + (987_654_321).to_bytes(4, "little") + bytes(13)
+    )
+
+    assert "291" not in repr(values)
+    assert "1110" not in repr(values)
+    assert "123456789" not in repr(history)
+    assert "77" not in repr(history)
+    assert "987654321" not in repr(start_end)
+    assert "91" not in repr(start_end)
+    assert "92" not in repr(start_end)
+    assert "sample_count=12" in repr(values)
+    assert "<redacted>" in repr(history)
+    assert "<redacted>" in repr(start_end)
+
+
 def test_device_test_and_chat_action_events_are_strictly_distinct():
     device_test = parse_vendor_device_test_event(bytes((0x3A,)) + bytes(19))
     chat = parse_vendor_chat_action(bytes((0x4E, 7)) + bytes(18))
