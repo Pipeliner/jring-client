@@ -234,6 +234,16 @@ raw write, parses only typed notifications, and cleans up deterministically. Res
 have only `unknown` or `aborted` completeness—never success—because no raw request/event
 pairing, acknowledgement bit, transaction identifier, or wire terminal is proven.
 
+The shared day-history collector is likewise separate from the singleton transaction
+engine. It accepts only the three closed day-query objects, counts `25` as one generic
+sensor projection plus six multi-sport samples, `40` as fifteen generic and fifteen
+oxygen projections, and `55` as three generic and three advanced-sensor projections.
+Unrelated frames do not refresh its quiet deadline. Caller limits and quiet both end
+with unknown completeness; only the conditional `a5/ff` branch is a delivered failure.
+Accepted oxygen/advanced data followed by quiet adds one source-shaped local end
+projection carrying the hidden last specialized timestamp. Frame limits, failure,
+disconnect, malformed input, and cleanup failure never add that projection.
+
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
 dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective

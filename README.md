@@ -161,6 +161,13 @@ The scripted fake now has a distinct raw `33f5`/`33f6` route and bounded event
 collector. It can write a closed raw command and parse typed raw notifications, but
 always reports unknown completeness: an event is not an acknowledgement, reaching an
 event limit is not success, and local quiet is not a terminal.
+Shared multi-sport, oxygen-day, and advanced-sensor-day responses now have a separate
+fake history collector. It preserves per-frame callback multiplicities, conditional
+multi-sport failure, unrelated-event isolation, and unknown completion at both local
+quiet and caller limits; it never emits a synthetic wire-end event.
+After accepted oxygen or advanced-sensor data followed by local quiet, it does reproduce
+the source's single local end projection with a hidden last-sample timestamp, while
+leaving completeness unknown.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke

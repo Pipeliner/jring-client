@@ -231,6 +231,16 @@ families `0001`, `0002`/`0003`, `0006`, `0009`, and `000a`. It never calls an ev
 command acknowledgement, never treats its local limit as a wire terminal, and reports
 quiet as unknown completeness.
 
+Fake collection for shared day histories now reproduces the dispatcher multiplicity:
+`25` projects one generic sensor success then six multi-sport samples; `40` projects
+fifteen generic plus fifteen oxygen samples; `55` projects three generic plus three
+advanced-sensor samples. Cross-family block/interleave order for `40`/`55` is not
+claimed. Neither local quiet nor a caller frame limit is a wire terminal, while `a5`
+is a delivered multi-sport failure only when its marker is `ff`.
+Oxygen/advanced data followed by local quiet produces exactly one local end projection
+with the last specialized sample timestamp; it remains explicitly non-wire and does not
+upgrade unknown completeness.
+
 Within those routes, 37 statically reviewed builder families have a second,
 domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum
 when given values accepted by the stricter Python type/domain rules. Thirty-one use
