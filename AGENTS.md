@@ -19,3 +19,5 @@ JTBD outcome, SDD behavior and safety contract, RED-first TDD evidence, allowed
 artifacts, and blockers. Apply the `symphony` label only when the issue is sufficiently
 bounded for the fail-closed workflow; a label is eligibility, not permission to bypass
 hardware, privacy, publication, or human-decision gates.
+Follow `WORKFLOW.md` for the issue continuation loop, proof-of-work handoff, commit/push
+expectations, and external-write boundaries.

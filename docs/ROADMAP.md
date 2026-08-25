@@ -64,3 +64,8 @@ verified neutral events precede live input; and tested package metadata and owne
 release gates precede publication. Issues may refine or split their scope, but newly
 discovered work must become another tracked issue instead of surviving only as a TODO
 or review note.
+
+The repository-owned [Symphony workflow](../WORKFLOW.md) defines how eligible issues
+move through reproduction, RED-first tests, bounded implementation, adversarial UX
+review, dual-environment verification, commit/push, and proof-of-work handoff. The
+workflow does not grant hardware, privacy, publication, or package-index authority.
