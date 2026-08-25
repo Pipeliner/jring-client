@@ -53,6 +53,8 @@ Date: 2026-08-24
 | Every AIDL request looked like one fixed GATT command | A 112-row route partition separates 85 deterministic codecs from shared state, dynamic writes, descriptor control, DFU, and 23 no-packet operations |
 | SDK exposure was presented as APK use | A separate exact ledger distinguishes 51 app-invoked request targets from 61 bundled-but-uninvoked targets and keeps runtime reachability unclaimed |
 | All callback invokes were flattened into “directly dispatched” | Every callback row now preserves main-response, raw-response, and outside-dispatcher invoke counts; repeated sites and four cross-origin overlaps remain visible |
+| Non-codec callback booleans and integers looked self-explanatory | Structured result semantics distinguish queue acceptance, mixed auth status, SDK connection state, discarded RSSI status, OTA phase/detail, and retry state |
+| Scan privacy implied raw advertisement forwarding | The row records only selected identity/RSSI plus six derived identifier fragments, alongside auto-connect/OTA side effects |
 | Same-spelled request and callback methods could collapse | Interface roles preserve both `setAutoHeartMode` rows without name-only joining |
 | Declaration parity hid transaction and marshalling drift | A 217-row Binder crosswalk verifies contiguous IDs, all four surfaces, ordered Parcel kinds, reply handshakes, and synchronous mode |
 | Parcel `int32` erased boolean meaning | Each row exposes semantic kinds separately from its Parcel representation |

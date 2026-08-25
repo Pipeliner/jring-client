@@ -256,6 +256,11 @@ invoke sites by origin—125 main-response, six raw-response, and 50 outside tho
 dispatchers—without double-counting the four targets shared by main and outside code. This keeps
 “available in the SDK,” “referenced by the APK,” and “runnable in Python” as separate
 claims. Same-spelled request and callback rows remain separate interface roles.
+For every non-codec callback, structured evidence distinguishes dispatch origin,
+result meaning, silence conditions, side effects, and privacy class. UI text must call
+raw-notification `true` a queue-submission acceptance rather than an enable result,
+must not render OTA phase/detail as a percentage, and must describe scan identifiers as
+derived fragments rather than raw advertisement data.
 The Binder supplement exposes exact transaction IDs and safe semantic/Parcel kinds for
 all 217 rows. IDs, interface/Proxy/Stub/implementation parity, ordered marshalling, and
 synchronous call mode are mechanically checked. Boolean semantics never collapse into

@@ -59,12 +59,12 @@ def test_every_callback_has_exact_invoke_origin_counts_or_is_unobserved():
     }
     assert Counter(row.state for row in evidence.callbacks) == {
         CallbackDispatchState.DIRECT_INVOKE_OBSERVED: 103,
-        CallbackDispatchState.DECLARED_WITHOUT_DIRECT_DISPATCH: 2,
+        CallbackDispatchState.DECLARED_WITHOUT_DIRECT_INVOKE: 2,
     }
     assert {
         row.name
         for row in evidence.callbacks
-        if row.state is CallbackDispatchState.DECLARED_WITHOUT_DIRECT_DISPATCH
+        if row.state is CallbackDispatchState.DECLARED_WITHOUT_DIRECT_INVOKE
     } == {"onGetDeviceTime", "onSendWeather"}
 
     assert evidence.main_response_callback_target_count == 85

@@ -22,7 +22,7 @@ class RequestAppUseState(str, Enum):
 
 class CallbackDispatchState(str, Enum):
     DIRECT_INVOKE_OBSERVED = "direct_invoke_observed"
-    DECLARED_WITHOUT_DIRECT_DISPATCH = "declared_without_direct_dispatch"
+    DECLARED_WITHOUT_DIRECT_INVOKE = "declared_without_direct_invoke"
 
 
 @dataclass(frozen=True, init=False, repr=False)
@@ -371,7 +371,7 @@ def _callback_row(name: str) -> CallbackDispatchRow:
     except KeyError as error:
         raise RuntimeError(f"unclassified callback invoke row: {name}") from error
     state = (
-        CallbackDispatchState.DECLARED_WITHOUT_DIRECT_DISPATCH
+        CallbackDispatchState.DECLARED_WITHOUT_DIRECT_INVOKE
         if main_count + raw_count + outside_count == 0
         else CallbackDispatchState.DIRECT_INVOKE_OBSERVED
     )

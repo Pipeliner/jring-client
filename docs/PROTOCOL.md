@@ -551,9 +551,16 @@ The 16 callbacks outside the wire-opcode decoder are also explicitly accounted f
 Fourteen have closed, non-runnable behavior evidence for Android GATT, connection,
 authorization, scan, network, OTA, raw-control, or local-file dispatch. Two are retained
 as declarations with no observed direct invoke. Their privacy classes identify raw
-GATT values, Bluetooth addresses, advertisement data, network material, cloud content,
-and file references without storing those values. None is a live callback adapter or a
-hardware-support claim.
+GATT values, Bluetooth addresses, six derived advertisement identifier fragments,
+network material, cloud content, and file references without storing those values or
+claiming that raw advertisement bytes are forwarded.
+
+Each row also exposes its dispatch origin, result meaning, callback-silence conditions,
+and side-effect classes. In particular, Android write completion latches regardless of
+callback/status; RSSI drops Android status; OTA update values are phase/detail rather
+than a percentage; raw-enable success means local GATT queue submission acceptance,
+not descriptor completion; and scan callbacks may trigger automatic connect/OTA paths.
+These are static behavior facts, not live callback adapters or hardware-support claims.
 
 Manifest and receiver review finds a required BLE feature and one private connected-
 device foreground service, but no app-owned static receiver or static Android Bluetooth

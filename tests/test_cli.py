@@ -473,7 +473,7 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert len(dispatcher["callback_routes"]) == 85
     assert dispatcher["hardware_eligible"] is False
     assert len(callback_surfaces) == 16
-    assert sum(row["direct_dispatch_observed"] for row in callback_surfaces) == 14
+    assert sum(row["direct_invoke_observed"] for row in callback_surfaces) == 14
     assert all(row["runnable"] is False for row in callback_surfaces)
     assert all(row["hardware_eligible"] is False for row in callback_surfaces)
     assert artifact["interface_entries"] is False

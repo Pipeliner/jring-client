@@ -128,7 +128,7 @@ def test_binder_rows_link_app_use_and_codec_status_without_inference():
     )
     assert callbacks["onGetDeviceInfo"].codec_locator_status == "direct_callable"
     assert callbacks["onSendWeather"].runtime_dispatch_evidence == (
-        "declared_without_direct_dispatch"
+        "declared_without_direct_invoke"
     )
     assert callbacks["onSendWeather"].codec_locator_status == (
         "no_offline_codec_locator"
