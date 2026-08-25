@@ -271,13 +271,13 @@ The internal streaming simulators are deliberately separate from the live client
 | Fake-only collector | What it can reproduce | Honest stopping state |
 |---|---|---|
 | Generic day history | Typed sample/end callback multiplicity | Wire/metadata completion only when explicit; otherwise unknown or aborted |
-| Wi-Fi scan | Advertised count and locally assembled SSID callbacks | Count equality is diagnostic; quiet/limit remain unknown |
+| Wi-Fi network-name response stream | Advertised count and locally assembled SSID callbacks | Fake-call return leaves protocol completion unknown; uncertain calls taint reuse |
 | ECG history | Metadata, event, and one packed-sample callback per frame | No proven terminal; quiet/limit remain unknown |
 
 They accept only the scripted fake transport, retain no raw notification frames after
 cleanup, and never contact a Linux Bluetooth device. Private Wi-Fi/health values are
 available only through explicitly named local-test accessors and never appear in result
-representations.
+representations or ordinary dataclass serialization.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke
@@ -325,6 +325,13 @@ target, performs zero writes, ignores ambiguous `78` motion traffic and unrelate
 The known App-ID selector `45/02` is intentionally outside this collector and is
 counted as unrelated here; it is not an unknown protocol selector.
 It is a library test surface, not a live-ring or Classic-attachment command.
+
+The Wi-Fi network-name inventory row separately identifies the existing library-only
+fake response assembler. It invokes one exact request only on the scripted fake, never
+starts a host or ring Wi-Fi scan, hides private names and fragment metadata from normal
+serialization, and treats a returned fake write call, advertised-count equality, local
+quiet, and caller limits as unknown protocol completion. It adds no CLI run command,
+network authority, live Bluetooth path, or input eligibility.
 
 A separate library-only fake coordinator exercises the proven host-volume reverse
 pipeline: one exact fake `49` request can cause one closed projection of explicitly

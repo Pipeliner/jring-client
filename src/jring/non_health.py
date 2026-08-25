@@ -305,11 +305,12 @@ _CAPABILITIES = (
     ),
     _capability(
         "wifi_ssid_inventory", "Wi-Fi SSID inventory", "general_use",
-        "offline scan request plus count and ordered-fragment decoders; network names are never stored in this inventory",
+        "exact fake-only count and ordered-fragment response assembly; no host or ring Wi-Fi scan, and network names are never stored in this inventory",
         "static_apk", "offline_stateful_codec", "network_inventory", False,
         privacy=("network_identifier",),
         requests=("scanWifi",),
         callbacks=("onGetWifiSsid", "onGetWifiSsidCount"),
+        scripted_fake_decoder_available=True,
     ),
     _capability(
         "wifi_ap_state", "Wi-Fi access-point state", "general_use",

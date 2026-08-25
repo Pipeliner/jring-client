@@ -188,6 +188,11 @@ def test_general_use_rows_are_closed_privacy_aware_ledger_projections():
     assert rows["wifi_ssid_inventory"].privacy_classes == (
         "network_identifier",
     )
+    assert rows["wifi_ssid_inventory"].scripted_fake_decoder_available is True
+    assert rows["wifi_ssid_inventory"].runnable is False
+    assert rows["wifi_ssid_inventory"].live_available is False
+    assert rows["wifi_ssid_inventory"].hardware_eligible is False
+    assert rows["wifi_ssid_inventory"].input_eligible is False
     assert "network_credential" in rows["wifi_ap_state"].privacy_classes
     assert "file_reference" in rows["media_file_state"].privacy_classes
 

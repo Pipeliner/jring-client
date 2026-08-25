@@ -2,14 +2,14 @@
 
 The advertised SSID count and completed fragment sequences are useful local
 diagnostics, but neither is a proven whole-stream terminal.  This collector
-therefore reports only unknown or aborted completeness and never performs host
-networking, discovery, or a live Bluetooth operation.
+therefore reports unknown, aborted, or transport-uncertain completeness and never
+performs host networking, discovery, or a live Bluetooth operation.
 """
 
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from enum import Enum
 import math
 
@@ -47,9 +47,26 @@ class WifiScanSimulationReason(str, Enum):
 class WifiScanCompleteness(str, Enum):
     UNKNOWN = "unknown"
     ABORTED = "aborted"
+    UNCERTAIN = "uncertain"
 
 
 Projection = tuple[str, int, str]
+
+
+class WifiScanSimulationTaintedError(RuntimeError):
+    """An earlier attempt left fake dispatch or cleanup state uncertain."""
+
+
+class _StageTimeoutError(TimeoutError):
+    pass
+
+
+class _OverallTimeoutError(TimeoutError):
+    pass
+
+
+class _DisconnectedError(ConnectionError):
+    pass
 
 
 @dataclass(frozen=True, repr=False)
@@ -61,10 +78,47 @@ class WifiScanSimulationResult:
     assembled_entry_count: int
     unrelated_frame_count: int
     projections: tuple[Projection, ...]
-    command_written: bool
+    write_invoked: bool
+    fake_write_call_completed: bool
     cleanup_succeeded: bool
-    delivery_uncertain: bool
-    _ssids: tuple[VendorWifiSsid, ...] = field(repr=False)
+    transport_call_uncertain: bool
+    tainted: bool
+    _ssids_init: InitVar[tuple[VendorWifiSsid, ...]]
+    protocol_delivery: str = field(default="unknown", init=False)
+    application_acknowledgement_observed: bool = field(default=False, init=False)
+    wire_terminal_observed: bool = field(default=False, init=False)
+    quiet_means_success: bool = field(default=False, init=False)
+    simulation_only: bool = field(default=True, init=False)
+    live_available: bool = field(default=False, init=False)
+    owner_authorized: bool = field(default=False, init=False)
+    hardware_eligible: bool = field(default=False, init=False)
+    hardware_verified: bool = field(default=False, init=False)
+    host_network_accessed: bool = field(default=False, init=False)
+    host_network_modified: bool = field(default=False, init=False)
+    input_eligible: bool = field(default=False, init=False)
+    provenance: str = field(
+        default="caller_supplied_offline_fake_frames", init=False
+    )
+    host_network_action: str = field(default="not_performed", init=False)
+
+    def __post_init__(self, _ssids_init: tuple[VendorWifiSsid, ...]) -> None:
+        if type(_ssids_init) is not tuple or any(
+            type(item) is not VendorWifiSsid for item in _ssids_init
+        ):
+            raise TypeError("private Wi-Fi entries must be an exact tuple")
+        object.__setattr__(self, "_ssids", _ssids_init)
+
+    @property
+    def command_written(self) -> bool:
+        """Compatibility alias; this means only that the fake call returned."""
+
+        return self.fake_write_call_completed
+
+    @property
+    def delivery_uncertain(self) -> bool:
+        """Compatibility alias for fake transport-call uncertainty."""
+
+        return self.transport_call_uncertain
 
     @property
     def locally_observed_count_matches(self) -> bool:
@@ -80,40 +134,29 @@ class WifiScanSimulationResult:
         )
 
     @property
-    def wire_terminal_observed(self) -> bool:
-        return False
-
-    @property
-    def quiet_means_success(self) -> bool:
-        return False
-
-    @property
-    def simulation_only(self) -> bool:
-        return True
-
-    @property
-    def hardware_eligible(self) -> bool:
-        return False
-
-    @property
-    def hardware_verified(self) -> bool:
-        return False
-
-    @property
-    def host_network_action(self) -> str:
-        return "not_performed"
-
-    @property
     def user_guidance(self) -> str:
-        return (
-            "Locally observed counts are diagnostic only; no wire terminal, "
-            "host scan, or live Bluetooth operation occurred."
+        if not self.write_invoked:
+            write_state = "No fake write was invoked."
+        elif not self.fake_write_call_completed:
+            write_state = (
+                "The fake write was invoked without a confirmed return; transport "
+                "state is uncertain."
+            )
+        else:
+            write_state = "The fake write call returned without proving delivery."
+        guidance = (
+            f"{write_state} Locally observed counts are diagnostic only; protocol "
+            "delivery is unknown and no acknowledgement, wire terminal, host scan, "
+            "or live Bluetooth operation occurred."
         )
+        if self.tainted:
+            guidance += " This simulator is tainted and must not be reused."
+        return guidance
 
     def ssids_for_explicit_local_test_use(self) -> tuple[VendorWifiSsid, ...]:
         """Expose private assembled entries only to an explicit local fake test."""
 
-        return tuple(self._ssids)
+        return tuple(getattr(self, "_ssids", ()))
 
     def __repr__(self) -> str:
         return (
@@ -123,12 +166,19 @@ class WifiScanSimulationResult:
             f"accepted_frame_count={self.accepted_frame_count}, "
             f"assembled_entry_count={self.assembled_entry_count}, "
             f"unrelated_frame_count={self.unrelated_frame_count}, "
-            f"projections={self.projections!r}, command_written={self.command_written!r}, "
+            f"projections={self.projections!r}, "
+            f"write_invoked={self.write_invoked!r}, "
+            f"fake_write_call_completed={self.fake_write_call_completed!r}, "
             f"cleanup_succeeded={self.cleanup_succeeded!r}, "
-            f"delivery_uncertain={self.delivery_uncertain!r}, ssids=<redacted>, "
+            f"transport_call_uncertain={self.transport_call_uncertain!r}, "
+            f"tainted={self.tainted!r}, "
+            "protocol_delivery='unknown', ssids=<redacted>, "
+            "application_acknowledgement_observed=False, "
             "wire_terminal_observed=False, quiet_means_success=False, "
+            "host_network_accessed=False, host_network_modified=False, "
             "host_network_action='not_performed', simulation_only=True, "
-            "hardware_eligible=False, hardware_verified=False)"
+            "live_available=False, owner_authorized=False, hardware_eligible=False, "
+            "hardware_verified=False, input_eligible=False)"
         )
 
 
@@ -152,6 +202,11 @@ class FakeVendorWifiScanSimulator:
             raise TypeError("transport must be the exact ScriptedVendorFakeTransport type")
         self._transport = transport
         self._collecting = False
+        self._tainted = False
+
+    @property
+    def tainted(self) -> bool:
+        return self._tainted
 
     async def collect(
         self,
@@ -164,6 +219,10 @@ class FakeVendorWifiScanSimulator:
     ) -> WifiScanSimulationResult:
         if self._collecting:
             raise RuntimeError("Wi-Fi scan collection is already in progress")
+        if self._tainted:
+            raise WifiScanSimulationTaintedError(
+                "simulator is tainted by an uncertain attempt; create a new simulator"
+            )
         lease_owner = object()
         if not self._transport.acquire_simulation_lease(lease_owner):
             raise RuntimeError("scripted fake transport is already connected or in use")
@@ -209,19 +268,22 @@ class FakeVendorWifiScanSimulator:
         advertised_count: int | None = None
         accepted = 0
         unrelated = 0
-        write_issued = False
-        command_written = False
+        write_invoked = False
+        fake_write_call_completed = False
         subscribed = False
+        request_active = False
         request_target: GattCharacteristicTarget | None = None
         response_target: GattCharacteristicTarget | None = None
         overflowed = False
         receiving = True
         reason = WifiScanSimulationReason.LOCAL_QUIET
         completeness = WifiScanCompleteness.UNKNOWN
+        loop = asyncio.get_running_loop()
+        overall_deadline = loop.time() + overall
 
         def receive(data: bytes) -> None:
             nonlocal overflowed
-            if not receiving:
+            if not receiving or not request_active:
                 return
             bounded = data if len(data) <= 20 else data[:21]
             try:
@@ -229,9 +291,78 @@ class FakeVendorWifiScanSimulator:
             except asyncio.QueueFull:
                 overflowed = True
 
+        async def stage_call(operation_factory):
+            remaining = overall_deadline - loop.time()
+            if remaining <= 0:
+                raise _OverallTimeoutError
+            overall_is_limit = remaining <= stage
+            task = asyncio.create_task(operation_factory())
+            try:
+                done, _pending = await asyncio.wait(
+                    {task}, timeout=min(stage, remaining)
+                )
+            except BaseException:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                raise
+            if task in done:
+                return task.result()
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            if overall_is_limit:
+                raise _OverallTimeoutError
+            raise _StageTimeoutError
+
+        async def write_call(target: GattCharacteristicTarget, frame: bytes) -> None:
+            nonlocal request_active, write_invoked
+            remaining = overall_deadline - loop.time()
+            if remaining <= 0:
+                raise _OverallTimeoutError
+            overall_is_limit = remaining <= stage
+
+            async def invoke_write() -> None:
+                nonlocal request_active, write_invoked
+                write_invoked = True
+                request_active = True
+                await self._transport.write_target_with_response(target, frame)
+
+            task = asyncio.create_task(invoke_write())
+            disconnect_task = asyncio.create_task(
+                self._transport.disconnect_event.wait()
+            )
+            try:
+                done, pending = await asyncio.wait(
+                    {task, disconnect_task},
+                    timeout=min(stage, remaining),
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+            except BaseException:
+                task.cancel()
+                disconnect_task.cancel()
+                await asyncio.gather(task, disconnect_task, return_exceptions=True)
+                raise
+            for pending_task in pending:
+                pending_task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+            if disconnect_task in done and disconnect_task.result():
+                if not task.done():
+                    task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                raise _DisconnectedError
+            if task in done:
+                task.result()
+                return
+            task.cancel()
+            disconnect_task.cancel()
+            await asyncio.gather(task, disconnect_task, return_exceptions=True)
+            if overall_is_limit:
+                raise _OverallTimeoutError
+            raise _StageTimeoutError
+
         try:
-            await asyncio.wait_for(self._transport.connect(), timeout=stage)
-            preflight = await asyncio.wait_for(self._preflight(), timeout=stage)
+            await stage_call(self._transport.connect)
+            preflight = await stage_call(self._preflight)
             if not preflight.structurally_ready:
                 reason = WifiScanSimulationReason.PREFLIGHT_FAILURE
                 completeness = WifiScanCompleteness.ABORTED
@@ -244,27 +375,15 @@ class FakeVendorWifiScanSimulator:
                     or not self._transport.owns_target(request_target)
                     or not self._transport.owns_target(response_target)
                 ):
-                    reason = WifiScanSimulationReason.PREFLIGHT_FAILURE
-                    completeness = WifiScanCompleteness.ABORTED
                     raise LookupError("resolved GATT target is no longer owned")
-                await asyncio.wait_for(
-                    self._transport.subscribe_target(response_target, receive),
-                    timeout=stage,
-                )
                 subscribed = True
-                frame = request.frames()[0]
-                write_issued = True
-                await asyncio.wait_for(
-                    self._transport.write_target_with_response(
-                        request_target,
-                        frame.synthetic_bytes_for_test(),
-                    ),
-                    timeout=stage,
+                await stage_call(
+                    lambda: self._transport.subscribe_target(response_target, receive)
                 )
-                command_written = True
-                loop = asyncio.get_running_loop()
+                frame = request.frames()[0].synthetic_bytes_for_test()
+                await write_call(request_target, frame)
+                fake_write_call_completed = True
                 quiet_deadline = loop.time() + quiet
-                overall_deadline = loop.time() + overall
 
                 while accepted < frame_limit:
                     if overflowed:
@@ -284,15 +403,27 @@ class FakeVendorWifiScanSimulator:
                     disconnect_task = asyncio.create_task(
                         self._transport.disconnect_event.wait()
                     )
-                    done, pending = await asyncio.wait(
-                        {data_task, disconnect_task},
-                        timeout=remaining,
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
+                    try:
+                        done, pending = await asyncio.wait(
+                            {data_task, disconnect_task},
+                            timeout=remaining,
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+                    except BaseException:
+                        data_task.cancel()
+                        disconnect_task.cancel()
+                        await asyncio.gather(
+                            data_task, disconnect_task, return_exceptions=True
+                        )
+                        raise
                     for task in pending:
                         task.cancel()
                     if pending:
                         await asyncio.gather(*pending, return_exceptions=True)
+                    if overflowed:
+                        reason = WifiScanSimulationReason.QUEUE_OVERFLOW
+                        completeness = WifiScanCompleteness.ABORTED
+                        break
                     if not done:
                         continue
                     if disconnect_task in done and disconnect_task.result():
@@ -327,8 +458,6 @@ class FakeVendorWifiScanSimulator:
                         try:
                             ssid = assembler.feed(data)
                             if ssid is not None:
-                                # The recovered callback projects text, so do not
-                                # count an entry that cannot be decoded as text.
                                 ssid.ssid_for_explicit_local_use()
                         except (ProtocolError, UnicodeDecodeError):
                             assembler.reset()
@@ -344,24 +473,65 @@ class FakeVendorWifiScanSimulator:
                     quiet_deadline = loop.time() + quiet
                 else:
                     reason = WifiScanSimulationReason.LIMIT_REACHED
+        except _DisconnectedError:
+            reason = WifiScanSimulationReason.DISCONNECTED
+            completeness = WifiScanCompleteness.ABORTED
+        except _OverallTimeoutError:
+            reason = WifiScanSimulationReason.OVERALL_TIMEOUT
+            completeness = WifiScanCompleteness.ABORTED
+        except _StageTimeoutError:
+            reason = (
+                WifiScanSimulationReason.WRITE_FAILURE
+                if write_invoked
+                else WifiScanSimulationReason.PREFLIGHT_FAILURE
+            )
+            completeness = WifiScanCompleteness.ABORTED
         except Exception:
             reason = (
                 WifiScanSimulationReason.WRITE_FAILURE
-                if subscribed else WifiScanSimulationReason.PREFLIGHT_FAILURE
+                if write_invoked
+                else WifiScanSimulationReason.PREFLIGHT_FAILURE
             )
             completeness = WifiScanCompleteness.ABORTED
+        except BaseException:
+            if write_invoked:
+                self._tainted = True
+            raise
         finally:
+            request_active = False
             receiving = False
-            while not queue.empty():
-                queue.get_nowait()
-            cleanup_succeeded = await self._cleanup(
-                subscribed, response_target, timeout=stage
+            while True:
+                try:
+                    queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+            cleanup_task = asyncio.create_task(
+                self._cleanup(subscribed, response_target, timeout=stage)
             )
+            try:
+                cleanup_succeeded = await asyncio.shield(cleanup_task)
+            except BaseException as interruption:
+                self._tainted = True
+                try:
+                    cleanup_succeeded = await asyncio.shield(cleanup_task)
+                except BaseException:
+                    cleanup_task.cancel()
+                    await asyncio.gather(cleanup_task, return_exceptions=True)
+                raise interruption
+            if not cleanup_succeeded:
+                self._tainted = True
 
         if not cleanup_succeeded:
             reason = WifiScanSimulationReason.CLEANUP_FAILURE
-            completeness = WifiScanCompleteness.ABORTED
-        return WifiScanSimulationResult(
+            completeness = (
+                WifiScanCompleteness.UNCERTAIN
+                if write_invoked
+                else WifiScanCompleteness.ABORTED
+            )
+        elif write_invoked and not fake_write_call_completed:
+            completeness = WifiScanCompleteness.UNCERTAIN
+            self._tainted = True
+        result = WifiScanSimulationResult(
             reason=reason,
             completeness=completeness,
             advertised_count=advertised_count,
@@ -369,18 +539,23 @@ class FakeVendorWifiScanSimulator:
             assembled_entry_count=len(ssids),
             unrelated_frame_count=unrelated,
             projections=tuple(projections),
-            command_written=command_written,
+            write_invoked=write_invoked,
+            fake_write_call_completed=fake_write_call_completed,
             cleanup_succeeded=cleanup_succeeded,
-            delivery_uncertain=(write_issued and not command_written),
-            _ssids=tuple(ssids),
+            transport_call_uncertain=(
+                write_invoked and not fake_write_call_completed
+            ),
+            tainted=self._tainted,
+            _ssids_init=tuple(ssids),
         )
+        return result
 
     @staticmethod
     def _classify(data: bytes) -> str:
         if not data or data[0] != 0x54:
             return "unrelated"
         if len(data) < 2:
-            return "malformed"
+            return "unrelated"
         if data[1] not in {0x09, 0x0A}:
             return "unrelated"
         if len(data) != 20:
@@ -426,5 +601,6 @@ __all__ = [
     "FakeVendorWifiScanSimulator",
     "WifiScanCompleteness",
     "WifiScanSimulationReason",
+    "WifiScanSimulationTaintedError",
     "WifiScanSimulationResult",
 ]

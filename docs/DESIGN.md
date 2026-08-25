@@ -430,6 +430,19 @@ call leaves protocol completeness unknown because no application acknowledgement
 terminal is proven. Post-invocation uncertainty taints the coordinator and prevents
 reuse. There is no CLI, live-client, hardware, input, or owner-authority path.
 
+`FakeVendorWifiScanSimulator` is a separate active-request-shaped library test surface,
+not a live scan API. It accepts only the exact Wi-Fi scan request and scripted MAIN
+fake, then assembles exact count/fragment responses under bounded lifecycle and queue
+rules. The result distinguishes fake write invocation/return from protocol delivery,
+keeps application acknowledgement and a wire terminal false, and treats count equality,
+quiet, and limits as unknown completion. Private names, signal values, and fragment
+identifiers remain behind an explicit test accessor and cannot leak through result
+representations or ordinary dataclass serialization. It never invokes host networking,
+a live ring, input injection, or owner/hardware authority. A request-ownership gate
+discards notifications received before actual fake write invocation. One immutable
+deadline bounds setup, write, and observation; an invoked call without a return is
+uncertain and taints reuse, while cleanup failure always taints.
+
 `JRingClient.capability_inventory` concurrently requests service UUIDs and static GATT
 metadata under one deadline. The transport returns only characteristic properties and
 descriptor UUIDs; no characteristic or descriptor value is read. Known standard HID

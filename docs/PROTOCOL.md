@@ -637,7 +637,17 @@ One advertised count must precede bounded, ordered fragments; complete strict-UT
 entries reproduce one callback each. Advertised-count equality is diagnostic only and
 never closes the stream as success. Quiet and caller limits remain unknown; malformed
 ordering, overflow, disconnect, and transport failures abort. All stages are bounded,
-concurrent use is rejected, old callbacks are inert, and raw queues are drained.
+concurrent use is rejected, old callbacks are inert, and raw queues are drained. A
+returned fake write call is not application acknowledgement or protocol delivery, and
+no wire terminal is proven. Private names, signal values, and fragment identifiers are
+kept behind an explicit local-test accessor and are redacted from representations and
+ordinary dataclass serialization. No host networking, live ring, owner authority,
+hardware eligibility, or input path is involved. Pre-write notifications are not owned
+by the request and are discarded. One immutable overall deadline covers setup, write,
+and observation. An invoked fake write that does not return has uncertain transport
+state and taints reuse; any cleanup failure also taints the simulator.
+Selectorless shared `54` traffic and non-Wi-Fi selectors are unrelated; exact `54/09`
+or `54/0A` traffic with the wrong frame length remains malformed and aborts.
 
 ### Intentional decoder hardening divergences
 

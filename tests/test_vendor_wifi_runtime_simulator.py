@@ -1,7 +1,13 @@
 import asyncio
+import ast
+import copy
+import inspect
+import json
+from dataclasses import asdict, fields, replace
 
 import pytest
 
+import jring.vendor_wifi_runtime_simulator as wifi_runtime
 from jring.uuids import (
     VENDOR_CHARACTERISTIC_33F3,
     VENDOR_CHARACTERISTIC_33F4,
@@ -14,12 +20,31 @@ from jring.vendor_runtime_fake import ScriptGate, ScriptedVendorFakeTransport
 from jring.vendor_wifi_runtime_simulator import (
     FakeVendorWifiScanSimulator,
     WifiScanCompleteness,
+    WifiScanSimulationTaintedError,
     WifiScanSimulationReason,
 )
 
 
 def run(coro):
     return asyncio.run(coro)
+
+
+def test_fake_wifi_runtime_has_no_host_network_or_distro_service_imports():
+    tree = ast.parse(inspect.getsource(wifi_runtime))
+    imported_roots = {
+        alias.name.split(".", 1)[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    } | {
+        (node.module or "").split(".", 1)[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.level == 0
+    }
+
+    assert imported_roots.isdisjoint(
+        {"bleak", "dbus", "evdev", "os", "pathlib", "pydbus", "socket", "subprocess"}
+    )
 
 
 def _count(value: int) -> bytes:
@@ -65,10 +90,43 @@ def test_advertised_count_is_diagnostic_unknown_not_wire_completion():
         ("onGetWifiSsid", 1, "assembled_wire_fragments"),
     )
     assert result.wire_terminal_observed is False
+    assert result.protocol_delivery == "unknown"
+    assert result.application_acknowledgement_observed is False
+    assert result.write_invoked is True
+    assert result.fake_write_call_completed is True
+    assert result.transport_call_uncertain is False
     assert result.locally_observed_count_matches is True
     assert result.quiet_means_success is False
     assert result.simulation_only is True
+    assert result.live_available is False
+    assert result.owner_authorized is False
     assert result.hardware_eligible is False
+    assert result.hardware_verified is False
+    assert result.host_network_accessed is False
+    assert result.host_network_modified is False
+    assert result.input_eligible is False
+    assert result.provenance == "caller_supplied_offline_fake_frames"
+    fixed_safety_fields = {
+        "protocol_delivery",
+        "application_acknowledgement_observed",
+        "wire_terminal_observed",
+        "quiet_means_success",
+        "simulation_only",
+        "live_available",
+        "owner_authorized",
+        "hardware_eligible",
+        "hardware_verified",
+        "host_network_accessed",
+        "host_network_modified",
+        "input_eligible",
+        "provenance",
+        "host_network_action",
+    }
+    result_fields = {item.name: item for item in fields(type(result))}
+    assert fixed_safety_fields <= set(result_fields)
+    assert all(
+        not result_fields[name].init for name in fixed_safety_fields
+    )
     assert transport.subscription_calls[0].characteristic_uuid == VENDOR_CHARACTERISTIC_33F4
     assert transport.response_write_calls[0].characteristic_uuid == VENDOR_CHARACTERISTIC_33F3
     assert transport.response_write_calls[0].data_for_test() == bytes((0x54, 0x08)) + bytes(18)
@@ -88,6 +146,32 @@ def test_advertised_count_is_diagnostic_unknown_not_wire_completion():
     assert "part_id" not in rendered
     assert "raw" not in rendered
     assert "ssids=<redacted>" in rendered
+    copied = copy.deepcopy(result)
+    assert copied.assembled_entry_count == result.assembled_entry_count
+    assert (
+        copied.ssids_for_explicit_local_test_use()[0].ssid_for_explicit_local_use()
+        == "Private%20Net"
+    )
+    with pytest.raises((TypeError, ValueError), match="InitVar"):
+        replace(result)
+    replaced = replace(
+        result, _ssids_init=result.ssids_for_explicit_local_test_use()
+    )
+    assert (
+        replaced.ssids_for_explicit_local_test_use()[0].ssid_for_explicit_local_use()
+        == "Private%20Net"
+    )
+    public_result = asdict(result)
+    assert "_ssids" not in public_result
+    public_serialization = json.dumps(public_result, sort_keys=True)
+    assert "Private" not in public_serialization
+    assert "-91" not in public_serialization
+    assert "current_id" not in public_serialization
+    assert "part_id" not in public_serialization
+    assert '"_ssid":' not in public_serialization
+    assert "fake_write_call_completed" in public_serialization
+    assert "command_written" not in public_serialization
+    assert "protocol delivery is unknown" in result.user_guidance
 
 
 def test_zero_advertised_count_stays_unknown_and_does_not_invent_ssid_callback():
@@ -106,6 +190,8 @@ def test_zero_advertised_count_stays_unknown_and_does_not_invent_ssid_callback()
     assert result.projections == (("onGetWifiSsidCount", 1, "wire_frame"),)
     assert result.assembled_entry_count == 0
     assert result.wire_terminal_observed is False
+    assert result.protocol_delivery == "unknown"
+    assert result.application_acknowledgement_observed is False
 
 
 def test_partial_entry_then_local_quiet_is_unknown_and_not_projected():
@@ -167,6 +253,44 @@ def test_unrelated_frames_do_not_count_or_become_success():
     assert result.projections == ()
 
 
+def test_selectorless_shared_54_is_unrelated_and_does_not_rollback_count():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _count(1))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, bytes((0x54,)))
+
+    transport.before_write = emit
+    result = run(FakeVendorWifiScanSimulator(transport).collect(
+        request=_request(), quiet_timeout=0.01
+    ))
+
+    assert result.reason is WifiScanSimulationReason.LOCAL_QUIET
+    assert result.completeness is WifiScanCompleteness.UNKNOWN
+    assert result.advertised_count == 1
+    assert result.accepted_frame_count == 1
+    assert result.unrelated_frame_count == 1
+
+
+def test_prewrite_notifications_are_not_owned_by_the_scan_attempt():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, _count(7)
+    )
+    transport.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, _count(0)
+    )
+
+    result = run(FakeVendorWifiScanSimulator(transport).collect(
+        request=_request(), quiet_timeout=0.01
+    ))
+
+    assert result.reason is WifiScanSimulationReason.LOCAL_QUIET
+    assert result.completeness is WifiScanCompleteness.UNKNOWN
+    assert result.advertised_count == 0
+    assert result.accepted_frame_count == 1
+
+
 def test_local_frame_limit_is_unknown_not_a_fabricated_end():
     transport = ScriptedVendorFakeTransport.vendor_route()
     transport.before_write = lambda fake, _call: fake.emit(
@@ -184,6 +308,28 @@ def test_local_frame_limit_is_unknown_not_a_fabricated_end():
     assert result.advertised_count == 2
     assert result.assembled_entry_count == 0
     assert result.wire_terminal_observed is False
+
+
+def test_delayed_queue_overflow_cannot_be_masked_by_the_frame_limit():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit_later(fake, _call):
+        loop = asyncio.get_running_loop()
+
+        def overflow():
+            for value in range(4):
+                fake.emit(VENDOR_CHARACTERISTIC_33F4, _count(value))
+
+        loop.call_later(0.001, overflow)
+
+    transport.before_write = emit_later
+    result = run(FakeVendorWifiScanSimulator(transport).collect(
+        request=_request(), frame_limit=1, quiet_timeout=0.1
+    ))
+
+    assert result.reason is WifiScanSimulationReason.QUEUE_OVERFLOW
+    assert result.completeness is WifiScanCompleteness.ABORTED
+    assert result.accepted_frame_count == 0
 
 
 def test_collector_accepts_only_exact_fake_and_exact_scan_request():
@@ -270,7 +416,10 @@ def test_setup_and_cleanup_stages_are_bounded():
         stage_timeout=0.01,
     ))
     assert result.reason is WifiScanSimulationReason.CLEANUP_FAILURE
+    assert result.completeness is WifiScanCompleteness.UNCERTAIN
     assert result.cleanup_succeeded is False
+    assert result.tainted is True
+    assert "tainted and must not be reused" in result.user_guidance
 
     close_failed = ScriptedVendorFakeTransport.vendor_route(
         close_error=RuntimeError("unexpected close failure")
@@ -280,8 +429,87 @@ def test_setup_and_cleanup_stages_are_bounded():
         quiet_timeout=0.01,
     ))
     assert result.reason is WifiScanSimulationReason.CLEANUP_FAILURE
-    assert result.completeness is WifiScanCompleteness.ABORTED
+    assert result.completeness is WifiScanCompleteness.UNCERTAIN
     assert result.cleanup_succeeded is False
+    assert result.tainted is True
+
+
+def test_invoked_write_failure_is_uncertain_tainted_and_not_reusable():
+    transport = ScriptedVendorFakeTransport.vendor_route(
+        write_error=RuntimeError("private backend detail")
+    )
+    simulator = FakeVendorWifiScanSimulator(transport)
+
+    result = run(simulator.collect(request=_request()))
+
+    assert result.reason is WifiScanSimulationReason.WRITE_FAILURE
+    assert result.completeness is WifiScanCompleteness.UNCERTAIN
+    assert result.write_invoked is True
+    assert result.fake_write_call_completed is False
+    assert result.transport_call_uncertain is True
+    assert result.tainted is True
+    assert "private backend detail" not in repr(result)
+    assert "invoked without a confirmed return" in result.user_guidance
+    assert "must not be reused" in result.user_guidance
+    with pytest.raises(WifiScanSimulationTaintedError, match="tainted"):
+        run(simulator.collect(request=_request()))
+
+
+def test_disconnect_during_invoked_write_is_uncertain_and_taints_reuse():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_write = lambda fake, _call: fake.emit_disconnect(
+        ConnectionError("private disconnect detail")
+    )
+    simulator = FakeVendorWifiScanSimulator(transport)
+
+    result = run(simulator.collect(request=_request()))
+
+    assert result.reason is WifiScanSimulationReason.DISCONNECTED
+    assert result.completeness is WifiScanCompleteness.UNCERTAIN
+    assert result.write_invoked is True
+    assert result.fake_write_call_completed is False
+    assert result.transport_call_uncertain is True
+    assert result.tainted is True
+    assert "private disconnect detail" not in repr(result)
+
+
+def test_prewrite_cleanup_failure_is_aborted_but_taints_reuse():
+    transport = ScriptedVendorFakeTransport.vendor_route(
+        subscribe_error=RuntimeError("private subscribe detail"),
+        close_error=RuntimeError("private close detail"),
+    )
+    simulator = FakeVendorWifiScanSimulator(transport)
+
+    result = run(simulator.collect(request=_request()))
+
+    assert result.reason is WifiScanSimulationReason.CLEANUP_FAILURE
+    assert result.completeness is WifiScanCompleteness.ABORTED
+    assert result.write_invoked is False
+    assert result.transport_call_uncertain is False
+    assert result.cleanup_succeeded is False
+    assert result.tainted is True
+    assert "private" not in repr(result)
+    assert "tainted and must not be reused" in result.user_guidance
+    with pytest.raises(WifiScanSimulationTaintedError, match="tainted"):
+        run(simulator.collect(request=_request()))
+
+
+def test_overall_deadline_covers_an_invoked_blocked_write():
+    transport = ScriptedVendorFakeTransport.vendor_route(
+        write_gate=ScriptGate.blocked()
+    )
+    simulator = FakeVendorWifiScanSimulator(transport)
+
+    result = run(simulator.collect(
+        request=_request(), overall_timeout=0.01, stage_timeout=1.0
+    ))
+
+    assert result.reason is WifiScanSimulationReason.OVERALL_TIMEOUT
+    assert result.completeness is WifiScanCompleteness.UNCERTAIN
+    assert result.write_invoked is True
+    assert result.fake_write_call_completed is False
+    assert result.transport_call_uncertain is True
+    assert result.tainted is True
 
 
 def test_revoked_target_after_structural_preflight_fails_closed():
@@ -347,7 +575,7 @@ def test_cleanup_deactivates_callback_drains_queue_and_bounds_large_frames():
     assert retained_queues[0].qsize() == 0
 
 
-def test_cancellation_during_write_cleans_up_once_and_releases_single_flight():
+def test_cancellation_during_write_cleans_up_once_and_taints_reuse():
     gate = ScriptGate.blocked()
     transport = ScriptedVendorFakeTransport.vendor_route(write_gate=gate)
     simulator = FakeVendorWifiScanSimulator(transport)
@@ -361,9 +589,57 @@ def test_cancellation_during_write_cleans_up_once_and_releases_single_flight():
         with pytest.raises(asyncio.CancelledError):
             await task
         gate.release()
-        return await simulator.collect(request=_request(), quiet_timeout=0.01)
+        with pytest.raises(WifiScanSimulationTaintedError, match="tainted"):
+            await simulator.collect(request=_request(), quiet_timeout=0.01)
 
-    reused = run(scenario())
-    assert transport.unsubscribe_count == 2
-    assert transport.close_count == 2
-    assert reused.reason is WifiScanSimulationReason.LOCAL_QUIET
+    run(scenario())
+    assert simulator.tainted is True
+    assert transport.unsubscribe_count == 1
+    assert transport.close_count == 1
+
+
+def test_cancellation_during_postwrite_unsubscribe_finishes_close_and_taints():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(unsubscribe_gate=gate)
+    transport.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, _count(0)
+    )
+    simulator = FakeVendorWifiScanSimulator(transport)
+
+    async def scenario():
+        task = asyncio.create_task(simulator.collect(
+            request=_request(), frame_limit=1, stage_timeout=0.02
+        ))
+        await gate.wait_until_entered()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    run(scenario())
+    assert simulator.tainted is True
+    assert transport.unsubscribe_count == 1
+    assert transport.close_count == 1
+    assert transport.connected is False
+
+
+def test_cancellation_during_prewrite_close_is_bounded_and_taints():
+    gate = ScriptGate.blocked()
+    transport = ScriptedVendorFakeTransport.vendor_route(
+        connect_error=RuntimeError("private setup detail"),
+        close_gate=gate,
+    )
+    simulator = FakeVendorWifiScanSimulator(transport)
+
+    async def scenario():
+        task = asyncio.create_task(simulator.collect(
+            request=_request(), stage_timeout=0.02
+        ))
+        await gate.wait_until_entered()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    run(scenario())
+    assert simulator.tainted is True
+    assert transport.write_count == 0
+    assert transport.close_count == 1

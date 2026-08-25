@@ -180,9 +180,11 @@ Every item carries evidence, maturity, neutral meaning, privacy classes, recover
 request/callback operation names, runnable/hardware-eligibility, hardware-verification,
 live, candidate, scripted-fake-decoder coverage, and input-eligibility states. All
 runnable, hardware-eligible, hardware-verified, live, and input-eligible states are
-false. The device-action, cumulative-step, Classic info/name, and host-volume rows alone
-say that passive scripted fake event decoding is covered. This does not make media,
-volume, or shutter actions
+false. The device-action, cumulative-step, Classic info/name, and host-volume rows say
+that passive scripted fake event decoding is covered. The Wi-Fi network-name row says
+only that a separate library fake can assemble caller-supplied count/fragment
+responses; it performs no host or ring Wi-Fi scan. This does not make media, volume,
+or shutter actions
 previewable or mappable, and the separate input simulator generates only a synthetic
 step event. Every operation link
 must still exist in the recovered codec or callback-behavior ledger.
@@ -459,7 +461,17 @@ entries reproduce their callback counts without performing host networking. Coun
 equality is a local diagnostic, not a terminal; quiet and limits remain unknown.
 Invalid text, fragment-order errors, overflow, disconnect, or transport failure abort.
 Stages and cleanup are bounded, cancellation cleans up, concurrent use is rejected,
-and private SSIDs appear only through an explicitly named local-test accessor.
+and private SSIDs appear only through an explicitly named local-test accessor. A
+returned fake write call means only that the fake call completed: protocol delivery,
+application acknowledgement, and a wire terminal remain unknown or false. Names,
+signal values, and fragment identifiers do not appear in representations or ordinary
+dataclass serialization. The result also states that no host network was accessed or
+modified and grants no live, owner, hardware, or input authority. Notifications before
+actual fake write invocation are discarded. One immutable deadline covers setup,
+write, and observation; an invoked call that does not return is uncertain and taints
+reuse, as does cleanup failure.
+Selectorless shared `54` traffic cannot be attributed to Wi-Fi and is unrelated;
+length-invalid matching count/fragment traffic aborts.
 
 Given an exact fake ECG-history request, one descriptor must precede arrival-ordered
 event and sample callbacks, and each packed sample frame projects one callback carrying
@@ -818,6 +830,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_payload_projection_zero_fills_short_and_ignores_extra`, `test_raw_generic_callback_and_typed_projection_are_separate`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
 | Zero-write passive MAIN event simulation | `test_collects_only_closed_passive_main_events_without_any_write`, `test_collects_redacted_classic_info_and_name_without_attachment_or_write`, `test_excluded_app_id_and_unknown_45_selectors_count_as_unrelated`, `test_selectorless_45_cannot_be_attributed_to_classic_and_does_not_rollback`, `test_overlong_matching_classic_event_aborts_without_private_projection`, `test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown`, `test_queue_overflow_aborts_and_discards_partial_projection`, `test_preconnected_transport_is_rejected_without_closing_caller_connection`, `test_transport_lease_blocks_a_different_fake_coordinator_without_interference`, `test_cancellation_cleans_up_releases_single_flight_and_stales_callback` |
+| Fake-only Wi-Fi network-name response assembly | `test_fake_wifi_runtime_has_no_host_network_or_distro_service_imports`, `test_advertised_count_is_diagnostic_unknown_not_wire_completion`, `test_zero_advertised_count_stays_unknown_and_does_not_invent_ssid_callback`, `test_selectorless_shared_54_is_unrelated_and_does_not_rollback_count`, `test_prewrite_notifications_are_not_owned_by_the_scan_attempt`, `test_invalid_utf8_completed_entry_is_malformed_and_never_projected`, `test_delayed_queue_overflow_cannot_be_masked_by_the_frame_limit`, `test_invoked_write_failure_is_uncertain_tainted_and_not_reusable`, `test_disconnect_during_invoked_write_is_uncertain_and_taints_reuse`, `test_prewrite_cleanup_failure_is_aborted_but_taints_reuse`, `test_overall_deadline_covers_an_invoked_blocked_write`, `test_cleanup_deactivates_callback_drains_queue_and_bounds_large_frames`, `test_cancellation_during_write_cleans_up_once_and_taints_reuse`, `test_cancellation_during_postwrite_unsubscribe_finishes_close_and_taints`, `test_cancellation_during_prewrite_close_is_bounded_and_taints` |
 | Fake-only host-volume reverse pipeline | `test_exact_device_request_projects_one_closed_response_without_claiming_ack`, `test_write_failure_is_uncertain_and_never_retried`, `test_disconnect_after_write_invocation_is_uncertain_without_retry`, `test_inbound_body_is_discarded_and_duplicate_request_cannot_change_projection`, `test_early_request_is_discarded_if_subscription_never_confirms`, `test_cancellation_after_write_invocation_taints_and_cleans_up`, `test_stale_callback_and_busy_or_wrong_types_cannot_project` |
 | Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_all_thirteen_statically_mapped_device_actions_are_discoverable_once`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors`, `test_guided_capabilities_selects_ephemerally_and_reads_metadata_only`, `test_guided_capabilities_default_no_never_constructs_transport` |
 | Owned-scope Android Bluetooth instruction inventory | `test_owned_scope_direct_instruction_aggregates_are_closed_and_reconciled`, `test_direct_instruction_family_counts_are_overlapping_not_old_reference_counts`, `test_direct_instruction_category_rows_preserve_fine_counts_and_absence_boundary` |

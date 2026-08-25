@@ -307,6 +307,11 @@ Desired outcomes:
   the same connection generation. Never read or change host audio, retry an uncertain
   write, or mistake a local transport return for an application acknowledgement or
   protocol terminal.
+- Exercise the existing Wi-Fi network-name count/fragment response assembler with one
+  exact scripted-fake request while hiding names, signal values, and fragment IDs from
+  ordinary serialization. Never contact host networking or a live ring, and never
+  interpret a returned fake call, count equality, quiet, or a caller limit as protocol
+  completion.
 - Distinguish discrete app-action events from cumulative step counters and raw motion;
   only the former may become direct input candidates without gesture inference.
 - Keep phone-call, location, camera-lifecycle, time-write, raw audio/image, Wi-Fi,
