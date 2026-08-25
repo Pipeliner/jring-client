@@ -1,7 +1,7 @@
 """Bounded fake-only collector for passive events on the vendor MAIN route.
 
-The collector subscribes but never writes.  It recognizes six statically
-discriminated notification opcodes across eight event kinds and does not treat local
+The collector subscribes but never writes.  It recognizes seven statically
+discriminated notification opcodes across nine event kinds and does not treat local
 quiet or a caller limit as a wire terminal.  Shared opcode ``0x78`` is accepted only
 for exact motion-candidate selectors ``0x00``/``0x01`` and touch-setting selector
 ``0x09``; every other selector stays unrelated.
@@ -31,6 +31,7 @@ from .vendor_protocol import (
     VendorRedactedTextNotification,
     VendorStepCounter,
     parse_vendor_45_notification,
+    parse_vendor_chat_action,
     parse_vendor_device_action,
     parse_vendor_motion_frame,
     parse_vendor_phone_volume_request,
@@ -49,6 +50,7 @@ class MainEventKind(str, Enum):
     APP_ID = "app_id"
     TOUCH_MODE_SETTING_PROJECTION = "touch_mode_setting_projection"
     UNKNOWN_MOTION_CHANNEL_PROJECTION = "unknown_motion_channel_projection"
+    MAIN_CHAT_ACTION_PROJECTION = "main_chat_action_projection"
 
 
 class MainEventSimulationReason(str, Enum):
@@ -288,6 +290,119 @@ class UnknownMotionChannelProjection:
         )
 
 
+class MainChatActionProjection:
+    """Redacted holder for one synthetic passive MAIN chat-action code."""
+
+    __slots__ = ("_value",)
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("main chat action projections are decoder-owned")
+
+    @classmethod
+    def _create(cls, value: int) -> "MainChatActionProjection":
+        if type(value) is not int or not 0 <= value <= 0xFF:
+            raise ValueError("main chat action code must fit one unsigned byte")
+        projection = object.__new__(cls)
+        object.__setattr__(projection, "_value", value)
+        return projection
+
+    def __setattr__(self, _name: str, _value: object) -> None:
+        raise AttributeError("main chat action projections are immutable")
+
+    def __copy__(self) -> "MainChatActionProjection":
+        return self
+
+    def __deepcopy__(self, _memo: dict[int, object]) -> "MainChatActionProjection":
+        return self
+
+    @property
+    def projection_role(self) -> str:
+        return "passive_main_chat_action_code_candidate"
+
+    @property
+    def action_meaning(self) -> str:
+        return "unknown"
+
+    @property
+    def protocol_request_relationship(self) -> str:
+        return "unknown"
+
+    @property
+    def fake_attempt_request_owned(self) -> bool:
+        return False
+
+    @property
+    def chat_execution_observed(self) -> bool:
+        return False
+
+    @property
+    def content_handling_observed(self) -> bool:
+        return False
+
+    @property
+    def setter_causation_observed(self) -> bool:
+        return False
+
+    @property
+    def acknowledgement_observed(self) -> bool:
+        return False
+
+    @property
+    def wire_terminal_observed(self) -> bool:
+        return False
+
+    @property
+    def private_action_code_redacted(self) -> bool:
+        return True
+
+    @property
+    def simulation_only(self) -> bool:
+        return True
+
+    @property
+    def transport_write_invoked(self) -> bool:
+        return False
+
+    @property
+    def live_available(self) -> bool:
+        return False
+
+    @property
+    def ring_contacted(self) -> bool:
+        return False
+
+    @property
+    def hardware_verified(self) -> bool:
+        return False
+
+    @property
+    def host_input_emitted(self) -> bool:
+        return False
+
+    @property
+    def input_eligible(self) -> bool:
+        return False
+
+    def value_for_test(self) -> int:
+        """Return the synthetic neutral action code only to focused tests."""
+
+        return self._value
+
+    def __repr__(self) -> str:
+        return (
+            "MainChatActionProjection(value=<redacted>, "
+            "projection_role='passive_main_chat_action_code_candidate', "
+            "action_meaning='unknown', protocol_request_relationship='unknown', "
+            "fake_attempt_request_owned=False, "
+            "chat_execution_observed=False, content_handling_observed=False, "
+            "setter_causation_observed=False, acknowledgement_observed=False, "
+            "wire_terminal_observed=False, private_action_code_redacted=True, "
+            "simulation_only=True, transport_write_invoked=False, "
+            "live_available=False, ring_contacted=False, hardware_verified=False, "
+            "host_input_emitted=False, input_eligible=False)"
+        )
+
+
 DecodedMainEvent = (
     VendorDeviceAction
     | VendorStepCounter
@@ -296,6 +411,7 @@ DecodedMainEvent = (
     | VendorRedactedTextNotification
     | TouchModeSettingProjection
     | UnknownMotionChannelProjection
+    | MainChatActionProjection
 )
 
 
@@ -308,6 +424,7 @@ _EVENT_VALUE_TYPES = MappingProxyType({
     MainEventKind.APP_ID: VendorRedactedTextNotification,
     MainEventKind.TOUCH_MODE_SETTING_PROJECTION: TouchModeSettingProjection,
     MainEventKind.UNKNOWN_MOTION_CHANNEL_PROJECTION: UnknownMotionChannelProjection,
+    MainEventKind.MAIN_CHAT_ACTION_PROJECTION: MainChatActionProjection,
 })
 _EVENT_45_KINDS = MappingProxyType({
     MainEventKind.CLASSIC_NAME: Static45Notification.CLASSIC_NAME,
@@ -375,6 +492,8 @@ class MainEventSimulationResult:
     touch_event_observed: bool = field(default=False, init=False)
     touch_sensor_event_observed: bool = field(default=False, init=False)
     motion_sensor_event_promoted: bool = field(default=False, init=False)
+    chat_execution_observed: bool = field(default=False, init=False)
+    chat_content_handled: bool = field(default=False, init=False)
     host_input_emitted: bool = field(default=False, init=False)
     decoded_values_redacted: bool = field(default=True, init=False)
     event_storage_serialized: bool = field(default=False, init=False)
@@ -418,6 +537,7 @@ class MainEventSimulationResult:
             "simulation_only=True, live_available=False, ring_contacted=False, "
             "gesture_semantics='not_proven', touch_event_observed=False, "
             "touch_sensor_event_observed=False, motion_sensor_event_promoted=False, "
+            "chat_execution_observed=False, chat_content_handled=False, "
             "host_input_emitted=False, "
             "decoded_values_redacted=True, event_storage_serialized=False, "
             "hardware_eligible=False, "
@@ -426,7 +546,7 @@ class MainEventSimulationResult:
 
 
 _MAX_EVENT_LIMIT = 4_096
-_MATCHING_OPCODES = frozenset((0x06, 0x22, 0x45, 0x49, 0x51, 0x78))
+_MATCHING_OPCODES = frozenset((0x06, 0x22, 0x45, 0x49, 0x4E, 0x51, 0x78))
 _STATIC_45_EVENTS = MappingProxyType({
     0x00: (MainEventKind.CLASSIC_INFO, Static45Notification.CLASSIC_INFO),
     0x01: (MainEventKind.CLASSIC_NAME, Static45Notification.CLASSIC_NAME),
@@ -719,6 +839,12 @@ class FakeVendorMainEventSimulator:
                 MainEventKind.CUMULATIVE_STEP,
                 parse_vendor_step_counter(data),
             )
+        if opcode == 0x4E:
+            parsed_chat_action = parse_vendor_chat_action(data)
+            return MainPassiveEvent(
+                MainEventKind.MAIN_CHAT_ACTION_PROJECTION,
+                MainChatActionProjection._create(parsed_chat_action.value),
+            )
         if opcode == 0x45:
             event_kind, parser_kind = _STATIC_45_EVENTS[data[1]]
             return MainPassiveEvent(
@@ -787,6 +913,7 @@ __all__ = [
     "FakeVendorMainEventSimulator",
     "MainEventCollectionCompleteness",
     "MainEventKind",
+    "MainChatActionProjection",
     "MainEventSimulationReason",
     "MainEventSimulationResult",
     "MainPassiveEvent",

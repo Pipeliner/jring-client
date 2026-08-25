@@ -257,9 +257,9 @@ discriminator, delivery, field meaning, side effects, failure, and terminal beha
 remain unproven, and quiet is not success.
 Four additional topology rows record only what the committed dispatcher and codec
 evidence can support: a shared weather-refresh/cached-weather candidate, a shared
-motion-stream state candidate, an unowned ChatGPT action event candidate, and a shared
-action/fragmented-content candidate. All retain no proven ordering, failure, or terminal
-and authorize no runtime.
+motion-stream state candidate, a passive ChatGPT action event candidate with unknown
+request relationship, and a shared action/fragmented-content candidate. All retain no
+proven ordering, failure, or terminal and authorize no runtime.
 The four private-sync candidates pair no response: outbound E-card/SMS CRC/content
 batches use selectors disjoint from their inbound selector-`03` update events. Both CRC
 and content rows in a family therefore reference the same redacted callback, while
@@ -532,7 +532,8 @@ claim that the fields are supported on owner hardware.
 The passive MAIN fake collector makes only the safely discriminated device-action,
 cumulative-step, Classic info/name, redacted App-ID, host-volume-request, exact
 `78/00` and `78/01` unknown-motion callback projections, and exact `78/09` touch-mode
-setting projections executable in an offline transport scenario.
+setting projections executable in an offline transport scenario. Exact opcode `4E`
+is also executable only as a private, passive main-chat action-code candidate.
 Classic info retains only two neutral bytes; Classic name and App-ID content are
 structurally redacted. It subscribes to the exact connection-scoped fake
 `33f4` target and performs zero writes. A transport-wide fake lease rejects
@@ -551,6 +552,10 @@ not establish setter causation, acknowledgement, a terminal, live behavior, or
 hardware support. Exact `45/02` is retained only as a redacted, uncorrelated event; it
 proves no setter causation, identifier equality, acknowledgement, or terminal.
 Selectorless and unknown `45` traffic is unrelated.
+Exact `4E` frames preserve per-frame multiplicity. The fake run owns no request and
+the protocol relationship to `setAiChatState` or `setChatgptContent` remains unknown.
+They prove no ChatGPT/content execution or content retention, acknowledgement,
+terminal, or input meaning. `4F` and shared `54` traffic are not chat actions.
 Classic decoding does not establish profile
 attachment, bonding, RFCOMM, HID, or live support. No decoded event is live,
 hardware-verified, or input-eligible. Ordinary dataclass/JSON serialization excludes

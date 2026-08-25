@@ -346,8 +346,8 @@ jring non-health-capabilities --json
 ```
 
 That inventory now labels the device-action, cumulative-step, unknown-motion, Classic
-info/name, host-volume, and touch-mode rows whose passive MAIN notifications can be
-exercised
+info/name, host-volume, main-chat-action, and touch-mode rows whose passive MAIN
+notifications can be exercised
 with the exact scripted fake. The same internal collector also exercises the exact
 redacted App-ID event at `45/02` without adding a human capability row. The fake
 subscribes to its instance-bound synthetic response target and performs zero writes.
@@ -364,6 +364,11 @@ causation, acknowledgement, terminal, live behavior, or hardware support. Decode
 values remain redacted and hardware- and input-ineligible. App-ID is likewise only an
 uncorrelated callback event: it does not prove setter causation, identifier equality,
 acknowledgement, or a terminal.
+Exact opcode `4E` is separately retained only as a private, neutral chat action-code
+candidate. This zero-write fake run owns no request, while the protocol relationship
+to nearby request families remains unknown. It does not execute ChatGPT; parse or
+retain prompt, response, text, audio, image, or other content; acknowledge a request;
+establish a terminal; or create input.
 It is a library test surface, not a live-ring or Classic-attachment command.
 
 The Wi-Fi network-name inventory row separately identifies the existing library-only

@@ -310,7 +310,8 @@ Desired outcomes:
   `step` preview while hardware motion packets remain unverified.
 - Exercise device-action, cumulative-step, Classic info/name, redacted App-ID,
   host-volume-request, exact `78/00` and `78/01` private unknown-motion callback
-  projections, and exact `78/09` touch-mode setting projections through an
+  projections, exact `4E` private passive chat-action candidates, and exact `78/09`
+  touch-mode setting projections through an
   exact subscribe-only fake that performs zero writes and redacts private values.
   Keep every other `78` selector unrelated. Never reinterpret motion channels as
   axes, units, cadence, gestures, steps, buttons, or input, nor reinterpret the
@@ -318,6 +319,9 @@ Desired outcomes:
   input event. The unused setters and passive callbacks grant no setter causation,
   acknowledgement, terminal, live subscription, hardware support, Classic
   attachment, or input authority.
+  The fake run owns no request; the protocol request relationship stays unknown. The
+  chat-action code grants no ChatGPT/content execution, content retention,
+  acknowledgement, terminal, or input meaning.
 - Exercise the proven host-volume reverse pipeline separately: one exact fake request
   may trigger one closed projection of explicitly caller-supplied offline values on
   the same connection generation. Never read or change host audio, retry an uncertain

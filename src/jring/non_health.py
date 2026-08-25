@@ -260,12 +260,16 @@ _CAPABILITIES = (
         callbacks=("onGetRawData",),
     ),
     _capability(
-        "main_chatgpt_action", "Main-channel ChatGPT action", "general_use",
-        "offline decoder preserves one neutral action value; chat execution and content handling are unavailable",
+        "main_chatgpt_action", "Main chat action-code candidate", "general_use",
+        "scripted fake only; exact 4E projects one private neutral action code with "
+        "zero writes and no fake-run request ownership; protocol request relationship "
+        "is unknown; does not parse or retain prompt, response, text, audio, image, "
+        "or other content; no chat execution, acknowledgement, terminal, or input",
         "static_apk", "offline_codec", "neutral_action_code", False,
         privacy=("neutral_action_code",),
         requests=("setAiChatState", "setChatgptContent"),
         callbacks=("onGetChatgptAction",),
+        scripted_fake_decoder_available=True,
     ),
     _capability(
         "offline_speech_mode", "Offline speech-recognition mode", "general_use",

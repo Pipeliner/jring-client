@@ -1118,6 +1118,10 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
         "This does not show live motion, sensor activation, a gesture, tap, step, "
         "button, or input action."
     ) in output
+    assert "Exact opcode 4E projects one private chat action-code candidate" in output
+    assert "No request is owned by this fake run" in output
+    assert "protocol relationship to nearby requests is unknown" in output
+    assert "does not execute ChatGPT or parse or retain prompt" in output
     assert "Wi-Fi network-name response assembly" in output
     assert "no host or ring Wi-Fi scan" in output
     assert "scripted fake decoder: yes" in output
@@ -1125,7 +1129,7 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "Possible future input candidates" in output
     assert "Blocked side-effect actions" in output
     assert "General-use static codecs" in output
-    assert "Main-channel ChatGPT action" in output
+    assert "Main chat action-code candidate" in output
     assert "Offline speech-recognition mode" in output
     assert "Wi-Fi SSID inventory" in output
     assert "Device dial metadata" in output
@@ -1239,6 +1243,17 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     assert "not a live motion event, gesture, activation, or input" in (
         unknown_motion["description"]
     )
+    chat_action = next(
+        item
+        for item in result["capabilities"]
+        if item["name"] == "main_chatgpt_action"
+    )
+    assert chat_action["scripted_fake_decoder_available"] is True
+    assert chat_action["input_eligible"] is False
+    assert "exact 4E" in chat_action["description"]
+    assert "no fake-run request ownership" in chat_action["description"]
+    assert "zero writes" in chat_action["description"]
+    assert "does not parse or retain prompt" in chat_action["description"]
     serialized = json.dumps(result).lower()
     assert "payload_bytes" not in serialized
     assert '"frame"' not in serialized

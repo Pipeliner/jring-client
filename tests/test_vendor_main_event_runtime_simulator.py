@@ -11,6 +11,7 @@ from jring.vendor_history_runtime_simulator import FakeVendorHistorySimulator
 from jring.input import InputMapper
 from jring.vendor_main_event_runtime_simulator import (
     FakeVendorMainEventSimulator,
+    MainChatActionProjection,
     MainEventCollectionCompleteness,
     MainEventKind,
     MainEventSimulationReason,
@@ -28,7 +29,8 @@ def _frame(opcode: int, body: bytes = b"") -> bytes:
     return bytes((opcode,)) + body.ljust(19, b"\x00")
 
 
-def test_unknown_motion_projection_is_an_explicit_module_export():
+def test_closed_private_projection_types_are_explicit_module_exports():
+    assert "MainChatActionProjection" in main_event_runtime.__all__
     assert "UnknownMotionChannelProjection" in main_event_runtime.__all__
 
 
@@ -210,6 +212,153 @@ def test_selectorless_45_cannot_be_attributed_to_classic_and_does_not_rollback()
     assert result.reason is MainEventSimulationReason.LOCAL_QUIET
     assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
     assert result.event_kinds == (MainEventKind.CLASSIC_INFO,)
+    assert result.unrelated_frame_count == 1
+    assert transport.write_count == 0
+
+
+def test_collects_exact_chat_action_as_passive_private_projection_without_write():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    private_content_canary = b"SECRET-CONTENT-XYZ"
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((0x4E, 0xA7)) + private_content_canary,
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=1,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LIMIT_REACHED
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.event_kinds == (MainEventKind.MAIN_CHAT_ACTION_PROJECTION,)
+    event = result.events_for_test()[0]
+    projection = event.value_for_test()
+    assert projection.value_for_test() == 0xA7
+    assert projection.projection_role == "passive_main_chat_action_code_candidate"
+    assert projection.action_meaning == "unknown"
+    assert projection.protocol_request_relationship == "unknown"
+    assert projection.fake_attempt_request_owned is False
+    assert projection.chat_execution_observed is False
+    assert projection.content_handling_observed is False
+    assert projection.setter_causation_observed is False
+    assert projection.acknowledgement_observed is False
+    assert projection.wire_terminal_observed is False
+    assert projection.private_action_code_redacted is True
+    assert projection.transport_write_invoked is False
+    assert projection.live_available is False
+    assert projection.ring_contacted is False
+    assert projection.hardware_verified is False
+    assert projection.host_input_emitted is False
+    assert projection.input_eligible is False
+    assert result.chat_execution_observed is False
+    assert result.chat_content_handled is False
+    assert InputMapper(()).action_for(event) is None
+    rendered = (
+        repr(projection),
+        repr(event),
+        repr(result),
+        json.dumps(asdict(event), default=str, sort_keys=True),
+        json.dumps(asdict(result), default=str, sort_keys=True),
+    )
+    assert all("167" not in value and "0xa7" not in value.lower() for value in rendered)
+    assert all(private_content_canary.decode() not in value for value in rendered)
+    assert not hasattr(projection, "content")
+    assert not hasattr(projection, "raw_frame")
+    assert not hasattr(projection, "frame")
+    for cloned in (copy(event), deepcopy(event)):
+        assert cloned.value_for_test().value_for_test() == 0xA7
+        payload = json.dumps(asdict(cloned), default=str)
+        assert "167" not in payload
+        assert private_content_canary.decode() not in payload
+    for cloned in (copy(result), deepcopy(result)):
+        assert cloned.events_for_test()[0].value_for_test().value_for_test() == 0xA7
+        payload = json.dumps(asdict(cloned), default=str)
+        assert "167" not in payload
+        assert private_content_canary.decode() not in payload
+    replaced_event = replace(event, _decoded_value=projection)
+    replaced_result = replace(result, _decoded_events=result.events_for_test())
+    assert replaced_event.value_for_test().value_for_test() == 0xA7
+    replaced_payload = json.dumps(asdict(replaced_result), default=str)
+    assert "167" not in replaced_payload
+    assert private_content_canary.decode() not in replaced_payload
+    with pytest.raises((TypeError, ValueError), match="_decoded_value"):
+        replace(event)
+    with pytest.raises((TypeError, ValueError), match="_decoded_events"):
+        replace(result)
+    assert transport.write_count == 0
+    assert transport.targeted_write_count == 0
+    assert transport.generic_write_count == 0
+    assert transport.write_with_response_count == 0
+
+
+def test_main_chat_action_projection_is_decoder_owned_immutable_and_bounded():
+    with pytest.raises(TypeError, match="decoder-owned"):
+        MainChatActionProjection(7)
+    for value in (-1, 256, True, 1.0, "7"):
+        with pytest.raises((TypeError, ValueError), match="unsigned byte"):
+            MainChatActionProjection._create(value)
+    projection = MainChatActionProjection._create(7)
+    with pytest.raises(AttributeError, match="immutable"):
+        projection._value = 8
+
+
+def test_duplicate_chat_actions_remain_nonterminal_passive_per_frame_projections():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x4E, bytes((7,))))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x4E, bytes((7,))))
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=2,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.event_kinds == (
+        MainEventKind.MAIN_CHAT_ACTION_PROJECTION,
+        MainEventKind.MAIN_CHAT_ACTION_PROJECTION,
+    )
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.wire_terminal_observed is False
+    assert result.acknowledgement_observed is False
+    assert result.setter_causation_observed is False
+    assert transport.write_count == 0
+
+
+@pytest.mark.parametrize("length", (19, 21))
+def test_malformed_exact_chat_action_rolls_back_prior_event(length):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x06, bytes((16,))))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, (bytes((0x4E, 7)) + bytes(19))[:length])
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=3,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.MALFORMED_EVENT
+    assert result.completeness is MainEventCollectionCompleteness.ABORTED
+    assert result.events_for_test() == ()
+    assert transport.write_count == 0
+
+
+@pytest.mark.parametrize("opcode", (0x4F, 0x54))
+def test_chat_content_and_ai_state_opcodes_are_unrelated_to_chat_action(opcode):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        _frame(opcode, bytes((0xA7,))),
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(quiet_timeout=0.01))
+
+    assert result.reason is MainEventSimulationReason.LOCAL_QUIET
+    assert result.event_count == 0
     assert result.unrelated_frame_count == 1
     assert transport.write_count == 0
 
