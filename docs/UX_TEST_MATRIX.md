@@ -47,6 +47,7 @@ vendor implementation or hardware verification.
 | Sensor user | A motion frame carries a ninth signed channel in its final byte pair | Decode all nine neutral channels | Never drop bytes 18–19 or invent axis meanings |
 | Protocol contributor | A codec count is assigned by name-set membership | Resolve every codec row through an immutable typed locator | 85/85 request and 86/86 callback rows resolve; shared-family ambiguity stays visible |
 | Transport reviewer | Interface routes are mistaken for fixed BLE packets | Partition all 112 rows into deterministic main/raw, stateful, dynamic, descriptor, DFU, and no-packet shapes | 79+6+1+1+1+1+23 reconciles exactly; no route is runnable |
+| History user | Local quiet follows generic history data | Label the local end projection incomplete instead of saying the device finished | Only detail wire/metadata evidence can confirm completion; a caller limit emits no end |
 
 Across every row, logs and errors omit Bluetooth addresses, cloud identifiers, frame
 bytes, raw measurements, and decompiled-source details. Simulation provenance remains

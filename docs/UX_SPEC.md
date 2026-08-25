@@ -351,6 +351,13 @@ Deadline callbacks carry a session and generation guard, and timestamps stay raw
 than being shifted through the host timezone. No raw frame, timestamp, or measurement
 appears in object representations.
 
+Given an exact fake `getDataByDay` request, type-specific frames produce the recovered
+`onGetDataByDay` multiplicity. Detail `ff` reports a confirmed wire terminal; the
+F0/AA/A0 predicate reports confirmed device metadata. Proven failure frames report a
+failed end. Local quiet after data may reproduce one local end projection but remains
+unknown, while frame limits and unrelated traffic cannot invent completion. Matching
+malformed input and queue overflow abort, and all stored parsed values stay redacted.
+
 Given the offline vendor transaction model, no write intent exists before matching
 generation-bound notification-subscription readiness. That readiness does not claim a
 direct CCCD acknowledgement. A write intent is not an application success: an explicit

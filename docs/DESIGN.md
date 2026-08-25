@@ -244,6 +244,14 @@ Accepted oxygen/advanced data followed by quiet adds one source-shaped local end
 projection carrying the hidden last specialized timestamp. Frame limits, failure,
 disconnect, malformed input, and cleanup failure never add that projection.
 
+The generic `getDataByDay` collector is a separate fake-only state machine accepting
+only an exact `DayDataRequest`. It reproduces the type-1, type-2, type-12, and type-13
+sample callback counts and the three proven failure/end branches. Detail `ff` is the
+only direct wire terminal; the recovered F0/AA/A0 predicate is confirmed device
+metadata, not a wire terminal. Local quiet may project the source-shaped end callback
+after accepted data but remains incomplete/unknown, while a caller frame limit never
+fabricates an end callback. Matching malformed frames and bounded-queue overflow abort.
+
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
 dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective

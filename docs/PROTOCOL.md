@@ -703,6 +703,14 @@ representations redact timestamps and values. The APK's timer-derived oxygen and
 advanced-sensor end callbacks remain local projections, preventing duplicate or
 host-clock-derived completion claims.
 
+`jring.vendor_generic_history_runtime_simulator` composes those decoders with the
+scripted fake route for the four exact generic day requests. It subscribes before the
+write, does not let unrelated frames refresh quiet, and preserves sample callback
+multiplicity. Only detail `ff` is a wire terminal; matching detail metadata is a
+separate confirmed device-metadata closure. Local quiet can reproduce the source's end
+projection only after accepted data and still reports unknown completeness. Limits,
+malformed frames, overflow, disconnect, and cleanup never become success.
+
 ## Offline vendor transaction model
 
 `jring.vendor_transport` models the fail-closed ordering required before any live
