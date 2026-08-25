@@ -73,6 +73,12 @@ class Static45Notification(str, Enum):
     APP_ID = "app_id"
 
 
+class StaticFailurePredicate(str, Enum):
+    ALWAYS = "always"
+    BYTE_1_EQUALS_FF = "byte_1_equals_ff"
+    BYTE_1_NOT_FF = "byte_1_not_ff"
+
+
 _ZERO_ARGUMENT_OPCODES = {
     StaticQuery.CURRENT_SPORT: 0x03,
     StaticQuery.BATTERY: 0x0B,
@@ -149,11 +155,19 @@ class StaticVendorRequest:
 
 
 @dataclass(frozen=True)
+class StaticFailureDispatch:
+    opcode: int
+    predicate: StaticFailurePredicate
+    direct_callback: bool
+
+
+@dataclass(frozen=True)
 class StaticProtocolCoverage:
     operation: StaticQuery
     request_opcode: int
     success_opcodes: tuple[int, ...]
     failure_opcodes: tuple[int, ...]
+    failure_dispatches: tuple[StaticFailureDispatch, ...]
 
     @property
     def request_endpoint_uuid(self) -> str:
@@ -670,12 +684,37 @@ def static_protocol_coverage() -> tuple[StaticProtocolCoverage, ...]:
         StaticQuery.OXYGEN_DAY: ((0x40,), ()),
         StaticQuery.ADVANCED_SENSOR_DAY: ((0x55,), ()),
     }
+    failure_dispatches = {
+        StaticQuery.CURRENT_SPORT: (
+            StaticFailureDispatch(0x83, StaticFailurePredicate.ALWAYS, False),
+        ),
+        StaticQuery.BATTERY: (
+            StaticFailureDispatch(0x8B, StaticFailurePredicate.ALWAYS, False),
+        ),
+        StaticQuery.DEVICE_INFO: (
+            StaticFailureDispatch(0x8C, StaticFailurePredicate.ALWAYS, False),
+        ),
+        StaticQuery.BAND_FUNCTIONS: (
+            StaticFailureDispatch(0xA0, StaticFailurePredicate.ALWAYS, True),
+        ),
+        StaticQuery.MULTI_SPORT_DAY: (
+            StaticFailureDispatch(
+                0xA5, StaticFailurePredicate.BYTE_1_EQUALS_FF, True
+            ),
+            StaticFailureDispatch(
+                0xA5, StaticFailurePredicate.BYTE_1_NOT_FF, False
+            ),
+        ),
+        StaticQuery.OXYGEN_DAY: (),
+        StaticQuery.ADVANCED_SENSOR_DAY: (),
+    }
     return tuple(
         StaticProtocolCoverage(
             operation=operation,
             request_opcode=operation_opcode(operation),
             success_opcodes=response_opcodes[operation][0],
             failure_opcodes=response_opcodes[operation][1],
+            failure_dispatches=failure_dispatches[operation],
         )
         for operation in StaticQuery
     )

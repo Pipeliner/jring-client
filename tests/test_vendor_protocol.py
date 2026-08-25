@@ -381,6 +381,25 @@ def test_static_protocol_coverage_is_complete_and_cannot_claim_hardware_support(
     assert coverage[0].failure_opcodes == (0x83,)
     assert coverage[4].failure_opcodes == (0xA5,)
     assert coverage[5].failure_opcodes == ()
+    assert [
+        (row.opcode, row.predicate, row.direct_callback)
+        for row in coverage[0].failure_dispatches
+    ] == [(0x83, "always", False)]
+    assert [
+        (row.opcode, row.predicate, row.direct_callback)
+        for row in coverage[1].failure_dispatches
+    ] == [(0x8B, "always", False)]
+    assert [
+        (row.opcode, row.predicate, row.direct_callback)
+        for row in coverage[2].failure_dispatches
+    ] == [(0x8C, "always", False)]
+    assert [
+        (row.opcode, row.predicate, row.direct_callback)
+        for row in coverage[4].failure_dispatches
+    ] == [
+        (0xA5, "byte_1_equals_ff", True),
+        (0xA5, "byte_1_not_ff", False),
+    ]
     assert all(entry.request_endpoint_uuid == VENDOR_CHARACTERISTIC_33F3 for entry in coverage)
     assert all(entry.response_endpoint_uuid == VENDOR_CHARACTERISTIC_33F4 for entry in coverage)
     assert all(entry.maturity == "static_apk_only" for entry in coverage)

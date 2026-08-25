@@ -96,7 +96,11 @@ Health-related names describe the SDK operation; the repository contains no owne
 measurement or raw capture. An opcode match alone cannot activate a live operation.
 `static_protocol_coverage()` provides the same seven-entry inventory to Python callers,
 including request/response endpoints, known success and failure opcodes, static-only
-maturity, and an unconditionally false hardware-eligibility flag.
+maturity, and an unconditionally false hardware-eligibility flag. Failure rows also
+state whether the recovered branch directly emits a callback and any byte predicate:
+`83`, `8b`, and `8c` are recognized but callback-silent; `a5` emits its failure
+callback only when byte 1 is `ff` and is otherwise callback-silent. Opcode `a0` has a
+direct failure callback.
 
 The first strict response decoders cover:
 
@@ -111,7 +115,8 @@ The first strict response decoders cover:
   appear in the returned object or its representation.
 
 Failure opcodes (`8b`, `83`, and `8c` for these families), wrong opcodes, wrong frame
-lengths, and impossible battery percentages fail closed. Device-info CRC failure is
+lengths, and impossible battery percentages fail closed. A recognized branch is not
+presented as callback delivery. Device-info CRC failure is
 represented explicitly; it never silently promotes the revision fields to trusted.
 
 The remaining four static response decoders cover:

@@ -173,6 +173,8 @@ decodes only statically proven fields and rejects wrong lengths, unrelated opcod
 failure branches. Band functions are exposed as 96 indexed flags in wire order, with
 app-derived names clearly distinguished from hardware verification. Bounded history
 frames expose raw device epoch seconds and deterministic record spacing.
+Coverage metadata separates recognized failure branches from direct callback delivery,
+including the conditional byte-1 predicate on `a5`.
 
 Offline decoders do not subscribe, write, infer that a frame ends history, adjust old
 records using the host's current timezone, or reproduce the Android SDK's timeout
