@@ -221,6 +221,9 @@ Twelve of the 18 typed command families have exact callback eligibility and can 
 simulated. The other six are rejected because silence or name similarity is not a
 response contract. This includes no exception for factory, binding, or health-shaped
 commands: all remain synthetic and hardware-ineligible.
+Three phone-integration encoders also have closed singleton responses: user info,
+Wi-Fi AP state, and worship info. Multi-frame credentials/content and ambiguous sync
+notifications are rejected by the factory instead of treated as acknowledgements.
 
 Within those routes, 37 statically reviewed builder families have a second,
 domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum

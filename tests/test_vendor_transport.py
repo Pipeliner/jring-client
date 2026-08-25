@@ -40,6 +40,7 @@ from jring.vendor_main_commands import (
     ScreenLightTimeRequest,
 )
 from jring.vendor_commands import encode_ai_language, encode_device_time
+from jring.vendor_phone_integration import encode_user_info
 
 
 def _operation(name: str = "battery") -> OfflineVendorOperation:
@@ -885,3 +886,15 @@ def test_command_without_exact_response_correlation_is_rejected():
 
     with pytest.raises(TypeError, match="correlation"):
         OfflineVendorOperation.from_command_request(request)
+
+
+def test_phone_integration_request_with_ack_composes_without_exposing_profile():
+    request = encode_user_info(
+        gender_bit_set=False, age=30, height=170, weight=70, unit=0
+    )
+    operation = OfflineVendorOperation.from_phone_request(request)
+
+    assert operation.name == "user_info"
+    assert operation.success_opcodes == (0x02,)
+    assert operation.failure_opcodes == (0x82,)
+    assert "170" not in repr(operation)

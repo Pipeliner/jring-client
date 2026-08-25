@@ -224,6 +224,9 @@ count and fragment assembly have no proven whole-scan terminal.
 Twelve strict command encoders have exact response bindings and therefore compose into
 the fake engine; six without a closed correlation fail at the factory boundary. Health,
 binding, and factory-mode risk labels do not change this rule or make an operation live.
+The phone-integration boundary similarly permits only three exact single-frame routes:
+user-info acknowledgement, Wi-Fi AP state, and worship-info projection. Private sync,
+content, credential, and external-pipeline requests stay outside the singleton engine.
 
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime

@@ -50,6 +50,7 @@ from .vendor_protocol import (
     parse_vendor_sensor_measurement,
     parse_vendor_touch_mode,
     parse_vendor_value_event,
+    parse_vendor_worship_info,
     parse_vendor_54_value_event,
     static_protocol_coverage,
 )
@@ -81,6 +82,7 @@ from .vendor_commands import (
     StaticVendorCommandOperation,
     StaticVendorCommandRequest,
 )
+from .vendor_phone_integration import OfflinePhoneOperation, OfflinePhoneRequest
 
 _ENGINE_IDS = itertools.count()
 
@@ -281,6 +283,19 @@ _COMMAND_RESPONSES = {
     StaticVendorCommandOperation.BLOOD_OXYGEN_MODE: (
         0x3E, (0x3E,), (), None,
         partial(parse_vendor_value_event, event=StaticValueEvent.BLOOD_OXYGEN_MODE),
+    ),
+}
+_PHONE_RESPONSES = {
+    OfflinePhoneOperation.USER_INFO: (
+        0x02, (0x02,), (0x82,), None,
+        partial(parse_vendor_ack, operation=StaticAckOperation.USER_INFO),
+    ),
+    OfflinePhoneOperation.OPEN_WIFI_AP_MODE: (
+        0x54, (0x54,), (), 0x13,
+        partial(parse_vendor_54_value_event, event=Static54ValueEvent.WIFI_AP_STATE),
+    ),
+    OfflinePhoneOperation.WORSHIP_INFO: (
+        0x78, (0x78,), (), 0x07, parse_vendor_worship_info,
     ),
 }
 
@@ -494,6 +509,33 @@ class OfflineVendorOperation:
         frame = request.synthetic_bytes_for_test()
         if len(frame) != 20 or frame[0] != request_opcode:
             raise ValueError("vendor command does not match its closed operation")
+        return cls._create(
+            name=request.operation.value,
+            request_frame=frame,
+            success_opcodes=success,
+            failure_opcodes=failure,
+            expected_subcommand=expected_subcommand,
+            parser=parser,
+        )
+
+    @classmethod
+    def from_phone_request(
+        cls, request: OfflinePhoneRequest
+    ) -> "OfflineVendorOperation":
+        """Compose only single-frame phone integrations with a closed response."""
+
+        if type(request) is not OfflinePhoneRequest:
+            raise TypeError("request must be an OfflinePhoneRequest")
+        binding = _PHONE_RESPONSES.get(request.operation)
+        if binding is None:
+            raise TypeError("phone integration has no exact singleton correlation")
+        request_opcode, success, failure, expected_subcommand, parser = binding
+        frames = request.synthetic_frames_for_test()
+        if len(frames) != 1:
+            raise TypeError("multi-frame phone integration requires a separate state machine")
+        frame = frames[0]
+        if len(frame) != 20 or frame[0] != request_opcode:
+            raise ValueError("phone integration does not match its closed operation")
         return cls._create(
             name=request.operation.value,
             request_frame=frame,

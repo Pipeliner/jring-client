@@ -154,6 +154,9 @@ Twelve typed command families with exact static correlations also compose in the
 runtime, including value-event and health/factory-shaped test vectors. Six command
 families with no exact response relationship are rejected; fake composition grants no
 live or hardware authority regardless of risk class.
+Three single-frame phone-integration families with closed responses—user info, Wi-Fi AP
+mode, and the neutral worship setting—are also composable. Other private sync/content
+families remain rejected until their streaming or causal terminal rules are proven.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke
