@@ -40,9 +40,11 @@ from jring.vendor_main_commands import (
 )
 from jring.vendor_commands import encode_ai_language, encode_device_time
 from jring.vendor_phone_integration import (
+    ContactRecord,
     ECardRecord,
     SmsReplyRecord,
     encode_app_id,
+    encode_contact_info,
     encode_download_completed,
     encode_e_card_content,
     encode_e_card_crc,
@@ -948,6 +950,7 @@ def test_private_sync_topology_candidates_remain_outside_singleton_factory(phone
         encode_download_completed(),
         encode_app_id("private-app-id"),
         encode_phone_mac("private-phone-id"),
+        encode_contact_info((ContactRecord(1, "private-phone", "private-name"),)),
         encode_wifi_hotspot_info(ssid="private-network", password="private-secret"),
         encode_wifi_hotspot_info_ex(
             ssid="private-network", password="private-secret", timeout_seconds=60

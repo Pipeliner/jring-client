@@ -11,8 +11,10 @@ from jring.vendor_app_use_evidence import (
     recovered_vendor_app_use_evidence,
 )
 from jring.vendor_phone_integration import (
+    ContactRecord,
     ECardRecord,
     SmsReplyRecord,
+    encode_contact_info,
     encode_e_card_content,
     encode_e_card_crc,
     encode_sms_reply_ack,
@@ -20,6 +22,7 @@ from jring.vendor_phone_integration import (
     encode_sms_reply_crc,
 )
 from jring.vendor_protocol import (
+    parse_vendor_contact_crc,
     parse_vendor_e_card_need_update,
     parse_vendor_sms_need_update,
     parse_vendor_sms_send,
@@ -38,7 +41,7 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
     assert all(row.relationship_state != "unspecified" for row in rows.values())
     assert all(row.callbacks or row.unresolved_reasons for row in rows.values())
     assert evidence.unspecified_count == 0
-    assert evidence.explicitly_unresolved_count == 4
+    assert evidence.explicitly_unresolved_count == 3
     assert evidence.rows_with_unresolved_reasons_count == 58
     assert Counter(row.relationship_state for row in evidence.rows) == {
         "exact_single": 47,
@@ -49,10 +52,10 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
         "same_opcode_event_candidate_unproven": 1,
         "shared_stateful_event_candidate_unproven": 3,
         "reverse_direction_pipeline": 1,
-        "reverse_direction_pipeline_candidate_unproven": 6,
+        "reverse_direction_pipeline_candidate_unproven": 7,
         "reverse_direction_event_ack_candidate_unproven": 1,
         "same_opcode_semantic_collision_no_correlation": 1,
-        "explicitly_unresolved": 4,
+        "explicitly_unresolved": 3,
     }
     assert evidence.terminal_rule_counts == (
         ("local_quiet_unknown", 2),
@@ -299,6 +302,68 @@ def test_contact_crc_is_same_opcode_event_candidate_not_an_ack():
         "notification_is_not_proven_to_acknowledge_request",
     )
     assert contact.quiet_means_success is False
+
+
+def test_contact_content_is_a_conditional_reverse_sync_candidate_not_an_ack():
+    rows = {row.request: row for row in recovered_request_callback_correlations().rows}
+    contact = rows["setContactInfo"]
+
+    assert contact.request_discriminator == (
+        "inbound_opcode_46_contact_fingerprint_notification_can_trigger_local_"
+        "contact_reload_then_outbound_opcode_46_fingerprint_and_opcode_47_content"
+    )
+    assert contact.accepted_response_predicates == ()
+    assert contact.callbacks == ("onNotifyContactCrc",)
+    assert contact.multiplicity == (
+        "conditional_notification_and_contact_record_batch_multiplicity_not_operation_bound"
+    )
+    assert contact.terminal_rule == "none_proven"
+    assert contact.failure_delivery == "none_proven"
+    assert contact.relationship_state == (
+        "reverse_direction_pipeline_candidate_unproven"
+    )
+    assert contact.shared_or_unsolicited is True
+    assert contact.unresolved_reasons == (
+        "fingerprint_mismatch_branch_is_app_local_not_wire_acknowledgement",
+        "same_fingerprint_notification_branch_sends_no_contact_batch",
+        "local_contact_change_path_can_send_crc_and_content_without_notification",
+        "local_private_contact_store_access_not_reproduced",
+        "fingerprint_and_content_batch_order_failure_and_terminal_not_proven",
+        "outbound_contact_content_response_and_ack_not_proven",
+    )
+    assert contact.quiet_means_success is False
+
+
+def test_contact_sync_candidate_is_app_anchored_private_and_non_runnable():
+    app_use = recovered_vendor_app_use_evidence()
+    requests = {row.name: row for row in app_use.requests}
+    callbacks = {row.name: row for row in app_use.callbacks}
+
+    assert requests["setContactInfo"].state is RequestAppUseState.DIRECT_APP_INTERFACE_INVOKE
+    assert requests["setContactInfo"].direct_invoke_count == 3
+    assert callbacks["onNotifyContactCrc"].invoke_counts == (1, 0, 0)
+
+    record = ContactRecord(
+        contact_id=1, phone_number="private-phone", name="private-name"
+    )
+    request = encode_contact_info((record,))
+    event = parse_vendor_contact_crc(bytes((0x46, 1, 2, 3, 4)) + bytes(15))
+    rendered = json.dumps(
+        {
+            "request": repr(request),
+            "event": asdict(event),
+            "row": asdict(
+                next(
+                    row for row in recovered_request_callback_correlations().rows
+                    if row.request == "setContactInfo"
+                )
+            ),
+        },
+        sort_keys=True,
+    )
+    assert event.content_redacted is True
+    assert "private-phone" not in rendered
+    assert "private-name" not in rendered
 
 
 def test_sms_send_is_reverse_direction_event_ack_candidate_not_a_response():

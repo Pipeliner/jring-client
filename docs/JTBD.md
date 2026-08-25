@@ -193,6 +193,9 @@ Desired outcomes:
 - Distinguish cross-opcode events, unrelated same-opcode collisions, disjoint private
   state events, and source-local terminal-shaped projections from acknowledgements so
   names, shared opcodes, or workflow proximity never manufacture transaction success.
+- Let a privacy-sensitive protocol reviewer see that contact-content has only a
+  conditional, app-local reverse-sync topology, with private records redacted and no
+  acknowledgement, terminal, local-store implementation, or runnable path implied.
 - See deterministic main/raw packet routes separately from shared preflight, dynamic
   writes, descriptor control, DFU, and operations that produce no fixed packet.
 - Expose process-local/system broadcast mismatches, unhandled registered actions,

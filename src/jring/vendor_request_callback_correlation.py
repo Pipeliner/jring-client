@@ -361,6 +361,30 @@ _OVERRIDES: dict[str, dict[str, object]] = {
         "shared": True,
         "unresolved": ("notification_is_not_proven_to_acknowledge_request",),
     },
+    "setContactInfo": {
+        "request_discriminator": (
+            "inbound_opcode_46_contact_fingerprint_notification_can_trigger_local_"
+            "contact_reload_then_outbound_opcode_46_fingerprint_and_opcode_47_content"
+        ),
+        "predicates": (),
+        "callbacks": ("onNotifyContactCrc",),
+        "multiplicity": (
+            "conditional_notification_and_contact_record_batch_multiplicity_not_"
+            "operation_bound"
+        ),
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "reverse_direction_pipeline_candidate_unproven",
+        "shared": True,
+        "unresolved": (
+            "fingerprint_mismatch_branch_is_app_local_not_wire_acknowledgement",
+            "same_fingerprint_notification_branch_sends_no_contact_batch",
+            "local_contact_change_path_can_send_crc_and_content_without_notification",
+            "local_private_contact_store_access_not_reproduced",
+            "fingerprint_and_content_batch_order_failure_and_terminal_not_proven",
+            "outbound_contact_content_response_and_ack_not_proven",
+        ),
+    },
     "setSmsRspSendAck": {
         "request_discriminator": (
             "inbound_opcode_4d_subcommand_06_event_and_outbound_"

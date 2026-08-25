@@ -219,7 +219,7 @@ alarm batching and dial-state queue mutation divergences explicit and remains st
 non-callable, and hardware-ineligible.
 
 Request/callback correlation is a third view over the 85 deterministic request codecs.
-Each request has exactly one closed row, including four explicitly unresolved rows and
+Each request has exactly one closed row, including three explicitly unresolved rows and
 zero unspecified rows. The model preserves endpoint role, opcode/subcommand or marker
 predicates, ordered callback projections, multiplicity, direct versus silent failure,
 and terminal rules. Seventy-eight rows use main TX/main RX, six use raw TX/raw RX, and
@@ -229,6 +229,11 @@ same-opcode contact-fingerprint
 notification remain event candidates rather than acknowledgements. The phone-volume
 callback is an inbound request that causes an
 outbound host-state projection; its shared opcode is not treated as an acknowledgement.
+Contact-content is a conditional reverse-direction sync candidate: the app-local
+fingerprint-mismatch branch may reload private contacts before outbound fingerprint and
+content batches, while a local contact change can initiate that outbound sequence
+without the notification. The ledger therefore claims neither an acknowledgement nor
+an operation-bound response, terminal, private-store implementation, or runtime.
 The SMS send callback and ACK-named request are recorded only as a reverse-direction
 event-to-ack candidate: the model does not claim callback-value propagation, call
 ordering, a response to the outbound ACK, or a terminal.

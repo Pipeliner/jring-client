@@ -167,7 +167,7 @@ reference classification—not semantic, dependency/transitive, runtime, or hard
 completion.
 The report also gives every deterministic request codec one request/callback
 correlation row. Proven single responses, shared streams, stateful families, raw event
-candidates, callback-silent failures, and explicit unknowns remain distinct. Four
+candidates, callback-silent failures, and explicit unknowns remain distinct. Three
 rows remain in the generic explicitly-unresolved state, while 58 of 85 retain at least
 one explicit caveat. The contact-fingerprint request and notification share an exact `46`
 four-byte shape but remain an unproven event relationship, not an acknowledgement. The
@@ -184,6 +184,11 @@ local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown.
 Four private E-card/SMS sync rows now preserve only their shared inbound-update and
 outbound-batch topology. Content, opaque fingerprints, branch selection, ordering,
 completion, and local data access remain redacted or unproven.
+Contact-content has only a conditional reverse-direction sync candidate: a fingerprint
+notification may cause a local mismatch branch to reload private contacts and send a
+fingerprint plus content batches, while local contact changes can send the same outbound
+sequence without a notification. No acknowledgement, response, terminal, private-store
+reproduction, or runtime is established.
 App-ID now has only a cross-opcode notification candidate, while the shared Phone-MAC
 opcode is recorded as an unrelated host-volume collision with no eligible callback.
 Two private network-configuration rows retain only a disjoint Wi-Fi state-event

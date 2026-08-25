@@ -209,14 +209,20 @@ response correlation, safe retry, or hardware support.
 A closed correlation ledger now accounts for all 85 deterministic request codecs.
 Forty-seven have exact single-frame callback eligibility, one has exact branching,
 six are shared streams, five are shared/stateful, thirteen are non-ack event candidates,
-eight are reverse-direction pipelines or candidates, one is a known same-opcode
-semantic collision with no eligible callback, and four remain explicitly unresolved.
+nine are reverse-direction pipelines or candidates, one is a known same-opcode
+semantic collision with no eligible callback, and three remain explicitly unresolved.
 The contact relationship proves
 only matching outbound and
 inbound `46` four-byte shapes plus callback eligibility; it proves no causality,
 acknowledgement, multiplicity, failure, or terminal. The phone-volume pair is instead a
 reverse-direction pipeline: an inbound request causes an outbound host-state projection,
 without proving any acknowledgement or terminal.
+Contact-content is separately classified as a conditional reverse-direction sync
+candidate. A contact-fingerprint notification may enter an app-local mismatch branch
+that reloads private contacts and sends fingerprint plus content batches, but the
+fingerprint-equality branch sends no batch and a local contact change can send the outbound
+sequence without a notification. No acknowledgement, response, batch terminal,
+private-store reproduction, or runtime is established.
 The SMS-send pair is a second reverse-direction candidate: inbound `4d/06` projects a
 redacted event and outbound `4d/07` is ACK-named, but value propagation, ordering,
 failure, response, and terminal semantics are unproven. These are dispatcher

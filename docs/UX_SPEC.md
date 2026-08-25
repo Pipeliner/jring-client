@@ -349,7 +349,7 @@ top-level verdict while `ok: true` means only that report generation succeeded. 
 independent dimensions keep recovered-AIDL row accounting separate from source
 semantics, live vendor availability, and hardware verification; no percentage or
 exhaustive Bluetooth-capability denominator is invented. Correlation reporting
-distinguishes the four rows
+distinguishes the three rows
 remaining in the generic explicitly-unresolved state from all 58 rows carrying
 explicit caveats and enumerates every terminal rule: 36 single matched responses, 29
 with no proven terminal, 17 per-frame-only, two
