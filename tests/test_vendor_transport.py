@@ -890,6 +890,21 @@ def test_closed_main_command_query_composes_subcommand_aware_fake_matcher():
     assert parsed.value == 7
 
 
+def test_main_command_factory_rejects_an_instance_shadowed_request_frame():
+    request = NoArgumentMainCommandRequest(
+        NoArgumentMainCommand.DEVICE_SYSTEM_STATE
+    )
+
+    class ForgedFrame:
+        def synthetic_bytes_for_test(self):
+            return bytes.fromhex("dead") + bytes(18)
+
+    object.__setattr__(request, "frames", lambda: (ForgedFrame(),))
+
+    with pytest.raises(ValueError, match="invalid shape"):
+        OfflineVendorOperation.from_main_command_request(request)
+
+
 def test_screen_light_typed_request_preserves_its_synthetic_value_privately():
     request = ScreenLightTimeRequest(17)
     operation = OfflineVendorOperation.from_main_command_request(request)

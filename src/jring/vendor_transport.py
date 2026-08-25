@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial
 import itertools
+from weakref import WeakKeyDictionary
 import math
 from typing import Callable
 from uuid import UUID
@@ -344,12 +345,34 @@ if fake_singleton_factory_request_names() != fake_singleton_terminal_request_nam
     )
 
 
+class _OperationIntegrityToken:
+    pass
+
+
+@dataclass(frozen=True)
+class _OperationExecutionShape:
+    name: str
+    request_endpoint_uuid: str
+    response_endpoint_uuid: str
+    request_frame: bytes
+    success_opcodes: tuple[int, ...]
+    failure_opcodes: tuple[int, ...]
+    expected_subcommand: int | None
+    parser: Callable[[bytes], object] = field(compare=False, repr=False)
+
+
+_OPERATION_EXECUTION_SHAPES: WeakKeyDictionary[
+    _OperationIntegrityToken, _OperationExecutionShape
+] = WeakKeyDictionary()
+
+
 @dataclass(frozen=True, init=False, repr=False)
 class OfflineVendorOperation:
     name: str
     request_endpoint_uuid: str
     response_endpoint_uuid: str
     _request_frame: bytes = field(repr=False)
+    _execution_token: _OperationIntegrityToken = field(repr=False, compare=False)
     success_opcodes: tuple[int, ...]
     failure_opcodes: tuple[int, ...]
     expected_subcommand: int | None
@@ -378,7 +401,40 @@ class OfflineVendorOperation:
         object.__setattr__(instance, "failure_opcodes", tuple(failure_opcodes))
         object.__setattr__(instance, "expected_subcommand", expected_subcommand)
         object.__setattr__(instance, "_parser", parser)
+        token = _OperationIntegrityToken()
+        object.__setattr__(instance, "_execution_token", token)
+        _OPERATION_EXECUTION_SHAPES[token] = _OperationExecutionShape(
+            name=name,
+            request_endpoint_uuid=VENDOR_CHARACTERISTIC_33F3,
+            response_endpoint_uuid=VENDOR_CHARACTERISTIC_33F4,
+            request_frame=bytes(request_frame),
+            success_opcodes=tuple(success_opcodes),
+            failure_opcodes=tuple(failure_opcodes),
+            expected_subcommand=expected_subcommand,
+            parser=parser,
+        )
         return instance
+
+    def validate_for_fake_execution(self) -> None:
+        """Reject a closed operation whose executable request shape was mutated."""
+
+        if type(self._execution_token) is not _OperationIntegrityToken:
+            raise ValueError("offline operation execution identity was mutated")
+        expected = _OPERATION_EXECUTION_SHAPES.get(self._execution_token)
+        if expected is None:
+            raise ValueError("offline operation execution identity is unavailable")
+        if (
+            self.name != expected.name
+            or self.request_endpoint_uuid != expected.request_endpoint_uuid
+            or self.response_endpoint_uuid != expected.response_endpoint_uuid
+            or type(self._request_frame) is not bytes
+            or self._request_frame != expected.request_frame
+            or self.success_opcodes != expected.success_opcodes
+            or self.failure_opcodes != expected.failure_opcodes
+            or self.expected_subcommand != expected.expected_subcommand
+            or self._parser is not expected.parser
+        ):
+            raise ValueError("offline operation execution shape was mutated")
 
     @classmethod
     def from_static_request(
@@ -513,6 +569,10 @@ class OfflineVendorOperation:
             require_fake_singleton_terminal("SetScreenLightTime")
             frames = request.frames()
             frame = frames[0].synthetic_bytes_for_test()
+            canonical = ScreenLightTimeRequest(request.raw_value)
+            expected = canonical.frames()[0].synthetic_bytes_for_test()
+            if frame != expected:
+                raise ValueError("screen-light request has an invalid shape")
             return cls._create(
                 name=request.operation.value,
                 request_frame=frame,
@@ -536,6 +596,10 @@ class OfflineVendorOperation:
         frame = frames[0].synthetic_bytes_for_test()
         if len(frame) != 20:
             raise ValueError("main command request must be exactly 20 bytes")
+        canonical = NoArgumentMainCommandRequest(request.command)
+        expected = canonical.frames()[0].synthetic_bytes_for_test()
+        if frame != expected:
+            raise ValueError("main command request has an invalid shape")
         return cls._create(
             name=request.operation.value,
             request_frame=frame,

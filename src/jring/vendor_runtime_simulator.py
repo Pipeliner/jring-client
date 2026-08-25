@@ -9,11 +9,11 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Coroutine
 from collections import deque
-from dataclasses import dataclass, field, replace
+from dataclasses import InitVar, dataclass, field, replace
 from enum import Enum
 import math
 import time
-from typing import Any, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 from .transport import GattCharacteristicTarget, NotifyCallback
 from .vendor_gatt_preflight import (
@@ -64,26 +64,56 @@ class SimulationResult:
     completeness: TransactionCompleteness
     write_invoked: bool
     tainted: bool
+    _decoded_value: InitVar[object | None]
     cleanup_succeeded: bool = True
-    _parsed_value: object | None = field(default=None, repr=False)
+    parsed_value_redacted: bool = field(default=True, init=False)
+    parsed_value_serialized: bool = field(default=False, init=False)
+    simulation_only: bool = field(default=True, init=False)
+    scripted_transport: bool = field(default=True, init=False)
+    matching_fake_response_observed: bool = field(default=False, init=False)
+    fake_transaction_completed: bool = field(default=False, init=False)
+    state_freshness: str = field(default="synthetic_fixture_only", init=False)
+    current_device_state_observed: bool = field(default=False, init=False)
+    bluetooth_readiness_observed: bool = field(default=False, init=False)
+    bluetooth_connection_state_observed: bool = field(default=False, init=False)
+    battery_or_power_state_observed: bool = field(default=False, init=False)
+    firmware_health_observed: bool = field(default=False, init=False)
+    owner_binding_observed: bool = field(default=False, init=False)
+    live_wire_terminal_verified: bool = field(default=False, init=False)
+    ring_contacted: bool = field(default=False, init=False)
+    live_available: bool = field(default=False, init=False)
+    hardware_eligible: bool = field(default=False, init=False)
+    hardware_verified: bool = field(default=False, init=False)
+    input_eligible: bool = field(default=False, init=False)
+    host_input_emitted: bool = field(default=False, init=False)
+    _parsed_value: ClassVar[object | None] = None
 
-    @property
-    def simulation_only(self) -> bool:
-        return True
-
-    @property
-    def hardware_eligible(self) -> bool:
-        return False
-
-    @property
-    def hardware_verified(self) -> bool:
-        return False
+    def __post_init__(self, _decoded_value: object | None) -> None:
+        object.__setattr__(self, "_parsed_value", _decoded_value)
+        object.__setattr__(
+            self,
+            "matching_fake_response_observed",
+            self.reason in {SimulationReason.SUCCESS, SimulationReason.DEVICE_FAILURE},
+        )
+        object.__setattr__(
+            self,
+            "fake_transaction_completed",
+            self.completeness
+            in {TransactionCompleteness.SUCCEEDED, TransactionCompleteness.FAILED},
+        )
 
     @property
     def user_guidance(self) -> str:
         """Plain-language synthetic outcome and safe next action."""
 
+        device_system = self.operation_name == "get_device_system_state"
         if self.tainted and self.write_invoked:
+            if device_system:
+                return (
+                    "The scripted fake device-system query is uncertain. The fake may "
+                    "have received the command; it was not repeated. This reports no "
+                    "current device state or live hardware state."
+                )
             return (
                 "The scripted fake may have received the command. It was not repeated; "
                 "create a new simulator before continuing."
@@ -94,9 +124,23 @@ class SimulationResult:
                 "simulator before continuing."
             )
         if self.completeness is TransactionCompleteness.SUCCEEDED:
+            if device_system:
+                return (
+                    "Matched one scripted fake device-system query response. This is "
+                    "synthetic fixture state only; it does not report current device "
+                    "state, Bluetooth readiness or connection, battery or power, "
+                    "firmware health, owner binding, a live ring, hardware "
+                    "verification, or input."
+                )
             return "A synthetic response matched; real hardware remains unverified."
         if self.completeness is TransactionCompleteness.FAILED:
             return "The scripted fake returned an explicit device-level failure."
+        if device_system:
+            return (
+                "The scripted fake device-system query was aborted before a fake "
+                "command was sent. This reports no current device state or live "
+                "hardware state."
+            )
         return "No vendor command was sent by this simulation attempt."
 
     def parsed_value_for_test(self) -> object | None:
@@ -110,7 +154,12 @@ class SimulationResult:
             f"write_invoked={self.write_invoked!r}, tainted={self.tainted!r}, "
             f"cleanup_succeeded={self.cleanup_succeeded!r}, "
             "parsed_value=<redacted>, simulation_only=True, "
-            "hardware_eligible=False, hardware_verified=False)"
+            "parsed_value_redacted=True, parsed_value_serialized=False, "
+            f"matching_fake_response_observed={self.matching_fake_response_observed!r}, "
+            f"fake_transaction_completed={self.fake_transaction_completed!r}, "
+            "state_freshness='synthetic_fixture_only', ring_contacted=False, "
+            "live_available=False, hardware_eligible=False, hardware_verified=False, "
+            "input_eligible=False, host_input_emitted=False)"
         )
 
 
@@ -225,6 +274,7 @@ class FakeVendorRuntimeSimulator:
     ) -> SimulationResult:
         if type(operation) is not OfflineVendorOperation:
             raise TypeError("operation must be an exact OfflineVendorOperation")
+        operation.validate_for_fake_execution()
         duration = _positive_number(timeout, "timeout")
         if self._tainted:
             raise SimulationTaintedError(
@@ -274,7 +324,11 @@ class FakeVendorRuntimeSimulator:
         cleanup_ok = await self._cleanup(attempt)
         attempt.stage = _Stage.DONE
         if not cleanup_ok and result.completeness is TransactionCompleteness.UNCERTAIN:
-            result = replace(result, cleanup_succeeded=False)
+            result = replace(
+                result,
+                cleanup_succeeded=False,
+                _decoded_value=result.parsed_value_for_test(),
+            )
         elif not cleanup_ok:
             completeness = (
                 TransactionCompleteness.UNCERTAIN
@@ -305,7 +359,10 @@ class FakeVendorRuntimeSimulator:
             if self._active_generation != generation:
                 self.stale_frame_count += 1
                 return
-            if attempt.stage not in {_Stage.WRITE, _Stage.RESPONSE}:
+            if (
+                attempt.stage not in {_Stage.WRITE, _Stage.RESPONSE}
+                or not attempt.write_invoked
+            ):
                 self.discarded_frame_count += 1
                 return
             if len(attempt.frames) >= self._max_buffered_frames:
@@ -400,14 +457,19 @@ class FakeVendorRuntimeSimulator:
             raise RuntimeError("offline engine did not provide one write intent")
 
         attempt.stage = _Stage.WRITE
-        attempt.write_invoked = True
-        await self._await_boundary(
-            self._transport.write_target_with_response(
+
+        async def invoke_write() -> None:
+            if attempt.disconnect_event.is_set():
+                raise _Disconnected
+            if time.monotonic() >= attempt.deadline:
+                raise _DeadlineExpired
+            attempt.write_invoked = True
+            await self._transport.write_target_with_response(
                 attempt.request_target,
                 update.write_intent.synthetic_bytes_for_test(),
-            ),
-            attempt,
-        )
+            )
+
+        await self._await_boundary(invoke_write(), attempt)
         acknowledged = engine.confirm_write(
             token,
             outcome=WriteOutcome.ACKNOWLEDGED,
@@ -451,12 +513,43 @@ class FakeVendorRuntimeSimulator:
     async def _await_boundary(
         self, operation: Coroutine[Any, Any, _T], attempt: _Attempt
     ) -> _T:
-        operation_task = asyncio.create_task(operation)
-        disconnect_task = asyncio.create_task(attempt.disconnect_event.wait())
-        remaining = attempt.deadline - time.monotonic()
+        if attempt.disconnect_event.is_set():
+            operation.close()
+            raise _Disconnected
         try:
-            if remaining <= 0:
-                raise _DeadlineExpired
+            # Let an already-requested owner cancellation arrive before scheduling
+            # the transport operation. This works on every supported Python version.
+            await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            operation.close()
+            raise
+        if attempt.disconnect_event.is_set():
+            operation.close()
+            raise _Disconnected
+        remaining = attempt.deadline - time.monotonic()
+        if remaining <= 0:
+            operation.close()
+            raise _DeadlineExpired
+
+        async def guarded_operation() -> _T:
+            entered = False
+            try:
+                # Keep the child cancellable before it can enter transport code if
+                # cancellation wins immediately after the owner-side checkpoint.
+                await asyncio.sleep(0)
+                if attempt.disconnect_event.is_set():
+                    raise _Disconnected
+                if time.monotonic() >= attempt.deadline:
+                    raise _DeadlineExpired
+                entered = True
+                return await operation
+            finally:
+                if not entered:
+                    operation.close()
+
+        operation_task = asyncio.create_task(guarded_operation())
+        disconnect_task = asyncio.create_task(attempt.disconnect_event.wait())
+        try:
             done, _pending = await asyncio.wait(
                 {operation_task, disconnect_task},
                 timeout=remaining,
@@ -504,6 +597,7 @@ class FakeVendorRuntimeSimulator:
     ) -> SimulationResult:
         if (
             attempt.stage is _Stage.WRITE
+            and attempt.write_invoked
             and attempt.engine is not None
             and attempt.token is not None
         ):
@@ -538,6 +632,13 @@ class FakeVendorRuntimeSimulator:
         attempt: _Attempt,
         reason: SimulationReason,
     ) -> SimulationResult:
+        if attempt.stage is _Stage.WRITE and not attempt.write_invoked:
+            return self._result(
+                operation,
+                reason=reason,
+                completeness=TransactionCompleteness.ABORTED,
+                write_invoked=False,
+            )
         if attempt.engine is not None:
             if reason is SimulationReason.TIMEOUT:
                 update = attempt.engine.poll(
@@ -602,7 +703,7 @@ class FakeVendorRuntimeSimulator:
             write_invoked=write_invoked,
             tainted=tainted,
             cleanup_succeeded=cleanup_succeeded,
-            _parsed_value=parsed_value,
+            _decoded_value=parsed_value,
         )
 
 

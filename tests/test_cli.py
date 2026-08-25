@@ -1122,9 +1122,17 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "No request is owned by this fake run" in output
     assert "protocol relationship to nearby requests is unknown" in output
     assert "does not execute ChatGPT or parse or retain prompt" in output
+    assert "device-system scripted fake transaction" in output
+    assert "one synthetic 54/11 query write" in output
+    assert "one exact 54/12 fake response" in output
+    assert "Fake success means only that this response matched" in output
+    assert "it is not current device state" in output
     assert "Wi-Fi network-name response assembly" in output
     assert "no host or ring Wi-Fi scan" in output
     assert "scripted fake decoder: yes" in output
+    assert "scripted fake transaction: yes" in output
+    assert "fake transaction performs write: yes" in output
+    assert "fake transaction scope: exact_single_query_response" in output
     assert output.count("Global state for every row:") == 1
     assert "Possible future input candidates" in output
     assert "Blocked side-effect actions" in output
@@ -1187,6 +1195,9 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
         "callback_operations", "runnable", "hardware_eligible",
         "hardware_verified", "live_available", "input_eligible",
         "scripted_fake_decoder_available",
+        "scripted_fake_transaction_available",
+        "scripted_fake_transaction_performs_write",
+        "scripted_fake_transaction_scope",
     }
     assert all(set(item) == expected_keys for item in result["capabilities"])
     assert all(item["evidence"] and item["maturity"] for item in result["capabilities"])
@@ -1197,6 +1208,17 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     assert all(item["runnable"] is False for item in result["capabilities"])
     assert all(item["hardware_eligible"] is False for item in result["capabilities"])
     assert all(item["input_eligible"] is False for item in result["capabilities"])
+    device_system = next(
+        item
+        for item in result["capabilities"]
+        if item["name"] == "device_system_state"
+    )
+    assert device_system["scripted_fake_decoder_available"] is False
+    assert device_system["scripted_fake_transaction_available"] is True
+    assert device_system["scripted_fake_transaction_performs_write"] is True
+    assert device_system["scripted_fake_transaction_scope"] == (
+        "exact_single_query_response"
+    )
     classic = {
         item["name"]: item
         for item in result["capabilities"]

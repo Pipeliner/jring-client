@@ -327,6 +327,11 @@ Desired outcomes:
   the same connection generation. Never read or change host audio, retry an uncertain
   write, or mistake a local transport return for an application acknowledgement or
   protocol terminal.
+- Exercise the exact operation-bound device-system fake query as one synthetic
+  `54/11` write followed by one matching `54/12` response. Keep its private callback
+  code redacted and never call fake completion current device state, Bluetooth
+  readiness/connection, battery/power, firmware health, owner binding, live support,
+  or hardware verification.
 - Exercise the existing Wi-Fi network-name count/fragment response assembler with one
   exact scripted-fake request while hiding names, signal values, and fragment IDs from
   ordinary serialization. Never contact host networking or a live ring, and never

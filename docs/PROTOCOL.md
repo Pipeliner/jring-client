@@ -269,6 +269,11 @@ terminal behavior remain unknown. Opaque sync fingerprints are not security chec
 Offline singleton runtime reproduction now includes six typed settings families with
 statically matched terminals,
 four static query families, seven personal-setting families, and screen-light route.
+The device-system member of the query family is exact outbound `54/11` and inbound
+selector `54/12`. One canonical scripted request write and one post-entry matching fake
+response may close the synthetic transaction; `54/04`, `54/13`, and `54/14` remain
+unrelated. The private neutral state code is hidden from ordinary serialization, and
+fake completion proves no current/live state, acknowledgement, or hardware behavior.
 The shared sensor-session start/stop encoders remain byte-exact offline codecs, but the
 singleton factory rejects them because one per-frame projection cannot disambiguate the
 four wrappers or the shared `25` path.
@@ -989,6 +994,11 @@ bounded generation-tagged queue, buffer any
 response arriving before write completion, bound unsubscribe cleanup, and taint the
 session after cancellation or an unknown write outcome. Bleak/BlueZ notification
 activation is not promoted to direct CCCD evidence.
+Factories reconstruct canonical request bytes and execution revalidates the closed
+operation. The callback ownership window begins only at actual fake write-coroutine
+entry, so expiry, disconnect, or cancellation before entry cannot claim dispatch or
+retain a matching response.
+Parsed values are excluded from ordinary dataclass/JSON serialization.
 
 ## Required hardware evidence to advance
 

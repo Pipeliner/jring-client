@@ -283,6 +283,12 @@ fixed request opcode, binds the operation-specific acknowledgement parser, and
 preserves direct failure opcodes where present. It
 cannot accept arbitrary messages or transports, and every result remains simulation
 only and hardware-ineligible.
+The device-system query is one exact operation-bound example: canonical `54/11` is
+revalidated before one scripted write and only exact post-write-entry `54/12` can close
+the fake transaction. Parsed values live outside dataclass serialization. Fake success
+does not establish current state, readiness, connection, power, firmware, binding,
+live, or hardware meaning. Notification ownership begins at actual fake write entry;
+expiry, disconnect, or cancellation before entry stays aborted and zero-write.
 The three streaming static day queries are rejected by this factory and use their
 separate history collector, which cannot close on the first matching frame.
 Alarm batching is rejected rather than flattened: its base/content messages,

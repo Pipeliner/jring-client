@@ -215,12 +215,20 @@ Local quiet is never promoted to success, and matching requires an operation tok
 plus connection generation.
 The fake-only singleton transaction simulator composes four static query families, the
 screen-light subcommand, and six typed settings families with statically matched terminals.
+Its operation-bound device-system path performs one exact synthetic `54/11` query
+write and closes only on an exact post-entry `54/12` fake response. The private neutral
+callback code is excluded from structured output. Fake success is not current device
+state, Bluetooth readiness/connection, battery/power, firmware health, owner binding,
+live support, or hardware verification.
 The two shared sensor-session setting shapes are rejected because their per-frame
 projection is ambiguous across four interface wrappers and a shared opcode. The other three static
 queries use the separate shared-day history collector because their first matching
 frame is not a proven terminal. A synthetic mutation
 acknowledgement is parsed through the same closed correlation rules; this still creates
 no client method, live adapter, write authority, retry policy, or hardware claim.
+Closed request bytes are reconstructed before execution, and notification ownership
+starts only when the fake write coroutine actually enters; an expired pre-entry call
+or a pre-entry disconnect/cancellation performs no write and owns no response.
 All seven personal-setting encoders can likewise compose success-only fake matchers;
 their private input stays hidden and absence of a proven failure opcode remains explicit.
 Eight single-frame behavior mutations are also composable with paired acknowledgements.

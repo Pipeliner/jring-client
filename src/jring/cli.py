@@ -1447,6 +1447,13 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
         "contacted."
     )
     print(
+        "A separate device-system scripted fake transaction performs one synthetic "
+        "54/11 query write and accepts one exact 54/12 fake response. Fake success "
+        "means only that this response matched; it is not current device state, "
+        "Bluetooth readiness or connection, battery or power, firmware health, owner "
+        "binding, a live ring, hardware verification, or input."
+    )
+    print(
         "Global state for every row: runnable no; hardware eligible no; hardware "
         "verified no; live available no; input eligible no."
     )
@@ -1460,11 +1467,20 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
         scripted_fake = (
             "yes" if item["scripted_fake_decoder_available"] else "no"
         )
+        scripted_transaction = (
+            "yes" if item["scripted_fake_transaction_available"] else "no"
+        )
+        fake_write = (
+            "yes" if item["scripted_fake_transaction_performs_write"] else "no"
+        )
         print(f"- {item['label']}: {item['description']}")
         print(
             f"  evidence/maturity: {item['evidence']}/{item['maturity']}; "
             f"future input candidate: {candidate}; "
             f"scripted fake decoder: {scripted_fake}; "
+            f"scripted fake transaction: {scripted_transaction}; "
+            f"fake transaction performs write: {fake_write}; "
+            f"fake transaction scope: {item['scripted_fake_transaction_scope']}; "
             f"privacy: {', '.join(item['privacy_classes'])}"
         )
 

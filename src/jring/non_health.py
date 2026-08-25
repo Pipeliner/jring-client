@@ -24,6 +24,9 @@ class NonHealthCapability:
     live_available: bool
     input_eligible: bool
     scripted_fake_decoder_available: bool
+    scripted_fake_transaction_available: bool
+    scripted_fake_transaction_performs_write: bool
+    scripted_fake_transaction_scope: str
 
     def __init__(self, *_args: object, **_kwargs: object) -> None:
         raise TypeError("non-health capability rows are closed")
@@ -46,7 +49,16 @@ def _capability(
     requests: tuple[str, ...] = (),
     callbacks: tuple[str, ...] = (),
     scripted_fake_decoder_available: bool = False,
+    scripted_fake_transaction_available: bool = False,
+    scripted_fake_transaction_performs_write: bool = False,
+    scripted_fake_transaction_scope: str = "unavailable",
 ) -> NonHealthCapability:
+    if scripted_fake_transaction_performs_write and not scripted_fake_transaction_available:
+        raise ValueError("fake transaction writes require an available fake transaction")
+    if scripted_fake_transaction_available != (
+        scripted_fake_transaction_scope != "unavailable"
+    ):
+        raise ValueError("fake transaction scope must match transaction availability")
     row = object.__new__(NonHealthCapability)
     resolved_privacy = (
         ("user_intent",)
@@ -71,6 +83,11 @@ def _capability(
         "live_available": False,
         "input_eligible": False,
         "scripted_fake_decoder_available": scripted_fake_decoder_available,
+        "scripted_fake_transaction_available": scripted_fake_transaction_available,
+        "scripted_fake_transaction_performs_write": (
+            scripted_fake_transaction_performs_write
+        ),
+        "scripted_fake_transaction_scope": scripted_fake_transaction_scope,
     }.items():
         object.__setattr__(row, field_name, value)
     return row
@@ -334,12 +351,15 @@ _CAPABILITIES = (
         callbacks=("onDeviceConnectedWifi", "onNotifyDeviceWifiApState"),
     ),
     _capability(
-        "device_system_state", "Device-system state", "general_use",
-        "offline query and notification decoder preserve a neutral state value",
+        "device_system_state", "Device-system callback-code fake transaction", "general_use",
+        "scripted fake transaction only; one synthetic 54/11 query write and one exact 54/12 matching fake response; private callback code redacted and meaning unknown; not current device state, Bluetooth readiness or connection, battery or power, firmware health, owner binding, live hardware, or input",
         "static_apk", "offline_codec", "device_state", False,
         privacy=("device_state",),
         requests=("getDeviceSystemStateInfo",),
         callbacks=("onNotifyDeviceSystemStateInfo",),
+        scripted_fake_transaction_available=True,
+        scripted_fake_transaction_performs_write=True,
+        scripted_fake_transaction_scope="exact_single_query_response",
     ),
     _capability(
         "eq_profile", "Equalizer profile", "general_use",

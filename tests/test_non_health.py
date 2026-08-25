@@ -148,6 +148,22 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert all(item.live_available is False for item in items)
     assert all(item.input_eligible is False for item in items)
     assert all(item.privacy_classes for item in items)
+    device_system = by_name["device_system_state"]
+    assert device_system.label == "Device-system callback-code fake transaction"
+    assert device_system.scripted_fake_decoder_available is False
+    assert device_system.scripted_fake_transaction_available is True
+    assert device_system.scripted_fake_transaction_performs_write is True
+    assert device_system.scripted_fake_transaction_scope == (
+        "exact_single_query_response"
+    )
+    assert "synthetic 54/11 query write" in device_system.description
+    assert "exact 54/12 matching fake response" in device_system.description
+    assert "not current device state" in device_system.description
+    for item in items:
+        if item.name != "device_system_state":
+            assert item.scripted_fake_transaction_available is False
+            assert item.scripted_fake_transaction_performs_write is False
+            assert item.scripted_fake_transaction_scope == "unavailable"
 
 
 def test_non_health_inventory_is_immutable_and_contains_no_payloads():

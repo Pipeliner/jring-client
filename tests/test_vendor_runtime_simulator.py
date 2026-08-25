@@ -1,5 +1,8 @@
 import asyncio
-from dataclasses import replace
+from copy import copy, deepcopy
+from dataclasses import asdict, replace
+import json
+import time
 
 import pytest
 
@@ -12,6 +15,10 @@ from jring.uuids import (
     uuid16,
 )
 from jring.vendor_protocol import StaticQuery, encode_static_query
+from jring.vendor_main_commands import (
+    NoArgumentMainCommand,
+    NoArgumentMainCommandRequest,
+)
 from jring.vendor_runtime_fake import ScriptGate, ScriptedVendorFakeTransport
 from jring.vendor_runtime_simulator import (
     FakeVendorRuntimeSimulator,
@@ -30,6 +37,12 @@ GOOD_BATTERY = bytes((0x0B, 64, 7)) + bytes(17)
 def operation():
     return OfflineVendorOperation.from_static_request(
         encode_static_query(StaticQuery.BATTERY)
+    )
+
+
+def device_system_operation():
+    return OfflineVendorOperation.from_main_command_request(
+        NoArgumentMainCommandRequest(NoArgumentMainCommand.DEVICE_SYSTEM_STATE)
     )
 
 
@@ -75,6 +88,231 @@ def test_success_discards_early_frames_and_processes_write_hook_frame_after_ack(
     assert "parsed_value=<redacted>" in repr(result)
     assert result.user_guidance == (
         "A synthetic response matched; real hardware remains unverified."
+    )
+
+
+def test_success_result_keeps_parsed_value_out_of_structured_serialization():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, GOOD_BATTERY
+    )
+    result = run(FakeVendorRuntimeSimulator(transport).execute(
+        operation(), timeout=0.2
+    ))
+
+    parsed = result.parsed_value_for_test()
+    assert parsed.percent == 64
+    payload = asdict(result)
+    rendered = json.dumps(payload, default=str, sort_keys=True)
+    assert "_parsed_value" not in payload
+    assert '"percent"' not in rendered
+    assert '"voltage"' not in rendered
+    assert result.parsed_value_redacted is True
+    assert result.parsed_value_serialized is False
+    for cloned in (copy(result), deepcopy(result)):
+        assert cloned.parsed_value_for_test().percent == 64
+        assert "_parsed_value" not in asdict(cloned)
+    with pytest.raises((TypeError, ValueError), match="_decoded_value"):
+        replace(result)
+    replaced = replace(result, _decoded_value=parsed)
+    assert replaced.parsed_value_for_test().percent == 64
+    assert "_parsed_value" not in asdict(replaced)
+
+
+def test_device_system_query_owns_only_exact_postwrite_54_12_response():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    private_state_code = 0xA7
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        bytes((0x54, 0x12, private_state_code)) + bytes(17),
+    )
+
+    def after_write_entry(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, bytes((0x54, 0x04, 9)) + bytes(17))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, bytes((0x54, 0x13, 8)) + bytes(17))
+        fake.emit(
+            VENDOR_CHARACTERISTIC_33F4,
+            bytes((0x54, 0x12, private_state_code)) + bytes(17),
+        )
+
+    transport.before_write = after_write_entry
+    simulator = FakeVendorRuntimeSimulator(transport)
+    result = run(simulator.execute(device_system_operation(), timeout=0.2))
+
+    assert result.reason is SimulationReason.SUCCESS
+    assert result.completeness is TransactionCompleteness.SUCCEEDED
+    assert result.write_invoked is True
+    assert transport.write_count == 1
+    assert transport.targeted_write_count == 1
+    assert transport.response_write_calls[0].data_for_test() == (
+        bytes((0x54, 0x11)) + bytes(18)
+    )
+    assert simulator.discarded_frame_count == 1
+    assert simulator.unrelated_frame_count == 2
+    parsed = result.parsed_value_for_test()
+    assert parsed.event.value == "device_system_state"
+    assert parsed.value == private_state_code
+    rendered = json.dumps(asdict(result), default=str, sort_keys=True)
+    assert str(private_state_code) not in rendered
+    assert "_parsed_value" not in rendered
+    assert result.hardware_eligible is False
+    assert result.hardware_verified is False
+    payload = asdict(result)
+    assert payload["simulation_only"] is True
+    assert payload["scripted_transport"] is True
+    assert payload["matching_fake_response_observed"] is True
+    assert payload["fake_transaction_completed"] is True
+    assert payload["state_freshness"] == "synthetic_fixture_only"
+    for denied in (
+        "current_device_state_observed",
+        "bluetooth_readiness_observed",
+        "bluetooth_connection_state_observed",
+        "battery_or_power_state_observed",
+        "firmware_health_observed",
+        "owner_binding_observed",
+        "live_wire_terminal_verified",
+        "ring_contacted",
+        "live_available",
+        "hardware_eligible",
+        "hardware_verified",
+        "input_eligible",
+        "host_input_emitted",
+    ):
+        assert payload[denied] is False
+    assert result.user_guidance.startswith(
+        "Matched one scripted fake device-system query response."
+    )
+    assert "does not report current device state" in result.user_guidance
+
+
+def test_mutated_closed_operation_is_rejected_before_fake_io():
+    operation_value = device_system_operation()
+    object.__setattr__(operation_value, "_request_frame", bytes.fromhex("dead") + bytes(18))
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    with pytest.raises(ValueError, match="execution shape was mutated"):
+        run(FakeVendorRuntimeSimulator(transport).execute(operation_value, timeout=0.2))
+
+    assert transport.connect_count == 0
+    assert transport.subscribe_count == 0
+    assert transport.write_count == 0
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    (
+        ("success_opcodes", (0x55,)),
+        ("failure_opcodes", (0xD4,)),
+        ("expected_subcommand", 0x04),
+        ("name", "forged_device_state"),
+        ("_parser", lambda _data: object()),
+    ),
+)
+def test_mutated_response_discriminator_or_parser_is_rejected_before_io(field, value):
+    operation_value = device_system_operation()
+    object.__setattr__(operation_value, field, value)
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    with pytest.raises(ValueError, match="execution shape was mutated"):
+        run(FakeVendorRuntimeSimulator(transport).execute(operation_value, timeout=0.2))
+
+    assert transport.connect_count == 0
+    assert transport.write_count == 0
+
+
+def test_deadline_before_actual_write_entry_is_aborted_and_owns_no_response(monkeypatch):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    simulator = FakeVendorRuntimeSimulator(transport)
+    original = simulator._await_boundary
+
+    async def expire_before_write_entry(awaitable, attempt):
+        if attempt.stage is vendor_runtime_simulator._Stage.WRITE:
+            attempt.deadline = time.monotonic() - 1
+        return await original(awaitable, attempt)
+
+    monkeypatch.setattr(simulator, "_await_boundary", expire_before_write_entry)
+    result = run(simulator.execute(device_system_operation(), timeout=0.2))
+
+    assert result.reason is SimulationReason.TIMEOUT
+    assert result.completeness is TransactionCompleteness.ABORTED
+    assert result.write_invoked is False
+    assert result.tainted is False
+    assert transport.write_count == 0
+    assert transport.targeted_write_count == 0
+    payload = asdict(result)
+    assert payload["matching_fake_response_observed"] is False
+    assert payload["fake_transaction_completed"] is False
+    assert payload["simulation_only"] is True
+    assert result.user_guidance.startswith(
+        "The scripted fake device-system query was aborted"
+    )
+
+
+def test_disconnect_before_actual_write_entry_is_aborted_without_dispatch(monkeypatch):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    simulator = FakeVendorRuntimeSimulator(transport)
+    original = simulator._await_boundary
+
+    async def disconnect_before_write_entry(awaitable, attempt):
+        if attempt.stage is vendor_runtime_simulator._Stage.WRITE:
+            attempt.disconnect_event.set()
+        return await original(awaitable, attempt)
+
+    monkeypatch.setattr(simulator, "_await_boundary", disconnect_before_write_entry)
+    result = run(simulator.execute(device_system_operation(), timeout=0.2))
+
+    assert result.reason is SimulationReason.DISCONNECTED
+    assert result.completeness is TransactionCompleteness.ABORTED
+    assert result.write_invoked is False
+    assert result.tainted is False
+    assert transport.write_count == 0
+    assert transport.targeted_write_count == 0
+
+
+def test_cancellation_before_actual_write_entry_is_aborted_without_dispatch(monkeypatch):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    simulator = FakeVendorRuntimeSimulator(transport)
+    original = simulator._await_boundary
+
+    async def cancel_before_write_entry(awaitable, attempt):
+        if attempt.stage is vendor_runtime_simulator._Stage.WRITE:
+            asyncio.current_task().cancel()
+        return await original(awaitable, attempt)
+
+    monkeypatch.setattr(simulator, "_await_boundary", cancel_before_write_entry)
+    result = run(simulator.execute(device_system_operation(), timeout=0.2))
+
+    assert result.reason is SimulationReason.CANCELLED
+    assert result.completeness is TransactionCompleteness.ABORTED
+    assert result.write_invoked is False
+    assert result.tainted is False
+    assert transport.write_count == 0
+    assert transport.targeted_write_count == 0
+
+
+@pytest.mark.parametrize("length", (19, 21))
+def test_malformed_exact_device_system_response_is_uncertain_and_redacted(length):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    candidate = bytes((0x54, 0x12, 0xA7)) + bytes(18)
+    transport.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, candidate[:length]
+    )
+    simulator = FakeVendorRuntimeSimulator(transport)
+    result = run(simulator.execute(device_system_operation(), timeout=0.2))
+
+    assert result.reason is SimulationReason.MALFORMED_RESPONSE
+    assert result.completeness is TransactionCompleteness.UNCERTAIN
+    assert result.write_invoked is True
+    assert result.tainted is True
+    assert result.parsed_value_for_test() is None
+    assert "167" not in json.dumps(asdict(result), default=str)
+    assert transport.write_count == 1
+    payload = asdict(result)
+    assert payload["matching_fake_response_observed"] is False
+    assert payload["fake_transaction_completed"] is False
+    assert payload["live_available"] is False
+    assert result.user_guidance.startswith(
+        "The scripted fake device-system query is uncertain."
     )
 
 
