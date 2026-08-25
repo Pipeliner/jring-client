@@ -25,6 +25,13 @@ from jring.vendor_transport import (
     TransactionCompleteness,
     WriteOutcome,
 )
+from jring.vendor_settings import (
+    HourFormat,
+    SensorSessionMode,
+    encode_device_name,
+    encode_hour_format,
+    encode_sensor_session_start,
+)
 
 
 def _operation(name: str = "battery") -> OfflineVendorOperation:
@@ -733,3 +740,46 @@ def test_all_seven_static_queries_build_closed_hardware_ineligible_operations():
         assert operation.success_opcodes == coverage[query].success_opcodes
         assert operation.failure_opcodes == coverage[query].failure_opcodes
         assert operation.hardware_eligible is False
+
+
+@pytest.mark.parametrize(
+    "setting_request,name,success,failure",
+    [
+        (encode_hour_format(HourFormat.TWELVE), "hour_format", (0x1D,), (0x9D,)),
+        (encode_device_name("Ring"), "device_name", (0x30,), ()),
+        (
+            encode_sensor_session_start(SensorSessionMode.MODE_2),
+            "sensor_session_start",
+            (0x23, 0x25),
+            (0xA3,),
+        ),
+    ],
+)
+def test_typed_setting_requests_compose_fake_only_ack_operations(
+    setting_request, name, success, failure
+):
+    operation = OfflineVendorOperation.from_setting_request(setting_request)
+
+    assert operation.name == name
+    assert operation.success_opcodes == success
+    assert operation.failure_opcodes == failure
+    assert operation.request_endpoint_uuid == VENDOR_CHARACTERISTIC_33F3
+    assert operation.response_endpoint_uuid == VENDOR_CHARACTERISTIC_33F4
+    assert operation.hardware_eligible is False
+    assert "<redacted>" in repr(operation)
+
+
+def test_setting_operation_matcher_returns_typed_ack_without_becoming_live():
+    operation = OfflineVendorOperation.from_setting_request(
+        encode_hour_format(HourFormat.TWENTY_FOUR)
+    )
+
+    disposition, parsed = operation._match(
+        VENDOR_CHARACTERISTIC_33F4, bytes((0x1D,)) + bytes(19)
+    )
+
+    assert disposition.value == "success"
+    assert parsed.success is True
+    assert parsed.operation.value == "hour_format"
+    assert not hasattr(operation, "write")
+    assert not hasattr(operation, "execute")

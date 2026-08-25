@@ -206,6 +206,13 @@ and terminal rules. Raw typed notifications remain event candidates rather than
 acknowledgements. Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 
+The exact-type fake runtime accepts two closed operation factories: the seven static
+query encoders and all eight typed setting encoders, plus the independently closed
+screen-light route. Setting composition validates the fixed request opcode, binds the
+operation-specific acknowledgement parser, and preserves direct failure opcodes. It
+cannot accept arbitrary messages or transports, and every result remains simulation
+only and hardware-ineligible.
+
 Artifact review also uses fail-closed negative evidence. No direct constructor, native
 identifier, or common owned dynamic-class-construction API does not prove runtime
 dormancy. A bounded review resolves all 11 invocation sites in the five owned reflective

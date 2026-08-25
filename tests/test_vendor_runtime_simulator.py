@@ -18,6 +18,7 @@ from jring.vendor_runtime_simulator import (
     SimulationTaintedError,
 )
 from jring.vendor_transport import OfflineVendorOperation, TransactionCompleteness
+from jring.vendor_settings import HourFormat, encode_hour_format
 
 
 CCCD = uuid16(0x2902)
@@ -69,6 +70,27 @@ def test_success_discards_early_frames_and_processes_write_hook_frame_after_ack(
     assert result.user_guidance == (
         "A synthetic response matched; real hardware remains unverified."
     )
+
+
+def test_fake_runtime_reproduces_typed_mutation_ack_without_live_authority():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    transport.before_write = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4, bytes((0x1D,)) + bytes(19)
+    )
+    simulator = FakeVendorRuntimeSimulator(transport)
+    mutation = OfflineVendorOperation.from_setting_request(
+        encode_hour_format(HourFormat.TWENTY_FOUR)
+    )
+
+    result = run(simulator.execute(mutation, timeout=0.2))
+
+    assert result.reason is SimulationReason.SUCCESS
+    assert result.completeness is TransactionCompleteness.SUCCEEDED
+    assert result.parsed_value_for_test().success is True
+    assert result.parsed_value_for_test().operation.value == "hour_format"
+    assert result.simulation_only is True
+    assert result.hardware_eligible is False
+    assert result.hardware_verified is False
 
 
 @pytest.mark.parametrize(

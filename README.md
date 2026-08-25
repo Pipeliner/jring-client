@@ -138,6 +138,10 @@ correlation row. Proven single responses, shared streams, stateful families, raw
 candidates, callback-silent failures, and explicit unknowns remain distinct. Twenty
 rows still have no exact terminal relationship; local quiet is never promoted to
 success, and matching requires an operation token plus connection generation.
+The fake-only transaction simulator can now compose all seven query families, the
+screen-light subcommand, and all eight typed settings families. A synthetic mutation
+acknowledgement is parsed through the same closed correlation rules; this still creates
+no client method, live adapter, write authority, retry policy, or hardware claim.
 An independent app-use view shows that the APK directly invokes 51 of 112 request
 targets at 152 static call sites; 43 uninvoked SDK entries still have wire codecs, 14
 are local/composite, and four are no-op stubs. It also reconciles 181 callback invoke

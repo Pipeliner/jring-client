@@ -203,6 +203,13 @@ not transaction proof: the source has no wire transaction identifier and its wai
 is not operation-bound. Safe matching therefore requires endpoint, discriminator,
 operation token, and connection generation; silence and local idle remain unknown.
 
+Offline runtime reproduction now includes the eight typed settings families as well as
+the seven query families and screen-light route. The operation factory accepts only a
+closed encoder result, validates its 20-byte operation shape, and binds the exact typed
+acknowledgement parser. A scripted fake can therefore exercise a mutation success or
+failure without exposing a live vendor write API; source queue side effects and real
+device support remain outside this model.
+
 Within those routes, 37 statically reviewed builder families have a second,
 domain-qualified parity ledger. Each produces a fixed 20-byte message with no checksum
 when given values accepted by the stricter Python type/domain rules. Thirty-one use

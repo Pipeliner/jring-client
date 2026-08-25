@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import partial
 import itertools
 import math
 from typing import Callable
@@ -21,11 +22,13 @@ from uuid import UUID
 from .protocol import ProtocolError
 from .uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 from .vendor_protocol import (
+    StaticAckOperation,
     StaticQuery,
     StaticVendorRequest,
     encode_static_query,
     operation_opcode,
     parse_vendor_advanced_sensor_day,
+    parse_vendor_ack,
     parse_vendor_band_functions,
     parse_vendor_battery,
     parse_vendor_current_sport,
@@ -34,6 +37,10 @@ from .vendor_protocol import (
     parse_vendor_oxygen_day,
     parse_vendor_screen_light_time,
     static_protocol_coverage,
+)
+from .vendor_settings import (
+    StaticVendorSettingOperation,
+    StaticVendorSettingRequest,
 )
 
 _ENGINE_IDS = itertools.count()
@@ -120,6 +127,27 @@ _ZERO_ARGUMENT_QUERIES = frozenset(
     }
 )
 
+_SETTING_ACKS = {
+    StaticVendorSettingOperation.DEVICE_SETTINGS: StaticAckOperation.DEVICE_INFO_SET,
+    StaticVendorSettingOperation.HOUR_FORMAT: StaticAckOperation.HOUR_FORMAT,
+    StaticVendorSettingOperation.DEVICE_CODE: StaticAckOperation.DEVICE_CODE_SET,
+    StaticVendorSettingOperation.LANGUAGE: StaticAckOperation.LANGUAGE,
+    StaticVendorSettingOperation.SENSOR_SESSION_START: StaticAckOperation.GENERIC_SENSOR_MODE,
+    StaticVendorSettingOperation.SENSOR_SESSION_STOP: StaticAckOperation.GENERIC_SENSOR_MODE,
+    StaticVendorSettingOperation.HEART_RATE_AREA: StaticAckOperation.HEART_RATE_AREA,
+    StaticVendorSettingOperation.DEVICE_NAME: StaticAckOperation.DEVICE_NAME,
+}
+_SETTING_REQUEST_OPCODES = {
+    StaticVendorSettingOperation.DEVICE_SETTINGS: 0x1B,
+    StaticVendorSettingOperation.HOUR_FORMAT: 0x1D,
+    StaticVendorSettingOperation.DEVICE_CODE: 0x1E,
+    StaticVendorSettingOperation.LANGUAGE: 0x21,
+    StaticVendorSettingOperation.SENSOR_SESSION_START: 0x23,
+    StaticVendorSettingOperation.SENSOR_SESSION_STOP: 0x23,
+    StaticVendorSettingOperation.HEART_RATE_AREA: 0x26,
+    StaticVendorSettingOperation.DEVICE_NAME: 0x30,
+}
+
 
 @dataclass(frozen=True, init=False, repr=False)
 class OfflineVendorOperation:
@@ -189,6 +217,41 @@ class OfflineVendorOperation:
             failure_opcodes=coverage.failure_opcodes,
             expected_subcommand=None,
             parser=_STATIC_RESPONSE_PARSERS[request.operation],
+        )
+
+    @classmethod
+    def from_setting_request(
+        cls, request: StaticVendorSettingRequest
+    ) -> "OfflineVendorOperation":
+        """Compose a fake-only matcher from a closed typed settings encoder."""
+
+        if type(request) is not StaticVendorSettingRequest:
+            raise TypeError("request must be a StaticVendorSettingRequest")
+        if not isinstance(request.operation, StaticVendorSettingOperation):
+            raise TypeError("request operation must be a StaticVendorSettingOperation")
+        frame = request.synthetic_bytes_for_test()
+        expected_opcode = _SETTING_REQUEST_OPCODES[request.operation]
+        if len(frame) != 20 or frame[0] != expected_opcode:
+            raise ValueError("setting request does not match its closed operation")
+        success = (request.response_success_opcode,)
+        if request.operation in {
+            StaticVendorSettingOperation.SENSOR_SESSION_START,
+            StaticVendorSettingOperation.SENSOR_SESSION_STOP,
+        }:
+            success += (0x25,)
+        failure = (
+            ()
+            if request.response_failure_opcode is None
+            else (request.response_failure_opcode,)
+        )
+        ack_operation = _SETTING_ACKS[request.operation]
+        return cls._create(
+            name=request.operation.value,
+            request_frame=frame,
+            success_opcodes=success,
+            failure_opcodes=failure,
+            expected_subcommand=None,
+            parser=partial(parse_vendor_ack, operation=ack_operation),
         )
 
     @classmethod
