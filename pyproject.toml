@@ -12,12 +12,19 @@ license = "MIT"
 license-files = ["LICENSE"]
 keywords = [
     "accessibility",
+    "assistive-technology",
+    "automation",
+    "ble",
+    "bluetooth",
     "bluetooth-low-energy",
+    "bluez",
     "command-line",
     "input-device",
     "jring",
     "linux",
+    "linux-input",
     "privacy",
+    "smart-ring",
     "uinput",
     "wearable",
 ]

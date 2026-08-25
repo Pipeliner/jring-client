@@ -19,12 +19,19 @@ except ModuleNotFoundError:  # Python 3.10 support
 PROJECT_ROOT = Path(__file__).parents[1]
 EXPECTED_KEYWORDS = (
     "accessibility",
+    "assistive-technology",
+    "automation",
+    "ble",
+    "bluetooth",
     "bluetooth-low-energy",
+    "bluez",
     "command-line",
     "input-device",
     "jring",
     "linux",
+    "linux-input",
     "privacy",
+    "smart-ring",
     "uinput",
     "wearable",
 )
