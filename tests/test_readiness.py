@@ -6,7 +6,7 @@ from jring.readiness import BluezProbe, ProbeValue, diagnose, probe_bluez
 
 def available_bluez():
     ready = ProbeValue("available", "synthetic available evidence")
-    return BluezProbe(ready, ready, ready, ready, ready)
+    return BluezProbe(ready, ready, ready, ready, ready, ready)
 
 
 def test_missing_hardware_prerequisites_have_specific_remedies():
@@ -61,6 +61,7 @@ def test_simulated_desktop_input_readiness_is_independent_from_bleak():
 
 def test_bluez_layers_remain_distinct():
     probe = BluezProbe(
+        diagnostic_tool=ProbeValue("available", "busctl is available"),
         dbus=ProbeValue("unavailable", "system bus socket is absent"),
         daemon=ProbeValue("uninspected", "D-Bus unavailable"),
         adapter=ProbeValue("unavailable", "no adapter is managed"),
@@ -88,6 +89,102 @@ def test_bluez_layers_remain_distinct():
     ))
     assert report.adapter_operational is False
     assert report.ring_compatibility == "not_checked"
+
+
+def test_missing_busctl_is_a_named_diagnostic_gap_not_a_dbus_failure():
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("no command may run without a diagnostic tool")
+
+    probe = probe_bluez(
+        system_bus_exists=lambda: True,
+        find_executable=lambda _name: None,
+        adapter_names=lambda: ("hci0",),
+        runner=forbidden,
+    )
+    report = diagnose(
+        platform="linux",
+        python_version=(3, 12),
+        module_available=lambda name: name == "bleak",
+        executable_available=lambda name: name == "bluetoothctl",
+        path_writable=lambda _path: False,
+        bluez_probe=lambda: probe,
+    )
+    checks = {check.name: check for check in report.checks}
+
+    assert probe.diagnostic_tool.state == "unavailable"
+    assert probe.dbus.state == "uninspected"
+    assert checks["diagnostic_tool"].state == "unavailable"
+    assert "provides busctl" in checks["diagnostic_tool"].remedy
+    assert "repair" not in checks["system_dbus"].remedy.lower()
+    assert "start" not in checks["system_dbus"].remedy.lower()
+    assert checks["system_dbus"].state == "uninspected"
+    assert report.next_step == checks["diagnostic_tool"].remedy
+    assert not any(
+        package_manager in checks["diagnostic_tool"].remedy.lower()
+        for package_manager in ("apt ", "dnf ", "pacman ", "zypper ")
+    )
+
+
+def test_present_busctl_can_report_broken_dbus_separately():
+    def runner(arguments, **_kwargs):
+        return subprocess.CompletedProcess(
+            arguments,
+            1,
+            "",
+            "Failed to connect to bus: Connection refused",
+        )
+
+    probe = probe_bluez(
+        system_bus_exists=lambda: True,
+        find_executable=lambda _name: "/usr/bin/busctl",
+        adapter_names=lambda: ("hci0",),
+        runner=runner,
+    )
+    report = diagnose(
+        platform="linux",
+        python_version=(3, 12),
+        module_available=lambda name: name == "bleak",
+        executable_available=lambda name: name == "bluetoothctl",
+        path_writable=lambda _path: False,
+        bluez_probe=lambda: probe,
+    )
+    checks = {check.name: check for check in report.checks}
+
+    assert probe.diagnostic_tool.state == "available"
+    assert probe.dbus.state == "unavailable"
+    assert probe.permission.state == "uninspected"
+    assert checks["diagnostic_tool"].ok
+    assert "system D-Bus" in checks["system_dbus"].remedy
+    assert "busctl" not in checks["system_dbus"].remedy
+
+
+def test_present_busctl_keeps_permission_denial_distinct_from_broken_dbus():
+    def runner(arguments, **_kwargs):
+        return subprocess.CompletedProcess(arguments, 1, "", "Access denied")
+
+    probe = probe_bluez(
+        system_bus_exists=lambda: True,
+        find_executable=lambda _name: "/usr/bin/busctl",
+        adapter_names=lambda: ("hci0",),
+        runner=runner,
+    )
+    report = diagnose(
+        platform="linux",
+        python_version=(3, 12),
+        module_available=lambda name: name == "bleak",
+        executable_available=lambda name: name == "bluetoothctl",
+        path_writable=lambda _path: False,
+        bluez_probe=lambda: probe,
+    )
+    checks = {check.name: check for check in report.checks}
+
+    assert probe.diagnostic_tool.state == "available"
+    assert probe.dbus.state == "uninspected"
+    assert probe.permission.state == "denied"
+    assert checks["bluez_permission"].state == "denied"
+    assert "run JRing as root" in checks["bluez_permission"].remedy
+    assert "repair" not in checks["system_dbus"].remedy.lower()
+    assert report.next_step == checks["system_dbus"].remedy
 
 
 def test_passive_bluez_probe_uses_only_read_queries():

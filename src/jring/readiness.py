@@ -55,6 +55,7 @@ class ProbeValue:
 
 @dataclass(frozen=True)
 class BluezProbe:
+    diagnostic_tool: ProbeValue
     dbus: ProbeValue
     daemon: ProbeValue
     adapter: ProbeValue
@@ -94,6 +95,16 @@ def _uninspected(detail: str) -> ProbeValue:
     return ProbeValue("uninspected", detail)
 
 
+def _query_was_denied(result: subprocess.CompletedProcess[str]) -> bool:
+    diagnostic = f"{result.stdout}\n{result.stderr}"[:4096].casefold()
+    return any(marker in diagnostic for marker in (
+        "access denied",
+        "permission denied",
+        "not authorized",
+        "not permitted",
+    ))
+
+
 def _parse_busctl_data(output: str) -> Any:
     value = json.loads(output)
     if not isinstance(value, dict) or "data" not in value:
@@ -117,15 +128,26 @@ def probe_bluez(
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> BluezProbe:
     """Read BlueZ operational state without scanning, connecting, or mutating it."""
+    busctl = find_executable("busctl")
+    diagnostic_tool = (
+        ProbeValue("available", "busctl is available for bounded D-Bus reads")
+        if busctl else
+        ProbeValue("unavailable", "busctl is missing; D-Bus state was not queried")
+    )
     if not system_bus_exists():
         unavailable = ProbeValue("unavailable", "system D-Bus socket is absent")
         unknown = _uninspected("system D-Bus is unavailable")
-        return BluezProbe(unavailable, unknown, unknown, unknown, unknown)
+        return BluezProbe(
+            diagnostic_tool, unavailable, unknown, unknown, unknown, unknown
+        )
 
-    busctl = find_executable("busctl")
     if not busctl:
-        unknown = _uninspected("busctl is unavailable; state was not inspected")
-        return BluezProbe(unknown, unknown, unknown, unknown, unknown)
+        unknown = _uninspected(
+            "system D-Bus socket exists, but state was not inspected without busctl"
+        )
+        return BluezProbe(
+            diagnostic_tool, unknown, unknown, unknown, unknown, unknown
+        )
 
     def query(arguments: list[str]) -> subprocess.CompletedProcess[str] | None:
         try:
@@ -146,36 +168,57 @@ def probe_bluez(
     ])
     if owner is None:
         unknown = _uninspected("bounded system D-Bus query failed")
-        return BluezProbe(unknown, unknown, unknown, unknown, unknown)
+        return BluezProbe(
+            diagnostic_tool, unknown, unknown, unknown, unknown, unknown
+        )
     if owner.returncode != 0:
-        unknown = _uninspected("system D-Bus query was denied")
-        denied = ProbeValue("denied", "session cannot query the system D-Bus")
-        return BluezProbe(unknown, unknown, unknown, unknown, denied)
+        unknown = _uninspected("system D-Bus result prevented deeper BlueZ checks")
+        if _query_was_denied(owner):
+            dbus = _uninspected("system D-Bus health was not inspected because access was denied")
+            permission = ProbeValue("denied", "session cannot query the system D-Bus")
+        else:
+            dbus = ProbeValue(
+                "unavailable", "system D-Bus did not answer a bounded busctl query"
+            )
+            permission = _uninspected(
+                "system D-Bus failure prevented a permission check"
+            )
+        return BluezProbe(
+            diagnostic_tool, dbus, unknown, unknown, unknown, permission
+        )
     try:
         daemon_present = _single_value(_parse_busctl_data(owner.stdout)) is True
     except (json.JSONDecodeError, ValueError, TypeError):
         unknown = _uninspected("system D-Bus returned unrecognized structured data")
         permission = ProbeValue("available", "session completed a system D-Bus query")
-        return BluezProbe(unknown, unknown, unknown, unknown, permission)
+        return BluezProbe(
+            diagnostic_tool, unknown, unknown, unknown, unknown, permission
+        )
 
     dbus = ProbeValue("available", "system D-Bus answered a bounded read query")
     permission = ProbeValue("available", "session can query the system D-Bus")
     if not daemon_present:
         daemon = ProbeValue("unavailable", "org.bluez has no D-Bus owner")
         unknown = _uninspected("BlueZ daemon is unavailable")
-        return BluezProbe(dbus, daemon, unknown, unknown, permission)
+        return BluezProbe(
+            diagnostic_tool, dbus, daemon, unknown, unknown, permission
+        )
 
     daemon = ProbeValue("available", "org.bluez owns its system D-Bus name")
     try:
         names = adapter_names()
     except OSError:
         unknown = _uninspected("local Bluetooth adapter inventory could not be read")
-        return BluezProbe(dbus, daemon, unknown, unknown, permission)
+        return BluezProbe(
+            diagnostic_tool, dbus, daemon, unknown, unknown, permission
+        )
 
     if not names:
         adapter = ProbeValue("unavailable", "no local Bluetooth adapter was found")
         power = _uninspected("no Bluetooth adapter is available")
-        return BluezProbe(dbus, daemon, adapter, power, permission)
+        return BluezProbe(
+            diagnostic_tool, dbus, daemon, adapter, power, permission
+        )
 
     adapter = ProbeValue("available", f"found {len(names)} local Bluetooth adapter(s)")
     power_values: list[bool] = []
@@ -203,7 +246,9 @@ def probe_bluez(
         power = _uninspected("one or more adapter power states were not reported")
     else:
         power = ProbeValue("unavailable", "all Bluetooth adapters are powered off")
-    return BluezProbe(dbus, daemon, adapter, power, permission)
+    return BluezProbe(
+        diagnostic_tool, dbus, daemon, adapter, power, permission
+    )
 
 
 def diagnose(
@@ -227,16 +272,64 @@ def diagnose(
         bluez = bluez_probe()
     else:
         uninspected = _uninspected("BlueZ operation is not inspected off Linux")
-        bluez = BluezProbe(uninspected, uninspected, uninspected, uninspected, uninspected)
+        bluez = BluezProbe(
+            uninspected, uninspected, uninspected,
+            uninspected, uninspected, uninspected,
+        )
 
     def operational_check(
         name: str, value: ProbeValue, remedy: str
     ) -> ReadinessCheck:
+        if value.state == "available":
+            selected_remedy = None
+        elif value.state == "uninspected" and bluez.diagnostic_tool.state != "available":
+            selected_remedy = (
+                "Resolve diagnostic_tool first, then rerun jring doctor; "
+                f"{name.replace('_', ' ')} was not inspected."
+            )
+        elif (
+            value.state == "uninspected"
+            and bluez.permission.state == "denied"
+            and name != "bluez_permission"
+        ):
+            selected_remedy = (
+                "Resolve bluez_permission first, then rerun jring doctor; "
+                f"{name.replace('_', ' ')} was not inspected."
+            )
+        elif (
+            value.state == "uninspected"
+            and bluez.dbus.state == "unavailable"
+            and name != "system_dbus"
+        ):
+            selected_remedy = (
+                "Resolve system_dbus first, then rerun jring doctor; "
+                f"{name.replace('_', ' ')} was not inspected."
+            )
+        elif (
+            value.state == "uninspected"
+            and bluez.daemon.state == "unavailable"
+            and name in {"bluetooth_adapter", "adapter_power"}
+        ):
+            selected_remedy = (
+                "Resolve bluez_daemon first, then rerun jring doctor; "
+                f"{name.replace('_', ' ')} was not inspected."
+            )
+        elif (
+            value.state == "uninspected"
+            and bluez.adapter.state == "unavailable"
+            and name == "adapter_power"
+        ):
+            selected_remedy = (
+                "Resolve bluetooth_adapter first, then rerun jring doctor; "
+                "adapter power was not inspected."
+            )
+        else:
+            selected_remedy = remedy
         return ReadinessCheck(
             name,
             value.state == "available",
             value.detail,
-            None if value.state == "available" else remedy,
+            selected_remedy,
             value.state,
         )
 
@@ -264,6 +357,11 @@ def diagnose(
             bluez_ok,
             "BlueZ tools are installed" if bluez_ok else "BlueZ bluetoothctl is missing",
             None if bluez_ok else "Install your distribution's BlueZ package (must provide bluetoothctl).",
+        ),
+        operational_check(
+            "diagnostic_tool",
+            bluez.diagnostic_tool,
+            "Install a package that provides busctl, then rerun jring doctor; no D-Bus repair is implied by this result.",
         ),
         operational_check(
             "system_dbus",
@@ -307,7 +405,10 @@ def diagnose(
     hardware_ready = python_ok and linux_ok and bleak_ok and bluez_ok
     adapter_operational = all(
         value.state == "available"
-        for value in (bluez.dbus, bluez.daemon, bluez.adapter, bluez.power, bluez.permission)
+        for value in (
+            bluez.diagnostic_tool, bluez.dbus, bluez.daemon,
+            bluez.adapter, bluez.power, bluez.permission,
+        )
     )
     input_ready = python_ok and linux_ok and evdev_ok and uinput_ok
     if hardware_ready and adapter_operational:
@@ -316,7 +417,7 @@ def diagnose(
         next_step = next(
             check.remedy for check in checks
             if check.name in {
-                "system_dbus", "bluez_daemon", "bluetooth_adapter",
+                "diagnostic_tool", "system_dbus", "bluez_daemon", "bluetooth_adapter",
                 "adapter_power", "bluez_permission",
             } and not check.ok and check.remedy
         )

@@ -29,6 +29,7 @@ def not_ready_report():
 def test_human_status_is_readable(capsys):
     assert cli.main(["status", "--simulate"]) == 0
     output = capsys.readouterr().out
+    assert "Simulator profile: basic" in output
     assert "Battery: 84%" in output
     assert "Model: JR-SIM" in output
     assert "Standard HID service: not advertised" in output
@@ -42,6 +43,7 @@ def test_json_status_is_stable_and_private(capsys):
     assert result["schema_version"] == 1
     assert result["operation"] == "status"
     assert result["source"] == "simulator"
+    assert result["simulator_profile"] == "basic"
     assert result["ok"] is True
     assert result["battery_percent"] == 84
     assert result["device_info"]["model"] == "JR-SIM"
@@ -89,6 +91,44 @@ def test_global_option_placement_remains_compatible(capsys):
     assert "Battery: 84%" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(
+    "argv",
+    (
+        ["--simulate", "--simulate-profile", "hid", "status", "--json"],
+        ["status", "--simulate", "--simulate-profile", "hid", "--json"],
+    ),
+)
+def test_simulator_profile_preserves_global_and_task_first_forms(argv, capsys):
+    assert cli.main(argv) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["source"] == "simulator"
+    assert result["simulator_profile"] == "hid"
+    assert result["capabilities"]["hid_service_advertised"] is True
+
+
+def test_simulator_profile_requires_simulation(capsys):
+    assert cli.main([
+        "status", "--simulate-profile", "hid", "--json",
+    ]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["error"]["code"] == "usage"
+    assert "requires --simulate" in result["error"]["message"]
+
+
+@pytest.mark.parametrize("profile", ("basic", "hid"))
+def test_simulator_profiles_never_construct_hardware_transport(
+    profile, monkeypatch, capsys
+):
+    def forbidden_transport(*_args, **_kwargs):
+        raise AssertionError("simulator profile must not construct hardware transport")
+
+    monkeypatch.setattr(cli, "BleakTransport", forbidden_transport)
+    assert cli.main([
+        "status", "--simulate", "--simulate-profile", profile,
+    ]) == 0
+    assert f"Simulator profile: {profile}" in capsys.readouterr().out
+
+
 def test_expected_error_is_actionable_without_traceback(monkeypatch, capsys):
     async def fail(_args):
         raise RuntimeError("hardware support requires: pip install '.[ble]'")
@@ -116,6 +156,8 @@ def test_doctor_explains_hardware_setup_without_failing(monkeypatch, capsys):
     assert "Simulator: ready" in output
     assert "BLE prerequisites: incomplete" in output
     assert "Desktop-input prerequisites: incomplete" in output
+    assert "[ok] python:" in output
+    assert "[fix] bleak:" in output
     assert "pip install" in output
     assert "Next: jring status --simulate" in output
     assert "address" not in output.lower()
@@ -147,6 +189,7 @@ def test_doctor_can_strictly_require_desktop_input(monkeypatch, capsys):
 def test_step_mapping_previews_without_emitting_input(capsys):
     assert cli.main(["input", "--simulate", "--map", "step=click:left"]) == 0
     output = capsys.readouterr().out
+    assert "Simulator profile: basic" in output
     assert "Preview: step -> primary (left) mouse click" in output
     assert "No input emitted" in output
 
@@ -154,6 +197,9 @@ def test_step_mapping_previews_without_emitting_input(capsys):
 def test_input_actions_are_screen_reader_ordered(capsys):
     assert cli.main(["input-actions"]) == 0
     output = capsys.readouterr().out
+    assert output.index("Simulator profiles") < output.index("Available simulated events")
+    assert "basic: standard ring metadata; standard HID not advertised" in output
+    assert "hid: basic metadata plus standard HID advertisement metadata" in output
     assert output.index("Available simulated events") < output.index("Keyboard actions")
     assert output.index("Keyboard actions") < output.index("Mouse actions")
     assert "primary (left)" in output
@@ -170,9 +216,41 @@ def test_input_actions_json_uses_common_envelope(capsys):
     assert result["source"] == "local"
     assert result["ok"] is True
     assert result["hardware_events"] == []
+    assert [profile["name"] for profile in result["simulator_profiles"]] == [
+        "basic", "hid",
+    ]
+    assert result["simulator_profiles"][1]["standard_hid_advertised"] is True
     assert [item["name"] for item in result["actions"][-3:]] == [
         "primary", "secondary", "middle",
     ]
+
+
+def test_input_profile_is_explicit_in_human_and_json_output(capsys):
+    assert cli.main([
+        "input", "--simulate", "--simulate-profile", "hid",
+        "--map", "step=key:space",
+    ]) == 0
+    output = capsys.readouterr().out
+    assert "Simulator profile: hid" in output
+    assert "No input emitted" in output
+
+    assert cli.main([
+        "input", "--simulate", "--simulate-profile", "hid",
+        "--map", "step=key:space", "--json",
+    ]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["source"] == "simulator"
+    assert result["simulator_profile"] == "hid"
+    assert result["emitted"] is False
+
+
+def test_simulator_profiles_are_discoverable_in_help(capsys):
+    with pytest.raises(SystemExit) as raised:
+        cli.main(["capabilities", "--help"])
+    assert raised.value.code == 0
+    output = capsys.readouterr().out
+    assert "--simulate-profile {basic,hid}" in output
+    assert "never reads or emits HID reports" in " ".join(output.split())
 
 
 def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
@@ -182,6 +260,8 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert "OFFLINE PROTOCOL COVERAGE — no ring contacted" in output
     assert "Requests: 112" in output
     assert "Callbacks: 105" in output
+    assert "Offline response codecs: 86" in output
+    assert "Offline local projections: 3" in output
     assert "Live vendor operations: 0" in output
     assert "Hardware-verified vendor operations: 0" in output
 
@@ -195,6 +275,8 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["ok"] is True
     assert result["summary"]["request_total"] == 112
     assert result["summary"]["callback_total"] == 105
+    assert result["summary"]["offline_response_codecs"] == 86
+    assert result["summary"]["offline_local_projections"] == 3
     assert result["summary"]["live_vendor_operations"] == 0
     assert len(result["requests"]) == 112
     assert len(result["callbacks"]) == 105

@@ -19,6 +19,7 @@ Date: 2026-08-24
 | Discovery was called passive while Bleak scanned actively | Copy and design now truthfully describe radio-active scan requests |
 | Bleak 1.x successful `connect()` returned `None` and was treated as failure | Transport success follows completion plus `is_connected` |
 | Simulation and address selection could be combined silently | Source modes are mutually exclusive at parsing |
+| Status and capabilities silently used contradictory simulator rings | Named `basic` and `hid` profiles now select one consistent fixture and appear in human and JSON provenance |
 | Accepted flags could be ignored | Non-applicable global flags are rejected; input JSON is implemented |
 | Simulated results looked like real health data | Human banners and structured/export provenance identify the simulator |
 | Missing optional battery data hid all capabilities | Status returns partial optional fields and still inventories services |

@@ -97,10 +97,25 @@ scanning, connecting, writing, or using the network. It reports simulator, BLE
 hardware, and desktop-input readiness independently with concrete remedies.
 
 The BLE section separates installed prerequisites from passive operational evidence
-for the system D-Bus, BlueZ daemon, adapter presence, adapter power, and session query
-permission. Each check is `available`, `unavailable`, `denied`, or `uninspected` with a
-reason and remedy. Failure to inspect is never presented as absence or health. Ring
-compatibility remains `not_checked`; `doctor` never proves a ring will connect.
+for the diagnostic tool, system D-Bus, BlueZ daemon, adapter presence, adapter power,
+and session query permission. Human output always includes the same stable snake-case
+check names used by JSON, including `diagnostic_tool` and `system_dbus`. Each check is
+`available`, `unavailable`, `denied`, or `uninspected` with a reason and remedy.
+Failure to inspect is never presented as absence or health. Ring compatibility remains
+`not_checked`; `doctor` never proves a ring will connect.
+
+Given that the system-bus socket exists but `busctl` is absent, `diagnostic_tool` is
+`unavailable` and the D-Bus/BlueZ operational checks are `uninspected`. The remedy asks
+for any package that provides `busctl`; it does not claim that D-Bus is broken or name a
+distribution package manager. Given that `busctl` is present but a bounded query cannot
+reach the bus, `diagnostic_tool` remains `available` while `system_dbus` is
+`unavailable`. A recognized authorization denial remains a distinct
+`bluez_permission: denied` result.
+
+The standard library has no stable D-Bus client, and optional backend-private Python
+interfaces are not treated as a portable diagnostic contract. When `busctl` is absent,
+the client therefore reports the missing diagnostic capability rather than opening an
+unreviewed fallback or inferring bus health from a socket path alone.
 
 ### Readiness automation
 
@@ -156,10 +171,10 @@ The machine-readable operation ledger accounts for all 112 SDK requests exactly 
 and keeps routing separate from Python maturity. Its presence does not imply 112 useful
 Bluetooth operations: local, cloud, filesystem, conversion, DFU, dynamic-GATT, and
 no-op interface methods remain visibly distinct, and every live vendor state is false.
-The paired callback ledger accounts for 105 declarations and separates 89 Bluetooth
-opcode callbacks, 14 platform/network/transport callbacks, and two declarations with
-no invocation site. This prevents an interface declaration from being presented as a
-working firmware event.
+The paired callback ledger accounts for 105 declarations and separates 86 Bluetooth
+opcode callbacks, 14 platform/network/transport callbacks, three APK-generated local
+end projections, and two declarations with no invocation site. This prevents an
+interface declaration or local timer from being presented as a wire event.
 
 Raw AI/audio/image codecs remain offline and are never subscribed by ordinary client
 commands. Synthetic payload decoding rejects declared-length mismatches and configured
@@ -183,10 +198,38 @@ They do not start a sensor, subscribe, convert values to medical conclusions, or
 hardware support. Packed ECG frames are decoded as unsigned 12-bit samples without
 physiological labels.
 
+Given one offline history transaction, the decoder accepts only that transaction's
+proven opcode family, rejects unrelated frames without refreshing a deadline, and
+closes exactly once. Explicit wire terminals and recovered device-metadata completion
+are distinct from local idle/overall timeouts; local quiet has unknown completeness.
+Deadline callbacks carry a session and generation guard, and timestamps stay raw rather
+than being shifted through the host timezone. No raw frame, timestamp, or measurement
+appears in object representations.
+
 Identifier-bearing device responses are redacted or hidden by construction. Binding
-fields remain unnamed, factory bytes require an explicit local-use accessor, EQ counts
-are bounded to the statically consumed span, and parsing a dial or file-state response
-does not enable dial transfer, filesystem access, factory mode, or binding.
+fields remain unnamed, factory bytes require an explicit local-use accessor, all 15 EQ
+wire values are preserved while the APK's callback bug is explicit, and parsing a dial
+or file-state response does not enable dial transfer, filesystem access, factory mode,
+or binding.
+
+### Explicit simulator profiles
+
+The simulator has two explicit profiles. `basic` is the default and advertises no
+standard HID service. `hid` contains the same basic status values plus synthetic
+standard HID service, characteristic, and descriptor metadata. It never supplies a
+Report Map value, HID report, verified event, or operating-system attachment.
+
+Given `--simulate` without a profile, status and capabilities both select `basic` and
+report the same HID service state. Given `--simulate --simulate-profile hid`, both
+select `hid` and report the same advertised state. Human output names the selected
+profile directly after the simulation banner; JSON includes `simulator_profile` next
+to `source`. A profile option without `--simulate` is a usage error, and profile
+selection never constructs a hardware transport.
+
+`input-actions` lists both profiles before the event vocabulary. Input preview and
+emission also report their selected profile, while making clear that the synthetic
+`step` event is unchanged and does not become a HID report merely because the `hid`
+metadata profile was selected.
 
 ### Safe step-to-input preview
 
@@ -354,13 +397,13 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Recoverable setup error | `test_expected_error_is_actionable_without_traceback` |
 | Deliberate write | `test_time_sync_requires_explicit_confirmation` |
 | Predictable export | `test_history_export_rejects_ambiguous_suffix` |
-| Passive setup diagnosis | `test_doctor_explains_hardware_setup_without_failing`, `test_bluez_layers_remain_distinct`, `test_passive_bluez_probe_uses_only_read_queries` |
+| Passive setup diagnosis | `test_doctor_explains_hardware_setup_without_failing`, `test_bluez_layers_remain_distinct`, `test_missing_busctl_is_a_named_diagnostic_gap_not_a_dbus_failure`, `test_present_busctl_can_report_broken_dbus_separately`, `test_passive_bluez_probe_uses_only_read_queries` |
 | Readiness automation | `test_doctor_json_can_strictly_require_hardware` |
 | Standard HID visibility | `test_standard_hid_service_is_reported` |
 | Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_cli_capability_inventory_is_private` |
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Complete request accounting | `test_static_vendor_operation_coverage_accounts_for_all_112_requests_once`, `test_only_seven_operations_have_offline_request_and_response_codecs`, `test_static_coverage_never_promotes_an_operation_to_hardware` |
-| Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_eighty_five_callback_families_have_offline_response_codecs` |
+| Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_all_eighty_six_wire_callback_families_have_offline_response_codecs`, `test_three_apk_generated_end_callbacks_are_local_projections_not_wire_codecs` |
 | Offline device/config decoding | `test_device_code_discards_all_identifier_bytes`, `test_device_dial_decodes_every_field_in_the_twenty_byte_layout`, `test_eq_info_decodes_signed_values_and_requires_expected_kind`, `test_factory_test_bytes_are_hidden_and_byte_19_is_not_claimed` |
 | Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |
 | Operation-specific acknowledgements | `test_vendor_ack_decodes_operation_specific_success_and_failure`, `test_vendor_success_only_ack_rejects_guessed_failure_branch`, `test_notify_ack_requires_the_outbound_marker_for_success`, `test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode` |
@@ -368,6 +411,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
 | Safe step-to-input preview | `test_step_mapping_previews_without_emitting_input` |
+| Explicit simulator profiles | `test_simulator_profile_preserves_global_and_task_first_forms`, `test_simulator_profile_requires_simulation`, `test_simulator_profile_is_consistent_between_status_and_capabilities`, `test_input_profile_is_explicit_in_human_and_json_output`, `test_simulator_profiles_are_discoverable_in_help` |
 | Deliberate input injection | `test_input_injection_requires_opt_in`, `test_shell_mapping_is_rejected` |
 | Accessible action discovery | `test_input_action_inventory_is_complete_and_stable`, `test_input_actions_are_screen_reader_ordered`, `test_mouse_aliases_are_deterministic` |
 | Least-privilege input device | `test_uinput_exposes_only_selected_capabilities`, `test_unsupported_action_fails_before_uinput_import` |

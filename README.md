@@ -17,9 +17,22 @@ python -m pip install -e .
 jring doctor
 jring protocol-coverage
 jring status --simulate
+jring capabilities --simulate
 jring history --simulate --output history.jsonl
 jring input --simulate --map step=click:left
 ```
+
+`--simulate` uses the named `basic` profile everywhere: it has standard status data
+and does not advertise HID. To inspect a synthetic, metadata-only HID inventory, name
+the `hid` profile explicitly in either supported option position:
+
+```sh
+jring capabilities --simulate --simulate-profile hid
+jring --simulate --simulate-profile hid status
+```
+
+Human and JSON results name the selected profile. The HID profile never reads or
+emits HID reports and does not claim operating-system attachment.
 
 For hardware, install the optional Bleak dependency. Discovery is an active radio scan:
 `--active-scan` explicitly acknowledges that BLE scan requests are transmitted. It
@@ -121,14 +134,16 @@ mouse click. Preview is the default and never emits operating-system input:
 jring input-actions
 jring input-actions --json
 jring capabilities --simulate
+jring capabilities --simulate --simulate-profile hid
 jring input --simulate --map step=key:space
 jring input --simulate --map step=click:primary
 ```
 
-`input-actions` is entirely local and lists the complete action vocabulary without
-Bluetooth, `evdev`, or `/dev/uinput`. Its plain-text order is suitable for screen
-readers. It labels the mouse actions as primary (left), secondary (right), and middle,
-and states that `step` is currently a simulator event—not a required physical gesture.
+`input-actions` is entirely local and lists both simulator profiles plus the complete
+action vocabulary without Bluetooth, `evdev`, or `/dev/uinput`. Its plain-text order
+is suitable for screen readers. It labels the mouse actions as primary (left),
+secondary (right), and middle, and states that `step` is currently a simulator
+event—not a required physical gesture.
 
 To deliberately inject one simulated event through Linux `uinput`, install the input
 extra and add the confirmation flag:

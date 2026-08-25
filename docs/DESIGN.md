@@ -49,6 +49,9 @@ which UUID family applies to a particular ring firmware.
 layouts plus strict offline response decoders. Its request objects cannot claim
 hardware eligibility and are not accepted by any client transmission API. Decoder
 objects omit device identifiers and raw bytes; ambiguous fields retain neutral names.
+`jring.vendor_history` adds a pure per-request state machine for recovered history
+frames. It uses finite monotonic deadlines, distinguishes wire/device/local closure,
+and never turns an idle timeout into confirmed completeness or retains a raw frame.
 `jring.transport` defines a small async BLE interface and a fake implementation.
 `jring.client` owns timeouts, bounded reconnect backoff, capability detection,
 standard GATT reads, subscriptions, cancellation, and clean shutdown. `jring.bleak`
@@ -74,6 +77,9 @@ enumerates only local `hciN` adapter names from sysfs, and reads only each adapt
 boolean `Powered` property. It never requests paired-device objects, starts discovery,
 connects, sets power, or edits policy. Unparseable or denied evidence becomes
 `uninspected` or `denied`, never a guessed healthy or absent state.
+`busctl` availability is a separate `diagnostic_tool` check. A missing executable does
+not become a D-Bus repair diagnosis, and no backend-private optional Python D-Bus API is
+used as an implicit fallback.
 
 `jring.input` maps typed logical sensor events to a closed set of named keyboard and
 mouse actions. Preview is the default. Linux `uinput` is loaded lazily and requires an

@@ -29,6 +29,8 @@ owner.
 - [#4 Fail-safe live sensor-to-keyboard/mouse runtime](https://github.com/Pipeliner/jring-client/issues/4)
 - [#5 Accessible mappings and action inventory](https://github.com/Pipeliner/jring-client/issues/5)
 - [#20 Inventory and safely expose raw and non-health capabilities](https://github.com/Pipeliner/jring-client/issues/20)
+- [#25 Make simulator profiles consistent across commands](https://github.com/Pipeliner/jring-client/issues/25)
+- [#30 Expose task-first non-health and HID capability UX](https://github.com/Pipeliner/jring-client/issues/30)
 
 ## High-risk and bulk capabilities
 
@@ -40,10 +42,14 @@ owner.
 - [#7 Passive BlueZ operational diagnostics](https://github.com/Pipeliner/jring-client/issues/7)
 - [#8 Partial Device Information states under one deadline](https://github.com/Pipeliner/jring-client/issues/8)
 - [#9 Versioned JSON errors and stable exit codes](https://github.com/Pipeliner/jring-client/issues/9)
+- [#26 Make doctor diagnostics portable without silent busctl dependence](https://github.com/Pipeliner/jring-client/issues/26)
 
 ## Installation portability
 
 - [#13 Portable installation across major Linux distro families](https://github.com/Pipeliner/jring-client/issues/13)
+- [#27 Provide an honest installable distribution path](https://github.com/Pipeliner/jring-client/issues/27)
+- [#28 Design a verifiably offline installation path](https://github.com/Pipeliner/jring-client/issues/28)
+- [#29 Split Linux prerequisites by capability and test literal recipes](https://github.com/Pipeliner/jring-client/issues/29)
 
 ## Distribution and governance
 
@@ -51,6 +57,7 @@ owner.
 - [#12 Explicit project license](https://github.com/Pipeliner/jring-client/issues/12)
 - [#14 Gated PyPI Trusted Publishing](https://github.com/Pipeliner/jring-client/issues/14)
 - [#15 Tested package discovery keywords and project URLs](https://github.com/Pipeliner/jring-client/issues/15)
+- [#31 Improve packager and terminal discovery UX](https://github.com/Pipeliner/jring-client/issues/31)
 
 Dependencies remain explicit: evidence handling precedes hardware event decoding;
 verified neutral events precede live input; and tested package metadata and owner-controlled

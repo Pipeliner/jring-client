@@ -1,6 +1,8 @@
 import asyncio
 import json
 
+import pytest
+
 from jring import cli
 from jring.client import JRingClient
 from jring.transport import FakeTransport, GattCharacteristicMetadata
@@ -213,10 +215,9 @@ def test_cli_capability_inventory_is_private(capsys):
     assert result["schema_version"] == 1
     assert result["operation"] == "capabilities"
     assert result["source"] == "simulator"
+    assert result["simulator_profile"] == "basic"
     assert result["ok"] is True
-    assert result["standard_hid"]["service_state"] == "advertised"
-    assert result["standard_hid"]["usability_state"] == "not_verified"
-    assert result["standard_hid"]["os_attachment_state"] == "not_checked"
+    assert result["standard_hid"]["service_state"] == "unsupported"
     assert result["neutral_events"] == {"events": [], "state": "unsupported"}
     assert result["vendor_gatt"] == []
     assert "AA:BB" not in serialized
@@ -225,9 +226,12 @@ def test_cli_capability_inventory_is_private(capsys):
 
 
 def test_cli_capability_inventory_human_copy_is_honest(capsys):
-    assert cli.main(["capabilities", "--simulate"]) == 0
+    assert cli.main([
+        "capabilities", "--simulate", "--simulate-profile", "hid",
+    ]) == 0
     output = capsys.readouterr().out
     assert "SIMULATION — no ring contacted" in output
+    assert "Simulator profile: hid" in output
     assert "Standard HID service: advertised" in output
     assert "HID usability: not verified" in output
     assert "OS attachment: not checked" in output
@@ -235,3 +239,25 @@ def test_cli_capability_inventory_human_copy_is_honest(capsys):
     assert "Verified hardware events: none (unsupported)" in output
     assert "Known vendor UUID observations: none" in output
     assert "Vendor meanings: unknown; values not read; writes disabled" in output
+
+
+@pytest.mark.parametrize(
+    "profile, advertised, service_state",
+    (("basic", False, "unsupported"), ("hid", True, "advertised")),
+)
+def test_simulator_profile_is_consistent_between_status_and_capabilities(
+    profile, advertised, service_state, capsys
+):
+    assert cli.main([
+        "status", "--simulate", "--simulate-profile", profile, "--json",
+    ]) == 0
+    status = json.loads(capsys.readouterr().out)
+
+    assert cli.main([
+        "capabilities", "--simulate", "--simulate-profile", profile, "--json",
+    ]) == 0
+    capabilities = json.loads(capsys.readouterr().out)
+
+    assert status["simulator_profile"] == capabilities["simulator_profile"] == profile
+    assert status["capabilities"]["hid_service_advertised"] is advertised
+    assert capabilities["standard_hid"]["service_state"] == service_state

@@ -23,6 +23,37 @@ class GattCharacteristicMetadata:
     descriptor_uuids: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class SimulatorProfile:
+    name: str
+    description: str
+    standard_hid_advertised: bool
+
+
+SIMULATOR_PROFILES = (
+    SimulatorProfile(
+        name="basic",
+        description="standard ring metadata; standard HID not advertised",
+        standard_hid_advertised=False,
+    ),
+    SimulatorProfile(
+        name="hid",
+        description=(
+            "basic metadata plus standard HID advertisement metadata; "
+            "no HID reports are read or emitted"
+        ),
+        standard_hid_advertised=True,
+    ),
+)
+
+
+def simulator_profile(name: str) -> SimulatorProfile:
+    for profile in SIMULATOR_PROFILES:
+        if profile.name == name:
+            return profile
+    raise ValueError("simulator profile must be basic or hid")
+
+
 class BleTransport(Protocol):
     async def connect(self) -> None: ...
     async def close(self) -> None: ...
@@ -85,6 +116,15 @@ class FakeTransport:
             ),
         )
         return transport
+
+    @classmethod
+    def for_simulator_profile(cls, name: str = "basic") -> "FakeTransport":
+        profile = simulator_profile(name)
+        return (
+            cls.standard_hid_ring()
+            if profile.standard_hid_advertised
+            else cls.standard_ring()
+        )
 
     async def connect(self) -> None:
         self.connected = True

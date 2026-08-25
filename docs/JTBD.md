@@ -39,6 +39,8 @@ decide whether I trust it.
 Desired outcomes:
 
 - Reach a useful simulated result without Bluetooth or an account.
+- Choose a named `basic` or `hid` simulator profile, see that profile in every
+  result, and receive the same advertised-capability state across commands.
 - See which operations are offline, which activate the radio, how identifiers are
   redacted, and that vendor writes are off.
 - Never need to reveal a device address merely to check whether the software runs.
@@ -58,6 +60,9 @@ Desired outcomes:
 - Distinguish installed prerequisites from the system D-Bus, BlueZ daemon, adapter,
   adapter power, and session permission states; ring compatibility remains untested
   until an explicitly selected connection is attempted.
+- Distinguish a missing passive diagnostic tool from a system D-Bus failure, using a
+  stable check name and a package-manager-neutral remedy instead of guessing that the
+  bus needs repair.
 
 ### Read and export my data safely
 

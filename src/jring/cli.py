@@ -31,7 +31,7 @@ from .input import (
 )
 from .protocol import ProtocolError
 from .readiness import ReadinessReport, diagnose
-from .transport import FakeTransport
+from .transport import SIMULATOR_PROFILES, FakeTransport
 from .vendor_coverage import (
     static_vendor_callback_coverage,
     static_vendor_operation_coverage,
@@ -102,6 +102,7 @@ def _print_status(result: dict[str, Any]) -> None:
     capabilities = result["capabilities"]
     if result["source"] == "simulator":
         print("SIMULATION — no ring contacted")
+        print(f"Simulator profile: {result['simulator_profile']}")
     else:
         print("HARDWARE — explicitly selected ring")
     battery_state = result["battery_state"]
@@ -222,13 +223,16 @@ def _print_readiness(report: ReadinessReport) -> None:
     print(f"Ring compatibility: {report.ring_compatibility.replace('_', ' ')}")
     print(f"Desktop-input prerequisites: {'installed' if report.input_ready else 'incomplete'}")
     for check in report.checks:
-        print(f"[{'ok' if check.ok else 'fix'}] {check.detail}")
+        print(f"[{'ok' if check.ok else 'fix'}] {check.name}: {check.detail}")
         if check.remedy:
             print(f"      Remedy: {check.remedy}")
     print(f"Next: {report.next_step}")
 
 
 def _print_input_actions(inventory: dict[str, list[dict[str, object]]]) -> None:
+    print("Simulator profiles")
+    for profile in inventory["simulator_profiles"]:
+        print(f"- {profile['name']}: {profile['description']}")
     print("Available simulated events")
     for event in inventory["events"]:
         print(f"- {event['name']} (simulator only)")
@@ -257,6 +261,9 @@ def _protocol_coverage_payload() -> dict[str, object]:
             "offline_response_codecs": sum(
                 entry.python_state == "offline_response_codec" for entry in callbacks
             ),
+            "offline_local_projections": sum(
+                entry.python_state == "offline_local_projection" for entry in callbacks
+            ),
             "live_vendor_operations": sum(
                 entry.python_state == "live_vendor" for entry in requests
             ),
@@ -282,6 +289,7 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     print(f"Callbacks: {summary['callback_total']}")
     print(f"Offline request codecs: {summary['offline_request_codecs']}")
     print(f"Offline response codecs: {summary['offline_response_codecs']}")
+    print(f"Offline local projections: {summary['offline_local_projections']}")
     print(f"Live vendor operations: {summary['live_vendor_operations']}")
     print(
         "Hardware-verified vendor operations: "
@@ -313,8 +321,14 @@ def _capability_payload(inventory: object) -> dict[str, object]:
     }
 
 
+def _simulator_profiles_payload() -> list[dict[str, object]]:
+    return [asdict(profile) for profile in SIMULATOR_PROFILES]
+
+
 def _print_capability_inventory(payload: dict[str, object], source: str) -> None:
     print("SIMULATION — no ring contacted" if source == "simulator" else "HARDWARE — explicitly selected ring")
+    if source == "simulator":
+        print(f"Simulator profile: {payload['simulator_profile']}")
     hid = payload["standard_hid"]
     print(f"Inventory metadata: {payload['inventory_state']}")
     print(f"Standard HID service: {hid['service_state']}")
@@ -349,6 +363,7 @@ async def _run(args: argparse.Namespace) -> int:
         return ExitCode.OK
     if args.command == "input-actions":
         inventory = input_action_inventory()
+        inventory["simulator_profiles"] = _simulator_profiles_payload()
         if args.json:
             _print_json_success("input_actions", "local", inventory)
         else:
@@ -393,10 +408,13 @@ async def _run(args: argparse.Namespace) -> int:
             if args.json:
                 _print_json_success("input", "simulator", {
                     "event": event.kind,
-                    "action": action.description, "emitted": False,
+                    "action": action.description,
+                    "emitted": False,
+                    "simulator_profile": args.simulator_profile,
                 })
             else:
                 print("SIMULATION — no ring contacted")
+                print(f"Simulator profile: {args.simulator_profile}")
                 print(f"Preview: {event.kind} -> {action.description}")
                 print("No input emitted. Add --allow-input to authorize this one simulated event.")
             return 0
@@ -408,10 +426,13 @@ async def _run(args: argparse.Namespace) -> int:
         if args.json:
             _print_json_success("input", "simulator", {
                 "event": event.kind,
-                "action": action.description, "emitted": True,
+                "action": action.description,
+                "emitted": True,
+                "simulator_profile": args.simulator_profile,
             })
         else:
             print("SIMULATION — no ring contacted")
+            print(f"Simulator profile: {args.simulator_profile}")
             print(f"Emitted: {event.kind} -> {action.description}")
         return 0
     if args.command == "discover":
@@ -431,9 +452,7 @@ async def _run(args: argparse.Namespace) -> int:
     else:
         address = None if args.simulate else _selected_address(args)
     transport = (
-        FakeTransport.standard_hid_ring()
-        if args.simulate and args.command == "capabilities"
-        else FakeTransport.standard_ring()
+        FakeTransport.for_simulator_profile(args.simulator_profile or "basic")
         if args.simulate
         else BleakTransport(address)
     )
@@ -441,6 +460,8 @@ async def _run(args: argparse.Namespace) -> int:
         if args.command == "capabilities":
             inventory = await client.capability_inventory()
             payload = _capability_payload(inventory)
+            if source == "simulator":
+                payload["simulator_profile"] = args.simulator_profile
             if args.json:
                 _print_json_success("capabilities", source, payload)
             else:
@@ -465,6 +486,8 @@ async def _run(args: argparse.Namespace) -> int:
                 "device_info_states": asdict(status.device_info_states),
                 "capabilities": capabilities,
             }
+            if source == "simulator":
+                result["simulator_profile"] = args.simulator_profile
             if args.json:
                 _print_json_success("status", source, result)
             else:
@@ -495,7 +518,27 @@ def _timeout(value: str) -> float:
     return timeout
 
 
-def _add_runtime_options(parser: argparse.ArgumentParser, *, suppress: bool = False) -> None:
+def _add_simulator_profile_option(
+    parser: argparse.ArgumentParser, *, suppress: bool
+) -> None:
+    parser.add_argument(
+        "--simulate-profile",
+        dest="simulator_profile",
+        choices=tuple(profile.name for profile in SIMULATOR_PROFILES),
+        default=argparse.SUPPRESS if suppress else None,
+        help=(
+            "with --simulate, select basic (default) or hid; the hid profile "
+            "advertises metadata but never reads or emits HID reports"
+        ),
+    )
+
+
+def _add_runtime_options(
+    parser: argparse.ArgumentParser,
+    *,
+    suppress: bool = False,
+    simulator_profiles: bool = False,
+) -> None:
     default: object = argparse.SUPPRESS if suppress else None
     parser.add_argument("--address", default=default, help="exact selected ring Bluetooth address")
     parser.add_argument("--address-file", type=Path, default=default,
@@ -503,6 +546,8 @@ def _add_runtime_options(parser: argparse.ArgumentParser, *, suppress: bool = Fa
     parser.add_argument("--simulate", action="store_true",
                         default=argparse.SUPPRESS if suppress else False,
                         help="use an offline simulated ring")
+    if simulator_profiles:
+        _add_simulator_profile_option(parser, suppress=suppress)
     parser.add_argument("--timeout", type=_timeout,
                         default=argparse.SUPPRESS if suppress else 8.0,
                         help="Bluetooth operation timeout in seconds (default: 8)")
@@ -519,7 +564,7 @@ def _add_json_option(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="jring", description="Privacy-first JRing Linux client")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    _add_runtime_options(parser, suppress=True)
+    _add_runtime_options(parser, suppress=True, simulator_profiles=True)
     sub = parser.add_subparsers(dest="command", required=True)
     doctor = sub.add_parser(
         "doctor", help="passively check local simulator and hardware prerequisites"
@@ -547,6 +592,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     input_command.add_argument("--simulate", action="store_true", default=argparse.SUPPRESS,
                                help="required: use one offline simulated step event")
+    _add_simulator_profile_option(input_command, suppress=True)
     _add_json_option(input_command)
     input_command.add_argument("--address", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     input_command.add_argument("--address-file", type=Path, default=argparse.SUPPRESS,
@@ -574,7 +620,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="authorize BLE scan requests; does not connect",
     )
     status = sub.add_parser("status", help="read battery, device information, and capabilities")
-    _add_runtime_options(status, suppress=True)
+    _add_runtime_options(status, suppress=True, simulator_profiles=True)
     status.add_argument(
         "--select", action="store_true",
         help="interactively select an ephemeral discovery alias in this process",
@@ -587,7 +633,7 @@ def build_parser() -> argparse.ArgumentParser:
         "capabilities",
         help="inventory standard HID and known vendor metadata without reading values",
     )
-    _add_runtime_options(capabilities, suppress=True)
+    _add_runtime_options(capabilities, suppress=True, simulator_profiles=True)
     sync = sub.add_parser("time-sync", help="write standard Bluetooth Current Time")
     _add_runtime_options(sync, suppress=True)
     sync.add_argument(
@@ -675,7 +721,7 @@ def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
     operation = next((_OPERATIONS[value] for value in argv if value in _OPERATIONS), "cli")
     if operation in {"doctor", "input_actions", "protocol_coverage"}:
         source = "local"
-    elif "--simulate" in argv:
+    elif "--simulate" in argv or "--simulate-profile" in argv:
         source = "simulator"
     elif operation == "cli":
         source = "unknown"
@@ -721,10 +767,18 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
     address = getattr(args, "address", None)
     address_file = getattr(args, "address_file", None)
     simulate = getattr(args, "simulate", False)
+    simulator_profile_explicit = "simulator_profile" in provided
+    simulator_profile_name = getattr(args, "simulator_profile", None)
     json_output = getattr(args, "json", False)
     guided_selection = getattr(args, "select", False)
     active_scan = getattr(args, "active_scan", False)
     has_hardware = bool(address or address_file)
+    if simulator_profile_explicit and not simulate:
+        parser.error("--simulate-profile requires --simulate")
+    if simulator_profile_explicit and args.command not in {
+        "status", "capabilities", "input"
+    }:
+        parser.error("--simulate-profile is supported only by status, capabilities, and input")
     if guided_selection and (simulate or has_hardware):
         parser.error("--select is mutually exclusive with simulation and address selectors")
     if guided_selection and not active_scan:
@@ -786,6 +840,13 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         "simulate": simulate,
         "timeout": getattr(args, "timeout", 8.0),
         "json": json_output,
+        "simulator_profile": (
+            simulator_profile_name
+            if simulator_profile_explicit
+            else "basic"
+            if simulate and args.command in {"status", "capabilities", "input"}
+            else None
+        ),
     }.items():
         if not hasattr(args, name):
             setattr(args, name, value)

@@ -54,7 +54,13 @@ Install a verified local wheel for the simulator:
 python -m pip install ./jring_client-0.5.0-py3-none-any.whl
 jring doctor
 jring status --simulate
+jring capabilities --simulate
 ```
+
+Those two simulated commands use the same `basic` profile and therefore both report
+that standard HID is not advertised. A metadata-only HID fixture is opt-in with
+`--simulate-profile hid`; output always names the selected profile, and neither
+profile contacts a ring or emits HID reports.
 
 If `pipx` or `uv` is already managed by the distribution, either can create the
 isolated tool environment instead:
@@ -193,6 +199,7 @@ After installing packages, these read-only commands distinguish a missing servic
 adapter from a JRing protocol problem:
 
 ```sh
+command -v busctl
 systemctl status bluetooth --no-pager
 bluetoothctl show
 jring doctor
@@ -202,6 +209,19 @@ jring doctor
 successful prerequisite check does not establish that a real ring connects. Starting
 or enabling the Bluetooth service is an administrator decision; pairing and active
 scanning require separate, explicit user action.
+
+`busctl` is used only for bounded read-only operational checks. Some minimal Linux
+installations provide `bluetoothctl` without providing `busctl`. In that case doctor
+reports `diagnostic_tool: unavailable` and leaves `system_dbus` and dependent checks
+`uninspected`; it does not tell you to repair D-Bus merely because its diagnostic tool
+is absent. Install the package for your distribution that provides `busctl`, then rerun
+doctor. The remedy deliberately names the executable rather than assuming `apt`, `dnf`,
+`pacman`, or `zypper`.
+
+If `diagnostic_tool` is available but `system_dbus` is unavailable, the bounded query
+actually failed and D-Bus/service investigation is appropriate. Resolve checks in the
+order shown: a remedy may refer to another stable check name when downstream state was
+not inspectable.
 
 ## Least-privilege `/dev/uinput` access
 
