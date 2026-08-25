@@ -512,7 +512,10 @@ button event.
 
 The motion path uses opcode family `78` and can yield nine signed 16-bit channels in
 bytes 2–19; this APK branch consumes the entire fixed frame. Axis order, units, sampling
-interval, subcommand scope, and gesture meanings are not proven.
+interval, and gesture meanings are not proven. The recovered callback correlation
+narrows inbound runtime candidates to exact selectors `00` and `01`, but their inbound
+meaning is unknown; the matching outbound false/true setter selectors do not prove an
+acknowledgement, enabled/disabled state, or setter causation.
 `parse_vendor_motion_frame()` therefore requires the caller to name the exact expected
 subcommand and rejects every known non-motion `78` subcommand. It retains neutral
 channel names and remains hardware-unverified. Raw `33f5`/`33f6` traffic includes
@@ -527,8 +530,9 @@ They require exact 20-byte frames and exact subcommands, make no writes, and do 
 claim that the fields are supported on owner hardware.
 
 The passive MAIN fake collector makes only the safely discriminated device-action,
-cumulative-step, Classic info/name, redacted App-ID, host-volume-request, and exact
-`78/09` touch-mode setting projections executable in an offline transport scenario.
+cumulative-step, Classic info/name, redacted App-ID, host-volume-request, exact
+`78/00` and `78/01` unknown-motion callback projections, and exact `78/09` touch-mode
+setting projections executable in an offline transport scenario.
 Classic info retains only two neutral bytes; Classic name and App-ID content are
 structurally redacted. It subscribes to the exact connection-scoped fake
 `33f4` target and performs zero writes. A transport-wide fake lease rejects
@@ -536,8 +540,11 @@ pre-connected caller-owned transports and concurrent coordinators before I/O, so
 cleanup closes only a connection acquired by that attempt. Bounded quiet/limit closure
 stays unknown; malformed matching frames,
 overflow, timeout, disconnect, and cleanup failure abort. Within shared opcode `78`,
-only exact selector `09` is a touch-mode setting projection; selectorless traffic and
-every other selector are unrelated. Its byte-2 value remains private and neutral, not
+exact selectors `00` and `01` are private nine-channel callback projections, exact
+selector `09` is a touch-mode setting projection, and selectorless traffic and every
+other selector are unrelated. Motion channels remain redacted and are not axes,
+gestures, live sensor events, or input actions; selector meanings and setter causation
+remain unknown. The touch byte-2 value remains private and neutral, not
 an enabled flag, device state, gesture, tap, button, sensor sample, or input event.
 The bundled `setTouchMode` entry has zero observed app invokes, so the projection does
 not establish setter causation, acknowledgement, a terminal, live behavior, or

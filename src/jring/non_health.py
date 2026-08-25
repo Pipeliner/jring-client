@@ -234,9 +234,14 @@ _CAPABILITIES = (
     ),
     _capability(
         "unknown_motion_channels", "Nine unknown motion channels", "sensor_candidates",
-        "nine signed 16-bit channels with unproven axes; reviewed app callback discards its argument",
+        "scripted fake only; exact 78/00 or 78/01 projects nine private signed "
+        "values with zero writes; reviewed app callback discards its argument; not "
+        "a live motion event, gesture, activation, or input",
         "static_apk", "offline_decoder", "unknown", False,
         privacy=("motion_sensor_data",),
+        requests=("setGSensorIndState",),
+        callbacks=("onGetGSensorData",),
+        scripted_fake_decoder_available=True,
     ),
     _capability(
         "raw_ai_actions", "Raw AI action notifications", "raw_channel",

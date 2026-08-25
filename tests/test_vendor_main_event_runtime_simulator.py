@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+import jring.vendor_main_event_runtime_simulator as main_event_runtime
 from jring.uuids import VENDOR_CHARACTERISTIC_33F4
 from jring.vendor_history_runtime_simulator import FakeVendorHistorySimulator
 from jring.input import InputMapper
@@ -13,6 +14,7 @@ from jring.vendor_main_event_runtime_simulator import (
     MainEventCollectionCompleteness,
     MainEventKind,
     MainEventSimulationReason,
+    UnknownMotionChannelProjection,
 )
 from jring.vendor_runtime_fake import ScriptGate, ScriptedVendorFakeTransport
 from jring.vendor_protocol import Static45Notification, StaticQuery, encode_day_query
@@ -24,6 +26,10 @@ def run(coro):
 
 def _frame(opcode: int, body: bytes = b"") -> bytes:
     return bytes((opcode,)) + body.ljust(19, b"\x00")
+
+
+def test_unknown_motion_projection_is_an_explicit_module_export():
+    assert "UnknownMotionChannelProjection" in main_event_runtime.__all__
 
 
 def test_collects_only_closed_passive_main_events_without_any_write():
@@ -311,8 +317,183 @@ def test_collects_exact_touch_mode_as_neutral_passive_projection_without_any_wri
     assert transport.write_with_response_count == 0
 
 
-@pytest.mark.parametrize("selector", (0x00, 0x01, 0x03, 0x07, 0x08, 0x0B, 0x0C, 0xFF))
-def test_non_touch_78_selectors_are_unrelated_without_becoming_motion(selector):
+@pytest.mark.parametrize("selector", (0x00, 0x01))
+def test_collects_exact_unknown_motion_channel_projection_without_write_or_input(selector):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    channels = (-32_768, -12_345, -1, 0, 1, 12_345, 30_000, 32_767, -22_222)
+    body = bytes((selector,)) + b"".join(
+        value.to_bytes(2, "little", signed=True) for value in channels
+    )
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        _frame(0x78, body),
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=1,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.LIMIT_REACHED
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.event_count == 1
+    assert result.unrelated_frame_count == 0
+    assert result.event_kinds == (
+        MainEventKind.UNKNOWN_MOTION_CHANNEL_PROJECTION,
+    )
+    event = result.events_for_test()[0]
+    projection = event.value_for_test()
+    assert projection.selector_for_test() == selector
+    assert projection.channels_for_test() == channels
+    assert projection.projection_role == "source_labeled_g_sensor_callback_payload"
+    assert projection.selector_scope == "exact_78_00_or_01"
+    assert projection.channel_count == 9
+    assert projection.channel_meaning == "unknown"
+    assert projection.selector_meaning == "unknown"
+    assert projection.axes == "not_proven"
+    assert projection.units == "not_proven"
+    assert projection.sample_interval == "not_proven"
+    assert projection.gesture_semantics == "not_proven"
+    assert projection.sensor_event_promoted is False
+    assert projection.simulation_only is True
+    assert projection.transport_write_invoked is False
+    assert projection.setter_causation_observed is False
+    assert projection.acknowledgement_observed is False
+    assert projection.wire_terminal_observed is False
+    assert projection.live_available is False
+    assert projection.ring_contacted is False
+    assert projection.host_input_emitted is False
+    assert projection.private_motion_channels_redacted is True
+    assert projection.hardware_verified is False
+    assert projection.input_eligible is False
+    assert event.hardware_eligible is False
+    assert event.input_eligible is False
+    assert InputMapper(()).action_for(event) is None
+    assert result.transport_write_invoked is False
+    assert result.setter_invoked is False
+    assert result.setter_causation_observed is False
+    assert result.acknowledgement_observed is False
+    assert result.wire_terminal_observed is False
+    assert result.motion_sensor_event_promoted is False
+    assert result.host_input_emitted is False
+    assert result.live_available is False
+    assert result.ring_contacted is False
+    assert result.hardware_verified is False
+    assert result.input_eligible is False
+    assert transport.write_count == 0
+    assert transport.targeted_write_count == 0
+    assert transport.generic_write_count == 0
+    assert transport.write_with_response_count == 0
+
+
+def test_motion_projection_redacts_private_values_across_copy_and_serialization():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+    channels = (
+        -31_337, -29_111, -27_503, -24_019, 18_613,
+        21_127, 23_693, 25_699, 28_201,
+    )
+    body = bytes((0x01,)) + b"".join(
+        value.to_bytes(2, "little", signed=True) for value in channels
+    )
+    transport.before_subscribe = lambda fake, _call: fake.emit(
+        VENDOR_CHARACTERISTIC_33F4,
+        _frame(0x78, body),
+    )
+
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=1,
+        quiet_timeout=0.1,
+    ))
+    event = result.events_for_test()[0]
+    projection = event.value_for_test()
+    private_canaries = tuple(str(value) for value in channels)
+
+    rendered = (
+        repr(projection),
+        repr(event),
+        repr(result),
+        json.dumps(asdict(event), default=str, sort_keys=True),
+        json.dumps(asdict(result), default=str, sort_keys=True),
+    )
+    for canary in private_canaries:
+        assert all(canary not in value for value in rendered)
+    assert all('"_channels"' not in value for value in rendered)
+    assert all('"_selector"' not in value for value in rendered)
+    assert "channels=<redacted>" in repr(projection)
+
+    for cloned in (copy(event), deepcopy(event)):
+        assert cloned.value_for_test().channels_for_test() == channels
+        payload = json.dumps(asdict(cloned), default=str, sort_keys=True)
+        assert all(canary not in payload for canary in private_canaries)
+    for cloned in (copy(result), deepcopy(result)):
+        assert cloned.events_for_test()[0].value_for_test().channels_for_test() == channels
+        payload = json.dumps(asdict(cloned), default=str, sort_keys=True)
+        assert all(canary not in payload for canary in private_canaries)
+    replaced_event = replace(event, _decoded_value=projection)
+    replaced_result = replace(result, _decoded_events=result.events_for_test())
+    assert replaced_event.value_for_test().channels_for_test() == channels
+    assert replaced_result.event_count == 1
+    assert all(
+        canary not in json.dumps(asdict(replaced_result), default=str, sort_keys=True)
+        for canary in private_canaries
+    )
+    with pytest.raises((TypeError, ValueError), match="_decoded_value"):
+        replace(event)
+    with pytest.raises((TypeError, ValueError), match="_decoded_events"):
+        replace(result)
+    with pytest.raises(TypeError, match="does not match"):
+        replace(
+            event,
+            kind=MainEventKind.TOUCH_MODE_SETTING_PROJECTION,
+            _decoded_value=projection,
+        )
+
+
+def test_unknown_motion_projection_is_decoder_owned_and_rejects_forged_shape():
+    with pytest.raises(TypeError, match="decoder-owned"):
+        UnknownMotionChannelProjection(0x00, (0,) * 9)
+    for selector in (-1, 0x02, 0x100, True, "0"):
+        with pytest.raises((TypeError, ValueError), match="selector"):
+            UnknownMotionChannelProjection._create(selector, (0,) * 9)
+    for channels in ((0,) * 8, (0,) * 10, [0] * 9):
+        with pytest.raises((TypeError, ValueError), match="nine-value tuple"):
+            UnknownMotionChannelProjection._create(0x00, channels)
+    for value in (-32_769, 32_768, True, 1.0):
+        forged = (0,) * 8 + (value,)
+        with pytest.raises((TypeError, ValueError), match="signed 16-bit"):
+            UnknownMotionChannelProjection._create(0x00, forged)
+    projection = UnknownMotionChannelProjection._create(0x00, (0,) * 9)
+    with pytest.raises(AttributeError, match="immutable"):
+        projection._channels = (1,) * 9
+
+
+def test_mixed_touch_and_unknown_motion_projections_keep_distinct_semantics():
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x78, bytes((0x09, 7))))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x78, bytes((0x00,)) + bytes(18)))
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x78, bytes((0x01,)) + bytes(18)))
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=3,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.event_kinds == (
+        MainEventKind.TOUCH_MODE_SETTING_PROJECTION,
+        MainEventKind.UNKNOWN_MOTION_CHANNEL_PROJECTION,
+        MainEventKind.UNKNOWN_MOTION_CHANNEL_PROJECTION,
+    )
+    assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
+    assert result.wire_terminal_observed is False
+    assert result.acknowledgement_observed is False
+    assert transport.write_count == 0
+
+
+@pytest.mark.parametrize("selector", (0x02, 0x03, 0x07, 0x08, 0x0B, 0x0C, 0x22, 0xFF))
+def test_other_78_selectors_are_unrelated_without_becoming_motion(selector):
     transport = ScriptedVendorFakeTransport.vendor_route()
     transport.before_subscribe = lambda fake, _call: fake.emit(
         VENDOR_CHARACTERISTIC_33F4,
@@ -327,6 +508,29 @@ def test_non_touch_78_selectors_are_unrelated_without_becoming_motion(selector):
     assert result.completeness is MainEventCollectionCompleteness.UNKNOWN
     assert result.event_count == 0
     assert result.unrelated_frame_count == 1
+    assert result.events_for_test() == ()
+    assert transport.write_count == 0
+
+
+@pytest.mark.parametrize("selector", (0x00, 0x01))
+@pytest.mark.parametrize("length", (19, 21))
+def test_malformed_exact_motion_selector_rolls_back_prior_event(selector, length):
+    transport = ScriptedVendorFakeTransport.vendor_route()
+
+    def emit(fake, _call):
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, _frame(0x06, bytes((16,))))
+        candidate = bytes((0x78, selector)) + bytes(19)
+        fake.emit(VENDOR_CHARACTERISTIC_33F4, candidate[:length])
+
+    transport.before_subscribe = emit
+    result = run(FakeVendorMainEventSimulator(transport).collect(
+        event_limit=3,
+        quiet_timeout=0.1,
+    ))
+
+    assert result.reason is MainEventSimulationReason.MALFORMED_EVENT
+    assert result.completeness is MainEventCollectionCompleteness.ABORTED
+    assert result.event_count == 0
     assert result.events_for_test() == ()
     assert transport.write_count == 0
 

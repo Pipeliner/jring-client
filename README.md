@@ -345,13 +345,19 @@ jring non-health-capabilities
 jring non-health-capabilities --json
 ```
 
-That inventory now labels the device-action, cumulative-step, Classic info/name,
-host-volume, and touch-mode rows whose passive MAIN notifications can be exercised
+That inventory now labels the device-action, cumulative-step, unknown-motion, Classic
+info/name, host-volume, and touch-mode rows whose passive MAIN notifications can be
+exercised
 with the exact scripted fake. The same internal collector also exercises the exact
 redacted App-ID event at `45/02` without adding a human capability row. The fake
 subscribes to its instance-bound synthetic response target and performs zero writes.
-It accepts `78/09` only as a neutral, private touch-mode setting projection; every
-other `78` selector remains unrelated. That value is not an enabled flag, device
+It accepts `78/00` and `78/01` only as private, neutral nine-channel callback
+projections and `78/09` only as a neutral, private touch-mode setting projection;
+every other `78` selector remains unrelated. The motion values are redacted and do
+not prove selector meaning, axes, units, cadence, activation, a live sensor event,
+gesture, step, button, or input action. The corresponding setter has no observed app
+invoke, so inbound `00`/`01` is not an acknowledgement or enabled/disabled state.
+The touch value is not an enabled flag, device
 state, gesture, tap, button, sensor sample, or input event. The bundled
 `setTouchMode` entry has zero observed app invokes, so the projection proves no setter
 causation, acknowledgement, terminal, live behavior, or hardware support. Decoded

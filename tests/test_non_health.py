@@ -112,7 +112,18 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert by_name["touch_mode"].scripted_fake_decoder_available is True
     assert by_name["touch_mode"].privacy_classes == ("touch_setting",)
     assert by_name["touch_mode"].input_eligible is False
-    assert by_name["unknown_motion_channels"].scripted_fake_decoder_available is False
+    unknown_motion = by_name["unknown_motion_channels"]
+    assert unknown_motion.scripted_fake_decoder_available is True
+    assert unknown_motion.request_operations == ("setGSensorIndState",)
+    assert unknown_motion.callback_operations == ("onGetGSensorData",)
+    assert unknown_motion.input_candidate is False
+    assert unknown_motion.input_eligible is False
+    assert "scripted fake only" in unknown_motion.description
+    assert "zero writes" in unknown_motion.description
+    assert "private" in unknown_motion.description
+    assert "not a live motion event, gesture, activation, or input" in (
+        unknown_motion.description
+    )
     assert all(
         item.scripted_fake_decoder_available
         for item in items

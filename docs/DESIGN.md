@@ -428,11 +428,12 @@ actual OTA transfer uses GATT, with no observed RFCOMM connect, read, or write.
 These rows share no activation path with HID and remain non-live, non-input-eligible
 evidence.
 
-`FakeVendorMainEventSimulator` is the zero-write runtime boundary for seven passive
+`FakeVendorMainEventSimulator` is the zero-write runtime boundary for eight passive
 MAIN event kinds: device actions (`06`/`22`), cumulative steps (`51`), Classic info
 and redacted name metadata (`45/00` and `45/01`), redacted App-ID (`45/02`), the
-host volume-state request (`49`), and an exact touch-mode setting projection
-(`78/09`). It accepts only the exact scripted fake and an
+host volume-state request (`49`), exact private unknown-motion callback projections
+(`78/00` and `78/01`), and an exact touch-mode setting projection (`78/09`). It
+accepts only the exact scripted fake and an
 instance-bound MAIN response target. Every fake coordinator shares one transport-wide
 lifecycle lease and may claim only a disconnected fake; a caller-owned connection or a
 different active coordinator is rejected before I/O. Queue, setup, overall collection,
@@ -440,9 +441,12 @@ and cleanup are bounded; cancellation and reuse stale callbacks. Cleanup runs un
 separate shielded bound so cancellation during unsubscribe still attempts close before
 it is re-raised. Local quiet and limits
 remain unknown, while malformed matching events, overflow, disconnect, and cleanup
-failure abort. Every `78` selector other than exact `09` is unrelated. The `78/09`
-value is private and neutral: it is not an enabled flag, state, gesture, tap, button,
-sensor sample, or input event. `setTouchMode` has zero observed app invokes, and this
+failure abort. Every other `78` selector is unrelated. Motion projections preserve
+all nine signed channel values only in private test storage; their selector meaning,
+axes, units, cadence, gesture meaning, setter causation, and enabled/disabled state
+are unproven. They are not promoted to sensor or input events. The `78/09` value is
+private and neutral: it is not an enabled flag, state, gesture, tap, button, sensor
+sample, or input event. `setTouchMode` has zero observed app invokes, and this
 passive projection proves no setter causation, acknowledgement, terminal, live path,
 or hardware support. Selectorless and unknown `45` traffic is also unrelated. App-ID
 remains an uncorrelated callback event and proves no setter causation, identifier
@@ -451,8 +455,8 @@ profile attachment, bonding, RFCOMM, HID, or live
 Classic support. Values stay redacted and every event remains hardware- and
 input-ineligible. Decoded values and the private event tuple live outside dataclass
 fields, so ordinary `asdict`/JSON output cannot expose them; fixed machine fields carry
-the zero-write, no-setter, no-ring, no-gesture, no-terminal, no-hardware, and no-input
-boundary instead.
+the zero-write, no-setter, no-ring, no-gesture, no-sensor-promotion, no-terminal,
+no-hardware, and no-input boundary instead.
 
 `FakeVendorPhoneVolumeSimulator` is a separate request-to-projection boundary for the
 reverse-direction `49` path. It accepts only an exact `PhoneVolumeRequest` containing

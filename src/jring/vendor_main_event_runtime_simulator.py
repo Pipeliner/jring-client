@@ -1,9 +1,10 @@
 """Bounded fake-only collector for passive events on the vendor MAIN route.
 
 The collector subscribes but never writes.  It recognizes six statically
-discriminated notification opcodes across seven event kinds and does not treat local
+discriminated notification opcodes across eight event kinds and does not treat local
 quiet or a caller limit as a wire terminal.  Shared opcode ``0x78`` is accepted only
-for exact selector ``0x09``; every motion candidate and other selector stays unrelated.
+for exact motion-candidate selectors ``0x00``/``0x01`` and touch-setting selector
+``0x09``; every other selector stays unrelated.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ from .vendor_protocol import (
     VendorStepCounter,
     parse_vendor_45_notification,
     parse_vendor_device_action,
+    parse_vendor_motion_frame,
     parse_vendor_phone_volume_request,
     parse_vendor_step_counter,
     parse_vendor_touch_mode,
@@ -46,6 +48,7 @@ class MainEventKind(str, Enum):
     CLASSIC_NAME = "classic_name"
     APP_ID = "app_id"
     TOUCH_MODE_SETTING_PROJECTION = "touch_mode_setting_projection"
+    UNKNOWN_MOTION_CHANNEL_PROJECTION = "unknown_motion_channel_projection"
 
 
 class MainEventSimulationReason(str, Enum):
@@ -134,6 +137,157 @@ class TouchModeSettingProjection:
         )
 
 
+class UnknownMotionChannelProjection:
+    """Redacted holder for one synthetic neutral G-sensor callback payload."""
+
+    __slots__ = ("_selector", "_channels")
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("unknown motion channel projections are decoder-owned")
+
+    @classmethod
+    def _create(
+        cls,
+        selector: int,
+        channels: tuple[int, int, int, int, int, int, int, int, int],
+    ) -> "UnknownMotionChannelProjection":
+        if type(selector) is not int or selector not in {0x00, 0x01}:
+            raise ValueError("motion candidate selector must be exact 0x00 or 0x01")
+        if type(channels) is not tuple or len(channels) != 9:
+            raise TypeError(
+                "motion candidate channels must be an exact nine-value tuple"
+            )
+        if any(
+            type(value) is not int or not -32_768 <= value <= 32_767
+            for value in channels
+        ):
+            raise ValueError("motion candidate channels must be signed 16-bit integers")
+        projection = object.__new__(cls)
+        object.__setattr__(projection, "_selector", selector)
+        object.__setattr__(projection, "_channels", tuple(channels))
+        return projection
+
+    def __setattr__(self, _name: str, _value: object) -> None:
+        raise AttributeError("unknown motion channel projections are immutable")
+
+    def __copy__(self) -> "UnknownMotionChannelProjection":
+        return self
+
+    def __deepcopy__(self, _memo: dict[int, object]) -> "UnknownMotionChannelProjection":
+        return self
+
+    @property
+    def projection_role(self) -> str:
+        return "source_labeled_g_sensor_callback_payload"
+
+    @property
+    def selector_scope(self) -> str:
+        return "exact_78_00_or_01"
+
+    @property
+    def channel_count(self) -> int:
+        return 9
+
+    @property
+    def channel_meaning(self) -> str:
+        return "unknown"
+
+    @property
+    def selector_meaning(self) -> str:
+        return "unknown"
+
+    @property
+    def axes(self) -> str:
+        return "not_proven"
+
+    @property
+    def units(self) -> str:
+        return "not_proven"
+
+    @property
+    def sample_interval(self) -> str:
+        return "not_proven"
+
+    @property
+    def gesture_semantics(self) -> str:
+        return "not_proven"
+
+    @property
+    def sensor_event_promoted(self) -> bool:
+        return False
+
+    @property
+    def simulation_only(self) -> bool:
+        return True
+
+    @property
+    def transport_write_invoked(self) -> bool:
+        return False
+
+    @property
+    def setter_causation_observed(self) -> bool:
+        return False
+
+    @property
+    def acknowledgement_observed(self) -> bool:
+        return False
+
+    @property
+    def wire_terminal_observed(self) -> bool:
+        return False
+
+    @property
+    def live_available(self) -> bool:
+        return False
+
+    @property
+    def ring_contacted(self) -> bool:
+        return False
+
+    @property
+    def host_input_emitted(self) -> bool:
+        return False
+
+    @property
+    def private_motion_channels_redacted(self) -> bool:
+        return True
+
+    @property
+    def hardware_verified(self) -> bool:
+        return False
+
+    @property
+    def input_eligible(self) -> bool:
+        return False
+
+    def selector_for_test(self) -> int:
+        """Return the synthetic selector only to focused offline tests."""
+
+        return self._selector
+
+    def channels_for_test(self) -> tuple[int, int, int, int, int, int, int, int, int]:
+        """Return the synthetic private channels only to focused offline tests."""
+
+        return self._channels
+
+    def __repr__(self) -> str:
+        return (
+            "UnknownMotionChannelProjection(selector=<redacted>, "
+            "channels=<redacted>, projection_role="
+            "'source_labeled_g_sensor_callback_payload', "
+            "selector_scope='exact_78_00_or_01', channel_count=9, "
+            "channel_meaning='unknown', selector_meaning='unknown', "
+            "axes='not_proven', units='not_proven', "
+            "sample_interval='not_proven', gesture_semantics='not_proven', "
+            "sensor_event_promoted=False, simulation_only=True, "
+            "transport_write_invoked=False, setter_causation_observed=False, "
+            "acknowledgement_observed=False, wire_terminal_observed=False, "
+            "live_available=False, ring_contacted=False, host_input_emitted=False, "
+            "private_motion_channels_redacted=True, "
+            "hardware_verified=False, input_eligible=False)"
+        )
+
+
 DecodedMainEvent = (
     VendorDeviceAction
     | VendorStepCounter
@@ -141,6 +295,7 @@ DecodedMainEvent = (
     | VendorClassicInfo
     | VendorRedactedTextNotification
     | TouchModeSettingProjection
+    | UnknownMotionChannelProjection
 )
 
 
@@ -152,6 +307,7 @@ _EVENT_VALUE_TYPES = MappingProxyType({
     MainEventKind.CLASSIC_NAME: VendorRedactedTextNotification,
     MainEventKind.APP_ID: VendorRedactedTextNotification,
     MainEventKind.TOUCH_MODE_SETTING_PROJECTION: TouchModeSettingProjection,
+    MainEventKind.UNKNOWN_MOTION_CHANNEL_PROJECTION: UnknownMotionChannelProjection,
 })
 _EVENT_45_KINDS = MappingProxyType({
     MainEventKind.CLASSIC_NAME: Static45Notification.CLASSIC_NAME,
@@ -218,6 +374,7 @@ class MainEventSimulationResult:
     gesture_semantics: str = field(default="not_proven", init=False)
     touch_event_observed: bool = field(default=False, init=False)
     touch_sensor_event_observed: bool = field(default=False, init=False)
+    motion_sensor_event_promoted: bool = field(default=False, init=False)
     host_input_emitted: bool = field(default=False, init=False)
     decoded_values_redacted: bool = field(default=True, init=False)
     event_storage_serialized: bool = field(default=False, init=False)
@@ -260,7 +417,8 @@ class MainEventSimulationResult:
             "setter_causation_observed=False, acknowledgement_observed=False, "
             "simulation_only=True, live_available=False, ring_contacted=False, "
             "gesture_semantics='not_proven', touch_event_observed=False, "
-            "touch_sensor_event_observed=False, host_input_emitted=False, "
+            "touch_sensor_event_observed=False, motion_sensor_event_promoted=False, "
+            "host_input_emitted=False, "
             "decoded_values_redacted=True, event_storage_serialized=False, "
             "hardware_eligible=False, "
             "hardware_verified=False, input_eligible=False)"
@@ -544,7 +702,7 @@ class FakeVendorMainEventSimulator:
             if data[1] not in _STATIC_45_EVENTS:
                 return "unrelated"
         if data[0] == 0x78:
-            if len(data) < 2 or data[1] != 0x09:
+            if len(data) < 2 or data[1] not in {0x00, 0x01, 0x09}:
                 return "unrelated"
         return "accepted" if len(data) == 20 else "malformed"
 
@@ -568,6 +726,18 @@ class FakeVendorMainEventSimulator:
                 parse_vendor_45_notification(data, expected_kind=parser_kind),
             )
         if opcode == 0x78:
+            if data[1] in {0x00, 0x01}:
+                parsed_motion = parse_vendor_motion_frame(
+                    data,
+                    expected_subcommand=data[1],
+                )
+                return MainPassiveEvent(
+                    MainEventKind.UNKNOWN_MOTION_CHANNEL_PROJECTION,
+                    UnknownMotionChannelProjection._create(
+                        parsed_motion.subcommand,
+                        parsed_motion.channels,
+                    ),
+                )
             parsed = parse_vendor_touch_mode(data)
             return MainPassiveEvent(
                 MainEventKind.TOUCH_MODE_SETTING_PROJECTION,
@@ -621,4 +791,5 @@ __all__ = [
     "MainEventSimulationResult",
     "MainPassiveEvent",
     "TouchModeSettingProjection",
+    "UnknownMotionChannelProjection",
 ]

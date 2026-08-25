@@ -621,14 +621,17 @@ def test_worship_subcommands_decode_only_their_statically_used_fields():
     assert times.value == 123_456
 
 
-def test_motion_frame_requires_an_explicit_unknown_subcommand_and_decodes_nine_i16():
+@pytest.mark.parametrize("subcommand", (0x00, 0x01, 0x22))
+def test_motion_frame_requires_an_explicit_unknown_subcommand_and_decodes_nine_i16(
+    subcommand,
+):
     channels = (-32768, -2, -1, 0, 1, 2, 300, 32767, -12345)
     encoded = b"".join(value.to_bytes(2, "little", signed=True) for value in channels)
-    data = bytes((0x78, 0x22)) + encoded
+    data = bytes((0x78, subcommand)) + encoded
 
-    result = parse_vendor_motion_frame(data, expected_subcommand=0x22)
+    result = parse_vendor_motion_frame(data, expected_subcommand=subcommand)
 
-    assert result.subcommand == 0x22
+    assert result.subcommand == subcommand
     assert result.channels == channels
     assert result.channel_meaning == "unknown"
     assert result.trailing_bytes_ignored_by_sdk is False

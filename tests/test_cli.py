@@ -1111,6 +1111,13 @@ def test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered(
     assert "passive exact 78/09 touch-mode setting projection" in output
     assert "zero fake writes" in output
     assert "not a tap, gesture, sensor event, or input action" in output
+    assert "Scripted fake only; zero writes." in output
+    assert "Exact opcode 78 selectors 00 or 01" in output
+    assert "nine private, neutral signed channel values" in output
+    assert (
+        "This does not show live motion, sensor activation, a gesture, tap, step, "
+        "button, or input action."
+    ) in output
     assert "Wi-Fi network-name response assembly" in output
     assert "no host or ring Wi-Fi scan" in output
     assert "scripted fake decoder: yes" in output
@@ -1218,6 +1225,20 @@ def test_non_health_capabilities_json_has_stable_local_taxonomy(capsys):
     assert "passive exact 78/09 touch-mode setting projection" in touch["description"]
     assert "zero writes" in touch["description"]
     assert "not a tap, gesture, sensor event, or input action" in touch["description"]
+    unknown_motion = next(
+        item
+        for item in result["capabilities"]
+        if item["name"] == "unknown_motion_channels"
+    )
+    assert unknown_motion["scripted_fake_decoder_available"] is True
+    assert unknown_motion["request_operations"] == ["setGSensorIndState"]
+    assert unknown_motion["callback_operations"] == ["onGetGSensorData"]
+    assert unknown_motion["input_eligible"] is False
+    assert "scripted fake only" in unknown_motion["description"]
+    assert "zero writes" in unknown_motion["description"]
+    assert "not a live motion event, gesture, activation, or input" in (
+        unknown_motion["description"]
+    )
     serialized = json.dumps(result).lower()
     assert "payload_bytes" not in serialized
     assert '"frame"' not in serialized
