@@ -566,6 +566,16 @@ overflow, deadline, disconnect, or cleanup failure aborts. Values remain redacte
 fake-transport lease rejects caller-preconnected transports and competing coordinators
 before I/O; cleanup therefore never closes a connection owned outside the attempt.
 
+Given the separate exact scripted host-volume coordinator and a closed request with
+explicitly caller-supplied offline values, one valid `49` request may produce one targeted fake write. Output must say
+that the fake write call returned while protocol completeness remains unknown; it must
+never say the device accepted, applied, acknowledged, or completed the projection.
+The result contains no volume values, inbound body, frame, endpoint, or exception
+detail and states that host audio was neither read nor modified. Quiet causes zero
+writes, possible post-invocation dispatch is uncertain and tainted, and the same
+coordinator cannot retry. This library-only path is distinct from volume-up/down input
+candidates and grants no CLI, live Bluetooth, owner, hardware, or input authority.
+
 The offline `ExperimentalStepCounterAdapter` demonstrates that safety contract with
 synthetic counters. It ignores the first value of each increasing connection
 generation, stale generations, duplicates, reset/wrap values, and every multi-step
@@ -800,6 +810,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_payload_projection_zero_fills_short_and_ignores_extra`, `test_raw_generic_callback_and_typed_projection_are_separate`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
 | Zero-write passive MAIN event simulation | `test_collects_only_closed_passive_main_events_without_any_write`, `test_78_motion_collision_is_unrelated_and_local_quiet_remains_unknown`, `test_queue_overflow_aborts_and_discards_partial_projection`, `test_preconnected_transport_is_rejected_without_closing_caller_connection`, `test_transport_lease_blocks_a_different_fake_coordinator_without_interference`, `test_cancellation_cleans_up_releases_single_flight_and_stales_callback` |
+| Fake-only host-volume reverse pipeline | `test_exact_device_request_projects_one_closed_response_without_claiming_ack`, `test_write_failure_is_uncertain_and_never_retried`, `test_disconnect_after_write_invocation_is_uncertain_without_retry`, `test_inbound_body_is_discarded_and_duplicate_request_cannot_change_projection`, `test_early_request_is_discarded_if_subscription_never_confirms`, `test_cancellation_after_write_invocation_taints_and_cleans_up`, `test_stale_callback_and_busy_or_wrong_types_cannot_project` |
 | Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_all_thirteen_statically_mapped_device_actions_are_discoverable_once`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors`, `test_guided_capabilities_selects_ephemerally_and_reads_metadata_only`, `test_guided_capabilities_default_no_never_constructs_transport` |
 | Owned-scope Android Bluetooth instruction inventory | `test_owned_scope_direct_instruction_aggregates_are_closed_and_reconciled`, `test_direct_instruction_family_counts_are_overlapping_not_old_reference_counts`, `test_direct_instruction_category_rows_preserve_fine_counts_and_absence_boundary` |
 | Repeated HID Report metadata | `test_repeated_hid_reports_preserve_instance_and_descriptor_metadata`, `test_repeated_hid_aggregate_is_order_independent_and_preserves_malformed_peer`, `test_bleak_gatt_inventory_enumerates_metadata_without_reading_values`, `test_cli_capability_inventory_human_copy_is_honest` |

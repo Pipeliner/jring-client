@@ -323,6 +323,14 @@ fake collector subscribes to its instance-bound synthetic response target, perfo
 zero writes, ignores ambiguous `78` motion traffic, redacts decoded values, and remains
 hardware- and input-ineligible. It is a library test surface, not a live-ring command.
 
+A separate library-only fake coordinator exercises the proven host-volume reverse
+pipeline: one exact fake `49` request can cause one closed projection of explicitly
+caller-supplied offline values on the same fake connection. It never reads or changes
+desktop audio, never accepts a generic payload, never retries an uncertain write, and
+never claims that the returned fake transport call is an application acknowledgement
+or protocol terminal. The passive collector remains strictly zero-write; neither path
+is exposed as a CLI or live Bluetooth feature.
+
 Separately, the input simulator generates a closed pair of synthetic cumulative-step
 frames, decodes them through the recovered `51` parser, baselines the first value, and
 accepts one exact increment as a neutral `step` preview. It does not consume passive

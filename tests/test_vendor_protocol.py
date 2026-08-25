@@ -633,6 +633,8 @@ def test_motion_frame_requires_an_explicit_unknown_subcommand_and_decodes_nine_i
     assert result.channel_meaning == "unknown"
     assert result.trailing_bytes_ignored_by_sdk is False
     assert result.hardware_verified is False
+    assert str(channels) not in repr(result)
+    assert "channels=<redacted>" in repr(result)
 
 
 @pytest.mark.parametrize("subcommand", [0x03, 0x07, 0x08, 0x09, 0x0B, 0x0C])

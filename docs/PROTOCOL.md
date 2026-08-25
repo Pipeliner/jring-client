@@ -489,6 +489,17 @@ overflow, timeout, disconnect, and cleanup failure abort. Opcode `78` remains ex
 because its subcommands collide across unrelated operations. No decoded event is live,
 hardware-verified, or input-eligible.
 
+The separate fake phone-volume coordinator composes the statically proven reverse
+pipeline without weakening that zero-write collector. On one connection generation,
+an exact inbound `33f4` 20-byte opcode-`49` request can trigger exactly one closed
+`PhoneVolumeRequest` projection to `33f3`. The callback has no arguments; all inbound
+trailing bytes are structurally ignored and the projected levels come solely from an
+explicit caller-supplied offline request. The shared outbound Phone-MAC opcode collision is not an
+eligible projection object. Local response-requesting write completion is recorded
+only as a returned fake transport call: application acknowledgement, wire terminal,
+semantic success, hardware support, and safe retry remain unproven. Write uncertainty
+and cleanup uncertainty are tainted and never automatically retried.
+
 The task-first non-health inventory also carries five supplemental rows that were easy
 to miss in an input-only view: Android classic attachment/profile plumbing, the
 embedded OTA helper's two RFCOMM socket methods, classic info and name callbacks, and

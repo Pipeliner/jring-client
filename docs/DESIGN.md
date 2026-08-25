@@ -413,6 +413,18 @@ remain unknown, while malformed matching events, overflow, disconnect, and clean
 failure abort. Colliding `78` traffic is unrelated. Values stay redacted and every
 event remains hardware- and input-ineligible.
 
+`FakeVendorPhoneVolumeSimulator` is a separate request-to-projection boundary for the
+reverse-direction `49` path. It accepts only an exact `PhoneVolumeRequest` containing
+explicitly caller-supplied offline values and the exact scripted fake. After current-generation MAIN
+preflight and notification activation, one exact inbound 20-byte `49` request can
+cause at most one targeted response-requesting write to `33f3`. The inbound callback
+has no arguments, so bytes 1–19 are discarded and never become projected values. The
+four outbound values come only from that closed request; the coordinator never queries
+PipeWire, PulseAudio, ALSA, telephony, or another host source. A returned fake write
+call leaves protocol completeness unknown because no application acknowledgement or
+terminal is proven. Post-invocation uncertainty taints the coordinator and prevents
+reuse. There is no CLI, live-client, hardware, input, or owner-authority path.
+
 `JRingClient.capability_inventory` concurrently requests service UUIDs and static GATT
 metadata under one deadline. The transport returns only characteristic properties and
 descriptor UUIDs; no characteristic or descriptor value is read. Known standard HID

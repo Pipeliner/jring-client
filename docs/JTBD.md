@@ -301,6 +301,11 @@ Desired outcomes:
 - Exercise device-action, cumulative-step, and host-volume-request decoding through an
   exact subscribe-only fake that performs zero writes, redacts values, and grants no
   live subscription or input authority.
+- Exercise the proven host-volume reverse pipeline separately: one exact fake request
+  may trigger one closed projection of explicitly caller-supplied offline values on
+  the same connection generation. Never read or change host audio, retry an uncertain
+  write, or mistake a local transport return for an application acknowledgement or
+  protocol terminal.
 - Distinguish discrete app-action events from cumulative step counters and raw motion;
   only the former may become direct input candidates without gesture inference.
 - Keep phone-call, location, camera-lifecycle, time-write, raw audio/image, Wi-Fi,

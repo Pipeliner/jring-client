@@ -485,13 +485,22 @@ class VendorWorshipTimes:
     hardware_verified: bool = False
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class VendorMotionFrame:
     subcommand: int
     channels: tuple[int, int, int, int, int, int, int, int, int]
     channel_meaning: str = "unknown"
     trailing_bytes_ignored_by_sdk: bool = False
     hardware_verified: bool = False
+
+    def __repr__(self) -> str:
+        return (
+            "VendorMotionFrame("
+            f"subcommand={self.subcommand!r}, channels=<redacted>, "
+            f"channel_count={len(self.channels)}, "
+            f"channel_meaning={self.channel_meaning!r}, "
+            f"hardware_verified={self.hardware_verified!r})"
+        )
 
 
 @dataclass(frozen=True)

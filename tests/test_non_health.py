@@ -83,12 +83,21 @@ def test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries():
     assert "no connect, read, or write" in rfcomm.description
     assert "actual OTA transfer uses GATT" in rfcomm.description
     assert by_name["classic_bt_info_callback"].maturity == "offline_decoder"
+    assert by_name["classic_bt_info_callback"].callback_operations == (
+        "onNotifyClassicBtInfo",
+    )
     assert by_name["classic_bt_name_callback"].meaning == "private_classic_metadata"
     assert by_name["classic_bt_name_callback"].privacy_classes == ("device_name",)
+    assert by_name["classic_bt_name_callback"].callback_operations == (
+        "onNotifyClassicBtName",
+    )
     assert by_name["host_volume_state_request"].group == "host_integration"
     assert by_name["host_volume_state_request"].scripted_fake_decoder_available is True
     assert by_name["host_volume_state_request"].privacy_classes == (
         "host_audio_state_request",
+    )
+    assert by_name["host_volume_state_request"].request_operations == (
+        "sendPhoneVolume",
     )
     assert by_name["host_volume_state_request"].callback_operations == (
         "onGetPhoneVolume",
