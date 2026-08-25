@@ -318,21 +318,31 @@ hardware-ineligible. They are not connected to `JRingClient`.
 The `33f6` parser accepts the six statically handled inbound types: one-byte AI action,
 AI state, bounded audio/image data, voice-command confirmation, and AI command type.
 Audio/image bytes are hidden from object representations and available only through an
-explicit local-use method. Unlike the APK, the clean parser requires the declared data
-length to equal the available bytes and enforces a caller-configurable maximum; it
-never silently zero-pads a truncated frame. Unknown types and undersized records fail
-closed. Static evidence provides no transaction identifier, checksum, fragmentation,
-reassembly, or dependable request/response pairing.
+explicit local-use method. Its callback projection allocates the declared length,
+copies the available prefix, zero-fills a short tail, and ignores extra bytes, while
+retaining a caller-configurable allocation and whole-frame bound. Each notification is
+independent; no cross-frame assembler was observed. Unknown types and undersized
+records fail closed in the typed parser.
+
+The typed parser is only one callback surface. Every raw characteristic change also
+reaches the generic characteristic callback with the original value: unknown or short
+typed data is therefore generic-emitted and typed-silent, while a valid known type has
+both projections. The sanitized projection model exposes only those emission states
+and never retains the generic payload. Static evidence provides no transaction
+identifier, checksum, fragmentation, reassembly, or dependable request/response
+pairing.
 
 Raw command construction is closed over the six recovered operation types, and all
 notification variants share a configurable overall frame bound. Raw notification
 control has a non-runnable static behavior model only. It records that
 the enable path requests MTU 247 and waits a fixed two seconds rather than for
-negotiation; the disable path selects an enable action for `33f6` before disabling
-separately configured endpoints. Those fields are explicitly observed APK actions,
-including the unsafe enable action on a requested disable. The model exposes neither a CCCD value nor an execute
-method. It also preserves the wider defects: descriptor submission is treated as
-success and writes are not serialized. Python does not reproduce those behaviors. A
+negotiation. Local notification state and descriptor bytes are separate: requested
+disable locally enables `33f6`, locally disables the other configured endpoints, and
+still writes the enable-notification CCCD value for every endpoint. The model exposes
+these values but has no execute method. Its callback represents the immediate
+`writeDescriptor()` queue result, not asynchronous descriptor completion. It also
+preserves the wider defects: descriptor writes are not serialized. Python does not
+reproduce those behaviors. A
 future live implementation needs a successful MTU result where required, serialized
 descriptor writes, exact acknowledgement, a real disable value, payload consent,
 bounded memory, and logs that never contain audio, image, or command bytes.
@@ -413,7 +423,8 @@ policies, not byte-for-byte callback equivalence.
 
 Raw notification length, trailing-byte, and scalar/state rules are supported only by
 the separately reviewed raw handler. The main response-dispatcher audit neither proves
-nor broadens those claims.
+nor broadens those claims. The configured whole-frame and allocation caps are Python
+hardening; the SDK handler itself has no equivalent 236-byte bound.
 
 ## Static mutation encoders
 

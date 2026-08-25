@@ -252,12 +252,14 @@ their `int32` Parcel representation, and structural parity never becomes a BLE f
 or semantic-alias claim.
 
 Raw AI/audio/image codecs remain offline and are never subscribed by ordinary client
-commands. Synthetic payload decoding rejects declared-length mismatches and configured
-size overruns, and returned object representations omit the data bytes. A raw request
+commands. Synthetic payload projection zero-fills a declared short tail, ignores extra
+bytes, enforces configured bounds, and omits data bytes from representations. Generic
+and typed callback emission are reported separately; no cross-frame assembler is
+invented. A raw request
 constructor cannot make a live write; raw notification disable is not implemented from
 the APK because its descriptor state machine is statically unsafe. The offline control
-model records the requested MTU, fixed delay, observed raw-endpoint action, and separately
-configured-endpoint action without exposing a CCCD value or executable method. It
+model records requested MTU/delay, local notification actions, always-enable CCCD
+values, and the immediate queue-result callback without an executable method. It
 therefore makes the recovered enable-on-disable defect visible without making it usable.
 
 Given `jring protocol-coverage`, a person receives a local-only summary of all request
@@ -556,7 +558,7 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_sdk_integer_parse_fields_reject_values_above_signed_ceiling`, `test_sdk_integer_parse_ceiling_is_inclusive_but_ecg_long_path_stays_unsigned`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |
 | Operation-specific acknowledgements | `test_vendor_ack_decodes_operation_specific_success_and_failure`, `test_vendor_success_only_ack_rejects_guessed_failure_branch`, `test_notify_ack_requires_the_outbound_marker_for_success`, `test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode` |
 | Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
-| Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |
+| Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_payload_projection_zero_fills_short_and_ignores_extra`, `test_raw_generic_callback_and_typed_projection_are_separate`, `test_raw_notification_control_is_evidence_not_a_runnable_plan` |
 | Offline non-health event classification | `test_device_action_decoder_classifies_input_candidates_and_side_effects`, `test_weather_action_opcode_uses_its_static_action_without_payload_guessing`, `test_step_counter_is_cumulative_and_not_a_verified_button_event`, `test_experimental_step_counter_never_replays_batches_resets_or_reconnects` |
 | Task-first non-health inventory | `test_non_health_inventory_exposes_evidence_maturity_and_live_boundaries`, `test_all_thirteen_statically_mapped_device_actions_are_discoverable_once`, `test_non_health_capabilities_are_local_task_first_and_screen_reader_ordered`, `test_non_health_capabilities_json_has_stable_local_taxonomy`, `test_non_health_capabilities_rejects_unrelated_runtime_selectors` |
 | Repeated HID Report metadata | `test_repeated_hid_reports_preserve_instance_and_descriptor_metadata`, `test_cli_capability_inventory_human_copy_is_honest` |

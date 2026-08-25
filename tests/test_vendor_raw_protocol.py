@@ -4,9 +4,11 @@ from jring.protocol import ProtocolError
 from jring.uuids import VENDOR_CHARACTERISTIC_33F5, VENDOR_CHARACTERISTIC_33F6
 from jring.vendor_raw_protocol import (
     RawNotificationControlEvidence,
+    RawTypedCallbackState,
     RawCommandOperation,
     StaticRawCommand,
     analyze_raw_notification_control,
+    analyze_raw_callback_projection,
     encode_raw_ai_audio_state,
     encode_raw_ai_command_type,
     encode_raw_ai_extra_action,
@@ -18,14 +20,36 @@ from jring.vendor_raw_protocol import (
 
 
 @pytest.mark.parametrize(
-    "enabled,mtu,delay_ms,raw_cccd_action,dynamic_cccd_action",
+    "data,state",
+    [
+        (bytes(7), RawTypedCallbackState.SILENT_SHORT),
+        ((0xFFFF).to_bytes(2, "little") + bytes(6), RawTypedCallbackState.SILENT_UNKNOWN),
+        ((0x0001).to_bytes(2, "little") + bytes(6), RawTypedCallbackState.SILENT_SHORT),
+        ((0x0001).to_bytes(2, "little") + bytes(7), RawTypedCallbackState.EMITTED),
+        ((0x0002).to_bytes(2, "little") + bytes(6), RawTypedCallbackState.EMITTED),
+        ((0x0006).to_bytes(2, "little") + bytes(7), RawTypedCallbackState.SILENT_SHORT),
+        ((0x0006).to_bytes(2, "little") + bytes(8), RawTypedCallbackState.EMITTED),
+    ],
+)
+def test_raw_generic_callback_and_typed_projection_are_separate(data, state):
+    evidence = analyze_raw_callback_projection(data)
+
+    assert evidence.generic_characteristic_callback_emitted is True
+    assert evidence.typed_callback_state is state
+    assert evidence.cross_frame_assembly_observed is False
+    assert evidence.runnable is False
+    assert evidence.hardware_eligible is False
+
+
+@pytest.mark.parametrize(
+    "enabled,mtu,delay_ms,raw_local,other_local",
     [
         (True, 247, 2000, "enable", "enable"),
         (False, None, 0, "enable", "disable"),
     ],
 )
 def test_raw_notification_control_is_evidence_not_a_runnable_plan(
-    enabled, mtu, delay_ms, raw_cccd_action, dynamic_cccd_action
+    enabled, mtu, delay_ms, raw_local, other_local
 ):
     evidence = analyze_raw_notification_control(enabled)
 
@@ -33,8 +57,12 @@ def test_raw_notification_control_is_evidence_not_a_runnable_plan(
     assert evidence.requested_enabled is enabled
     assert evidence.requested_mtu == mtu
     assert evidence.fixed_delay_ms == delay_ms
-    assert evidence.observed_raw_cccd_action == raw_cccd_action
-    assert evidence.observed_other_endpoints_action == dynamic_cccd_action
+    assert evidence.raw_local_notification_action == raw_local
+    assert evidence.raw_cccd_value == "enable"
+    assert evidence.other_local_notification_action == other_local
+    assert evidence.other_cccd_value == "enable"
+    assert evidence.callback_reports_descriptor_queue_result is True
+    assert evidence.async_descriptor_completion_observed is False
     assert evidence.endpoint_uuid == VENDOR_CHARACTERISTIC_33F6
     assert evidence.safe_live_plan_available is False
     assert evidence.hardware_eligible is False
@@ -42,7 +70,6 @@ def test_raw_notification_control_is_evidence_not_a_runnable_plan(
     assert evidence.maturity == "static_apk_only"
     assert evidence.unsafe_recovered_branch is True
     assert not hasattr(evidence, "execute")
-    assert not hasattr(evidence, "cccd_value")
 
 
 def test_raw_notification_control_requires_a_real_boolean():
@@ -55,8 +82,10 @@ def test_raw_notification_control_requires_a_real_boolean():
             requested_enabled=True,
             requested_mtu=247,
             fixed_delay_ms=0,
-            observed_raw_cccd_action="disable",
-            observed_other_endpoints_action="disable",
+            raw_local_notification_action="disable",
+            raw_cccd_value="disable",
+            other_local_notification_action="disable",
+            other_cccd_value="disable",
         )
 
 
@@ -177,12 +206,40 @@ def test_raw_payload_notification_is_bounded_and_hidden_from_repr(raw_type, kind
         (0xFFFF).to_bytes(2, "little") + bytes(6),
         (0x0001).to_bytes(2, "little") + bytes(6),
         (0x0006).to_bytes(2, "little") + bytes(7),
-        (0x0002).to_bytes(2, "little") + bytes(4) + (3).to_bytes(2, "little") + bytes(2),
     ],
 )
-def test_raw_notification_decoder_rejects_short_unknown_and_truncated_data(data):
+def test_raw_notification_decoder_rejects_short_and_unknown_typed_data(data):
     with pytest.raises(ProtocolError):
         parse_raw_vendor_notification(data)
+
+
+@pytest.mark.parametrize("raw_type", [0x0002, 0x0003])
+def test_raw_payload_projection_zero_fills_short_and_ignores_extra(raw_type):
+    def frame(declared, payload):
+        return (
+            raw_type.to_bytes(2, "little")
+            + (0x1234).to_bytes(2, "little")
+            + (0x5678).to_bytes(2, "little")
+            + declared.to_bytes(2, "little")
+            + payload
+        )
+
+    short = parse_raw_vendor_notification(frame(3, bytes((0xAA,))))
+    extra = parse_raw_vendor_notification(frame(1, bytes((0xAA, 0xBB, 0xCC))))
+    zero = parse_raw_vendor_notification(frame(0, bytes((0xAA,))))
+
+    assert short.payload_for_explicit_local_use() == bytes((0xAA, 0, 0))
+    assert short.received_payload_bytes == 1
+    assert short.zero_filled_bytes == 2
+    assert short.trailing_bytes_ignored == 0
+    assert extra.payload_for_explicit_local_use() == bytes((0xAA,))
+    assert extra.received_payload_bytes == 1
+    assert extra.zero_filled_bytes == 0
+    assert extra.trailing_bytes_ignored == 2
+    assert zero.payload_for_explicit_local_use() == b""
+    assert zero.received_payload_bytes == 0
+    assert zero.zero_filled_bytes == 0
+    assert zero.trailing_bytes_ignored == 1
 
 
 def test_raw_payload_decoder_enforces_explicit_size_bound():

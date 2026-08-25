@@ -18,6 +18,61 @@ class RawCommandOperation(str, Enum):
     AI_COMMAND_TYPE = "ai_command_type"
 
 
+class RawTypedCallbackState(str, Enum):
+    EMITTED = "emitted"
+    SILENT_SHORT = "silent_short"
+    SILENT_UNKNOWN = "silent_unknown"
+
+
+@dataclass(frozen=True, init=False, repr=False)
+class RawCallbackProjectionEvidence:
+    generic_characteristic_callback_emitted: bool
+    typed_callback_state: RawTypedCallbackState
+    cross_frame_assembly_observed: bool
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise TypeError("use analyze_raw_callback_projection()")
+
+    @property
+    def runnable(self) -> bool:
+        return False
+
+    @property
+    def hardware_eligible(self) -> bool:
+        return False
+
+    @property
+    def hardware_verified(self) -> bool:
+        return False
+
+
+def analyze_raw_callback_projection(data: bytes) -> RawCallbackProjectionEvidence:
+    """Classify generic and typed callback emission without retaining raw bytes."""
+
+    if not isinstance(data, bytes):
+        raise TypeError("raw callback data must be bytes")
+    state = RawTypedCallbackState.SILENT_SHORT
+    if len(data) >= 8:
+        raw_type = int.from_bytes(data[0:2], "little")
+        minimum = {
+            0x0001: 9,
+            0x0002: 8,
+            0x0003: 8,
+            0x0006: 10,
+            0x0009: 9,
+            0x000A: 9,
+        }.get(raw_type)
+        if minimum is None:
+            state = RawTypedCallbackState.SILENT_UNKNOWN
+        elif len(data) >= minimum:
+            state = RawTypedCallbackState.EMITTED
+    evidence = object.__new__(RawCallbackProjectionEvidence)
+    object.__setattr__(evidence, "generic_characteristic_callback_emitted", True)
+    object.__setattr__(evidence, "typed_callback_state", state)
+    object.__setattr__(evidence, "cross_frame_assembly_observed", False)
+    return evidence
+
+
 @dataclass(frozen=True, init=False, repr=False)
 class StaticRawCommand:
     operation: RawCommandOperation
@@ -65,8 +120,12 @@ class RawNotificationControlEvidence:
     requested_enabled: bool
     requested_mtu: int | None
     fixed_delay_ms: int
-    observed_raw_cccd_action: str
-    observed_other_endpoints_action: str
+    raw_local_notification_action: str
+    raw_cccd_value: str
+    other_local_notification_action: str
+    other_cccd_value: str
+    callback_reports_descriptor_queue_result: bool
+    async_descriptor_completion_observed: bool
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise TypeError("use analyze_raw_notification_control()")
@@ -78,19 +137,21 @@ class RawNotificationControlEvidence:
         requested_enabled: bool,
         requested_mtu: int | None,
         fixed_delay_ms: int,
-        observed_raw_cccd_action: str,
-        observed_other_endpoints_action: str,
+        raw_local_notification_action: str,
+        raw_cccd_value: str,
+        other_local_notification_action: str,
+        other_cccd_value: str,
     ) -> "RawNotificationControlEvidence":
         instance = object.__new__(cls)
         object.__setattr__(instance, "requested_enabled", requested_enabled)
         object.__setattr__(instance, "requested_mtu", requested_mtu)
         object.__setattr__(instance, "fixed_delay_ms", fixed_delay_ms)
-        object.__setattr__(instance, "observed_raw_cccd_action", observed_raw_cccd_action)
-        object.__setattr__(
-            instance,
-            "observed_other_endpoints_action",
-            observed_other_endpoints_action,
-        )
+        object.__setattr__(instance, "raw_local_notification_action", raw_local_notification_action)
+        object.__setattr__(instance, "raw_cccd_value", raw_cccd_value)
+        object.__setattr__(instance, "other_local_notification_action", other_local_notification_action)
+        object.__setattr__(instance, "other_cccd_value", other_cccd_value)
+        object.__setattr__(instance, "callback_reports_descriptor_queue_result", True)
+        object.__setattr__(instance, "async_descriptor_completion_observed", False)
         return instance
 
     @property
@@ -131,8 +192,10 @@ def analyze_raw_notification_control(enabled: bool) -> RawNotificationControlEvi
         requested_enabled=enabled,
         requested_mtu=247 if enabled else None,
         fixed_delay_ms=2000 if enabled else 0,
-        observed_raw_cccd_action="enable",
-        observed_other_endpoints_action="enable" if enabled else "disable",
+        raw_local_notification_action="enable",
+        raw_cccd_value="enable",
+        other_local_notification_action="enable" if enabled else "disable",
+        other_cccd_value="enable",
     )
 
 
@@ -166,6 +229,9 @@ class RawPayloadNotification(RawVendorNotification):
     first_value: int
     second_value: int
     declared_length: int
+    received_payload_bytes: int
+    zero_filled_bytes: int
+    trailing_bytes_ignored: int
     _payload: bytes = field(repr=False)
 
     def payload_for_explicit_local_use(self) -> bytes:
@@ -239,16 +305,19 @@ def parse_raw_vendor_notification(
     if raw_type in {0x0002, 0x0003}:
         declared_length = int.from_bytes(data[6:8], "little")
         payload = data[8:]
-        if declared_length != len(payload):
-            raise ProtocolError("raw vendor payload length does not match frame")
         if declared_length > max_payload_bytes:
             raise ProtocolError("raw vendor payload exceeds configured bound")
+        received = min(declared_length, len(payload))
+        projected = payload[:declared_length].ljust(declared_length, b"\x00")
         return RawPayloadNotification(
             kind="audio" if raw_type == 0x0002 else "image",
             first_value=int.from_bytes(data[2:4], "little"),
             second_value=int.from_bytes(data[4:6], "little"),
             declared_length=declared_length,
-            _payload=bytes(payload),
+            received_payload_bytes=received,
+            zero_filled_bytes=declared_length - received,
+            trailing_bytes_ignored=max(0, len(payload) - declared_length),
+            _payload=bytes(projected),
         )
     if raw_type == 0x0006:
         if len(data) < 10:

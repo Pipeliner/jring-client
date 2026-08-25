@@ -51,6 +51,9 @@ Date: 2026-08-24
 | Same-spelled request and callback methods could collapse | Interface roles preserve both `setAutoHeartMode` rows without name-only joining |
 | Declaration parity hid transaction and marshalling drift | A 217-row Binder crosswalk verifies contiguous IDs, all four surfaces, ordered Parcel kinds, reply handshakes, and synchronous mode |
 | Parcel `int32` erased boolean meaning | Each row exposes semantic kinds separately from its Parcel representation |
+| Local notification state was mislabeled as a CCCD action | Raw control evidence separates local toggles, always-enable descriptor bytes, queue-result callback, and asynchronous completion |
+| Strict payload length was called callback-equivalent | Typed raw payloads now model bounded per-frame zero-fill/truncation and label the whole-frame cap as hardening |
+| Typed raw parsing hid the generic callback | Projection evidence shows generic delivery separately, including typed-silent short and unknown frames |
 | Backend errors could leak addresses or BlueZ paths | The final error boundary redacts identifiers, paths, and long payload hex |
 | Address selection required a sensitive argv value | Mode-0600 `--address-file` is the documented path; argv is marked legacy |
 | History silently replaced an existing file | Existing exports require `--force` |
