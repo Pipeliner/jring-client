@@ -139,9 +139,11 @@ draining, alarm partial-enqueue behavior, and dial-state queue clearing are expl
 not reproduced.
 The report also gives every deterministic request codec one request/callback
 correlation row. Proven single responses, shared streams, stateful families, raw event
-candidates, callback-silent failures, and explicit unknowns remain distinct. Twenty
-rows are wholly unclosed, while 58 of 85 retain at least one explicit caveat. Terminal
-rules comprise 36 single matched responses, 29 with no proven terminal, 17 per-frame
+candidates, callback-silent failures, and explicit unknowns remain distinct. Nineteen
+rows are wholly unclosed, while 58 of 85 retain at least one explicit caveat. The phone
+volume path is modeled as an inbound device request followed by an outbound host-state
+projection, never as an acknowledgement. Terminal rules comprise 36 single matched
+responses, 29 with no proven terminal, 17 per-frame
 only, two local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown.
 Local quiet is never promoted to success, and matching requires an operation token
 plus connection generation.

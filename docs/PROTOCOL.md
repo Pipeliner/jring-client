@@ -198,7 +198,9 @@ response correlation, safe retry, or hardware support.
 A closed correlation ledger now accounts for all 85 deterministic request codecs.
 Forty-seven have exact single-frame callback eligibility, one has exact branching,
 six are shared streams, five are shared/stateful, six raw rows are unproven event
-candidates, and 20 remain explicitly unresolved. These are dispatcher relationships,
+candidates, and 19 remain explicitly unresolved. The phone-volume pair is instead a
+reverse-direction pipeline: an inbound request causes an outbound host-state projection,
+without proving any acknowledgement or terminal. These are dispatcher relationships,
 not transaction proof: the source has no wire transaction identifier and its wait state
 is not operation-bound. Safe matching therefore requires endpoint, discriminator,
 operation token, and connection generation; silence and local idle remain unknown.

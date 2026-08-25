@@ -285,6 +285,10 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     ) in output
     assert "Target instruction reviews not performed: 0." in output
     assert "Artifact-surface completeness: not established." in output
+    assert (
+        "Packaged DEX scope inventory: 3/3 units classified; 1 owned scope; "
+        "2 no owned scope; complete instruction review not established."
+    ) in output
     assert "AIDL interface parity: 112 requests; 105 callbacks; 0 missing rows." in output
     assert "Exclusive owned method classification: 903 methods across 125 classes." in output
     assert "Dynamic receiver gaps: 3 registered actions without cases" in output
@@ -318,7 +322,7 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     ) in output
     assert (
         "Request/callback correlation: 85/85 deterministic request rows; "
-        "0 unspecified; 20 wholly unclosed; 58 carry explicit caveats."
+        "0 unspecified; 19 wholly unclosed; 58 carry explicit caveats."
     ) in output
     assert (
         "Terminal rules: 36 single matched response; 29 none proven; "
@@ -377,7 +381,7 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["summary"]["request_builder_front_inserted"] == 2
     assert result["summary"]["request_correlation_rows"] == 85
     assert result["summary"]["request_correlation_unspecified"] == 0
-    assert result["summary"]["request_correlation_explicitly_unresolved"] == 20
+    assert result["summary"]["request_correlation_explicitly_unresolved"] == 19
     assert result["summary"]["request_correlation_rows_with_caveats"] == 58
     assert result["summary"]["request_correlation_terminal_rules"] == [
         {"rule": "local_quiet_unknown", "count": 2},
@@ -484,7 +488,7 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert request_builders["hardware_verified"] is False
     assert len(request_correlations["rows"]) == 85
     assert request_correlations["unspecified_count"] == 0
-    assert request_correlations["explicitly_unresolved_count"] == 20
+    assert request_correlations["explicitly_unresolved_count"] == 19
     assert request_correlations["rows_with_unresolved_reasons_count"] == 58
     assert request_correlations["terminal_rule_counts"] == [
         {"rule": "local_quiet_unknown", "count": 2},
@@ -532,6 +536,17 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert all(row["runnable"] is False for row in callback_surfaces)
     assert all(row["hardware_eligible"] is False for row in callback_surfaces)
     assert artifact["interface_entries"] is False
+    assert artifact["packaged_dex_scope"]["inventory_unit_count"] == 3
+    assert artifact["packaged_dex_scope"]["classified_unit_count"] == 3
+    assert artifact["packaged_dex_scope"]["unclassified_unit_count"] == 0
+    assert (
+        artifact["packaged_dex_scope"]["inventory_scope_classification_complete"]
+        is True
+    )
+    assert (
+        artifact["packaged_dex_scope"]["complete_dex_instruction_review_completed"]
+        is False
+    )
     assert artifact["source_recovery_completeness"] == "not_established"
     assert artifact["complete_artifact_coverage"] is False
     assert artifact["reflection_or_dynamic_activation_exhaustively_disproved"] is False

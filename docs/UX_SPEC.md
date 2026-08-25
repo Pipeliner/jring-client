@@ -303,7 +303,7 @@ therefore makes the recovered enable-on-disable defect visible without making it
 
 Given `jring protocol-coverage`, a person receives a local-only summary of all request
 and callback entries, offline codec counts, route/source totals, and zero live or
-hardware-verified vendor operations. Correlation reporting distinguishes the 20 wholly
+hardware-verified vendor operations. Correlation reporting distinguishes the 19 wholly
 unclosed rows from all 58 rows carrying explicit caveats and enumerates every terminal
 rule: 36 single matched responses, 29 with no proven terminal, 17 per-frame-only, two
 local-quiet-unknown, and one metadata-or-marker-else-local-quiet-unknown. It never
@@ -317,7 +317,12 @@ marker, scoped-denominator, warning, and fallback-pass facts one per line. It sa
 counts are different measurements and names complete semantic source review, complete
 smali/instruction review, and complete DEX coverage as unperformed or unclaimed. Every
 scoped zero is paired with its outputs-scanned denominator and the final hardware count
-remains zero. A following owned-scope warning audit names the 11 application and 21
+remains zero. The artifact supplement also reports all three packaged DEX units as
+scope-classified:
+one owned application/embedded-SDK unit and two without owned scope. It says in the
+same line that complete instruction review is not established, so inventory coverage
+cannot be read as semantic recovery. A following owned-scope warning audit names the
+11 application and 21
 embedded-SDK file population, their 29 and 62 warning occurrences, two same-tool surface
 corroborations, one historical comparison divergence, and separate risk-first counts for
 contradicted, inconclusive, confirmed, and not-performed instruction reviews.

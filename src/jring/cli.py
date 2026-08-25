@@ -773,6 +773,20 @@ def _protocol_coverage_payload() -> dict[str, object]:
             },
             "artifact_surface": {
                 **asdict(artifact),
+                "packaged_dex_scope": {
+                    **asdict(artifact.packaged_dex_scope),
+                    "classified_unit_count": (
+                        artifact.packaged_dex_scope.classified_unit_count
+                    ),
+                    "inventory_scope_classification_complete": (
+                        artifact.packaged_dex_scope.inventory_scope_classification_complete
+                    ),
+                    "runnable": artifact.packaged_dex_scope.runnable,
+                    "python_callable": artifact.packaged_dex_scope.python_callable,
+                    "hardware_eligible": artifact.packaged_dex_scope.hardware_eligible,
+                    "hardware_verified": artifact.packaged_dex_scope.hardware_verified,
+                    "owner_authorized": artifact.packaged_dex_scope.owner_authorized,
+                },
                 "interface_entries": artifact.interface_entries,
                 "source_recovery_completeness": (
                     artifact.source_recovery_completeness
@@ -880,6 +894,15 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
     print("This audit is not exhaustive for dependency or transitive Bluetooth behavior.")
     artifact = payload["supplemental"]["artifact_surface"]
     print("Artifact-surface completeness: not established.")
+    dex_scope = artifact["packaged_dex_scope"]
+    print(
+        "Packaged DEX scope inventory: "
+        f"{dex_scope['classified_unit_count']}/"
+        f"{dex_scope['inventory_unit_count']} units classified; "
+        f"{dex_scope['owned_application_or_sdk_scope_unit_count']} owned scope; "
+        f"{dex_scope['no_owned_application_or_sdk_scope_unit_count']} no owned scope; "
+        "complete instruction review not established."
+    )
     print(
         "Dynamic receiver gaps: "
         f"{artifact['dynamic_receiver_surface']['primary_unhandled_action_count']} "

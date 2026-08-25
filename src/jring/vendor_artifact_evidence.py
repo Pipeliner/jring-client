@@ -261,9 +261,58 @@ class DynamicActivationSurfaceEvidence(_ClosedEvidence):
 
 
 @dataclass(frozen=True, init=False, repr=False)
+class PackagedDexScopeEvidence(_ClosedEvidence):
+    """Aggregate inventory classification, never semantic DEX review evidence."""
+
+    inventory_unit_count: int
+    owned_application_or_sdk_scope_unit_count: int
+    no_owned_application_or_sdk_scope_unit_count: int
+    unclassified_unit_count: int
+    complete_semantic_source_review_completed: bool
+    complete_smali_review_completed: bool
+    complete_dex_instruction_review_completed: bool
+    semantic_correctness_established: bool
+
+    @property
+    def classified_unit_count(self) -> int:
+        return (
+            self.owned_application_or_sdk_scope_unit_count
+            + self.no_owned_application_or_sdk_scope_unit_count
+        )
+
+    @property
+    def inventory_scope_classification_complete(self) -> bool:
+        return (
+            self.unclassified_unit_count == 0
+            and self.classified_unit_count == self.inventory_unit_count
+        )
+
+    @property
+    def runnable(self) -> bool:
+        return False
+
+    @property
+    def python_callable(self) -> bool:
+        return False
+
+    @property
+    def hardware_eligible(self) -> bool:
+        return False
+
+    @property
+    def hardware_verified(self) -> bool:
+        return False
+
+    @property
+    def owner_authorized(self) -> bool:
+        return False
+
+
+@dataclass(frozen=True, init=False, repr=False)
 class RecoveredArtifactSurfaceEvidence(_ClosedEvidence):
     dex_unit_count: int
     scoped_dex_unit_count: int
+    packaged_dex_scope: PackagedDexScopeEvidence
     application_smali_class_file_count: int
     embedded_sdk_smali_class_file_count: int
     exclusive_classified_method_count: int
@@ -599,10 +648,23 @@ _DYNAMIC_ACTIVATION = _closed_instance(
     ),
 )
 
+_PACKAGED_DEX_SCOPE = _closed_instance(
+    PackagedDexScopeEvidence,
+    inventory_unit_count=3,
+    owned_application_or_sdk_scope_unit_count=1,
+    no_owned_application_or_sdk_scope_unit_count=2,
+    unclassified_unit_count=0,
+    complete_semantic_source_review_completed=False,
+    complete_smali_review_completed=False,
+    complete_dex_instruction_review_completed=False,
+    semantic_correctness_established=False,
+)
+
 _EVIDENCE = _closed_instance(
     RecoveredArtifactSurfaceEvidence,
     dex_unit_count=3,
     scoped_dex_unit_count=1,
+    packaged_dex_scope=_PACKAGED_DEX_SCOPE,
     application_smali_class_file_count=1_094,
     embedded_sdk_smali_class_file_count=138,
     exclusive_classified_method_count=903,
@@ -642,6 +704,7 @@ __all__ = [
     "OwnedCodeScope",
     "OwnedReflectionCategory",
     "OwnedReflectionSurface",
+    "PackagedDexScopeEvidence",
     "RecoveredArtifactSurfaceEvidence",
     "ResourceSurfaceEvidence",
     "recovered_artifact_surface_evidence",

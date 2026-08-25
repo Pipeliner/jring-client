@@ -214,6 +214,19 @@ _OVERRIDES: dict[str, dict[str, object]] = {
         "state": "shared_stream", "shared": True,
         "unresolved": ("whole_scan_terminal_not_proven",),
     },
+    "sendPhoneVolume": {
+        "request_discriminator": (
+            "inbound_opcode_49_onGetPhoneVolume_triggers_outbound_host_volume_projection"
+        ),
+        "predicates": (),
+        "callbacks": ("onGetPhoneVolume",),
+        "multiplicity": "one_outbound_projection_per_inbound_callback",
+        "terminal_rule": "none_proven",
+        "failure_delivery": "none_proven",
+        "state": "reverse_direction_pipeline",
+        "shared": True,
+        "unresolved": ("outbound_projection_ack_and_terminal_not_proven",),
+    },
 }
 
 

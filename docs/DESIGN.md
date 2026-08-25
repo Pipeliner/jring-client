@@ -165,6 +165,10 @@ exports, reflection, and Binder. The public aggregate retains only sanitized cou
 closed categories, mismatches, and limitations. Its method categories are mutually
 exclusive, while the direct Android API family counts are a separately labeled
 non-interface view. Neither count is added to the 112/105 ledgers.
+The public aggregate makes the packaged-unit partition explicit: all three units are
+scope-classified, one contains the owned application/embedded-SDK population, and two
+contain no owned-scope population. This inventory reconciliation is deliberately
+separate from semantic, smali, and instruction completeness, which remain unestablished.
 
 The 16 callbacks outside the wire-opcode decoder have a separate closed behavior
 surface. Fourteen observed Android, network, OTA, scan, and transport dispatches are
@@ -199,11 +203,13 @@ alarm batching and dial-state queue mutation divergences explicit and remains st
 non-callable, and hardware-ineligible.
 
 Request/callback correlation is a third view over the 85 deterministic request codecs.
-Each request has exactly one closed row, including 20 explicitly unresolved rows and
+Each request has exactly one closed row, including 19 explicitly unresolved rows and
 zero unspecified rows. The model preserves endpoint role, opcode/subcommand or marker
 predicates, ordered callback projections, multiplicity, direct versus silent failure,
 and terminal rules. Raw typed notifications remain event candidates rather than
-acknowledgements. Local idle never means success, unrelated events never extend a
+acknowledgements. The phone-volume callback is an inbound request that causes an
+outbound host-state projection; its shared opcode is not treated as an acknowledgement.
+Local idle never means success, unrelated events never extend a
 deadline, and an uncertain accepted write is never automatically retried.
 
 The exact-type fake runtime accepts closed operation factories for the seven static

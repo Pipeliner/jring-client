@@ -42,6 +42,31 @@ def test_all_dex_interface_declarations_exactly_match_public_ledgers():
     assert len(static_vendor_callback_coverage()) == 105
 
 
+def test_all_packaged_dex_units_have_sanitized_scope_classification_only():
+    evidence = recovered_artifact_surface_evidence()
+    scope = evidence.packaged_dex_scope
+
+    assert scope.inventory_unit_count == evidence.dex_unit_count == 3
+    assert (
+        scope.owned_application_or_sdk_scope_unit_count
+        == evidence.scoped_dex_unit_count
+        == 1
+    )
+    assert scope.no_owned_application_or_sdk_scope_unit_count == 2
+    assert scope.unclassified_unit_count == 0
+    assert scope.classified_unit_count == scope.inventory_unit_count
+    assert scope.inventory_scope_classification_complete is True
+    assert scope.complete_semantic_source_review_completed is False
+    assert scope.complete_smali_review_completed is False
+    assert scope.complete_dex_instruction_review_completed is False
+    assert scope.semantic_correctness_established is False
+    assert scope.runnable is False
+    assert scope.python_callable is False
+    assert scope.hardware_eligible is False
+    assert scope.hardware_verified is False
+    assert scope.owner_authorized is False
+
+
 def test_call_and_dispatch_links_are_evidence_not_new_interface_rows():
     links = recovered_artifact_surface_evidence().interface_links
 
@@ -265,7 +290,8 @@ def test_artifact_evidence_is_closed_sanitized_and_without_runtime_authority():
         evidence.method_surfaces = ()
 
     for model in (
-        type(evidence), type(evidence.interface_parity), type(evidence.interface_links),
+        type(evidence), type(evidence.packaged_dex_scope),
+        type(evidence.interface_parity), type(evidence.interface_links),
         type(evidence.method_surfaces[0]), type(evidence.android_api_surfaces[0]),
         type(evidence.manifest_surface), type(evidence.dynamic_receiver_surface),
         type(evidence.resource_surface), type(evidence.native_surface),
@@ -278,9 +304,11 @@ def test_artifact_evidence_is_closed_sanitized_and_without_runtime_authority():
     forbidden = {
         "path", "source", "class_name", "method_name", "descriptor", "prototype",
         "digest", "fingerprint", "offset", "resource_name", "action_name",
+        "unit_name", "unit_ordinal", "locator",
     }
     for model in (
-        type(evidence), type(evidence.interface_parity), type(evidence.interface_links),
+        type(evidence), type(evidence.packaged_dex_scope),
+        type(evidence.interface_parity), type(evidence.interface_links),
         type(evidence.method_surfaces[0]), type(evidence.android_api_surfaces[0]),
         type(evidence.manifest_surface), type(evidence.dynamic_receiver_surface),
         type(evidence.resource_surface), type(evidence.native_surface),

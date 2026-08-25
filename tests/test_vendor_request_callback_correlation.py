@@ -19,7 +19,7 @@ def test_every_deterministic_request_has_one_closed_correlation_row():
     assert all(row.relationship_state != "unspecified" for row in rows.values())
     assert all(row.callbacks or row.unresolved_reasons for row in rows.values())
     assert evidence.unspecified_count == 0
-    assert evidence.explicitly_unresolved_count == 20
+    assert evidence.explicitly_unresolved_count == 19
     assert evidence.rows_with_unresolved_reasons_count == 58
     assert evidence.terminal_rule_counts == (
         ("local_quiet_unknown", 2),
@@ -84,6 +84,36 @@ def test_streaming_shared_and_local_idle_rules_never_claim_success_from_quiet():
     assert rows["getEcgHistory"].terminal_rule == "none_proven"
     assert rows["scanWifi"].terminal_rule == "none_proven"
     assert all(row.quiet_means_success is False for row in rows.values())
+
+
+def test_phone_volume_is_an_inbound_request_then_outbound_projection_not_an_ack():
+    rows = {row.request: row for row in recovered_request_callback_correlations().rows}
+    volume = rows["sendPhoneVolume"]
+
+    assert volume.request_discriminator == (
+        "inbound_opcode_49_onGetPhoneVolume_triggers_outbound_host_volume_projection"
+    )
+    assert volume.accepted_response_predicates == ()
+    assert volume.callbacks == ("onGetPhoneVolume",)
+    assert volume.multiplicity == "one_outbound_projection_per_inbound_callback"
+    assert volume.terminal_rule == "none_proven"
+    assert volume.failure_delivery == "none_proven"
+    assert volume.relationship_state == "reverse_direction_pipeline"
+    assert volume.shared_or_unsolicited is True
+    assert volume.unresolved_reasons == (
+        "outbound_projection_ack_and_terminal_not_proven",
+    )
+    assert volume.quiet_means_success is False
+
+    phone_mac = rows["setPhoneMac"]
+    assert phone_mac.request_discriminator == "statically_recovered_request_codec"
+    assert phone_mac.accepted_response_predicates == ()
+    assert phone_mac.callbacks == ()
+    assert phone_mac.terminal_rule == "none_proven"
+    assert phone_mac.relationship_state == "explicitly_unresolved"
+    assert phone_mac.unresolved_reasons == (
+        "exact_response_relationship_not_statically_closed",
+    )
 
 
 def test_correlation_evidence_is_closed_sanitized_and_non_authorizing():
