@@ -67,6 +67,7 @@ vendor implementation or hardware verification.
 | Novice or screen-reader user | Zero generic correlation rows sounds like completion | Put the static-classification-only warning immediately after the zero and before terminal counts | 58 caveated rows, 29 no-proven-terminal rows, parity `false`, live `0`, and hardware `0` remain visible |
 | Automation or protocol user | A parsed callback value looks like transaction success | Report the complete fake-singleton denominator and reject non-terminals before fake I/O | Only 36 statically matched-terminal rows may enter the fake engine; all 85 rows remain live-, owner-, and hardware-ineligible |
 | History user | Local quiet follows generic history data | Label the local end projection incomplete instead of saying the device finished | Only detail wire/metadata evidence can confirm completion; a caller limit emits no end |
+| Novice, screen-reader, or automation owner | A local operation failed, disconnected, was offline, or timed out | Lead with one closed gate verdict, then exact sanitized scope, basis, dispatch, cleanup, unchanged runtime, no network/binding/bypass, and recovery | Synthetic/coarse/unreviewed evidence can only preserve uncertainty; production gate decisions remain unavailable until #49 and gate-specific review |
 
 Across every row, logs and errors omit Bluetooth addresses, cloud identifiers, frame
 bytes, raw measurements, and decompiled-source details. Simulation provenance remains

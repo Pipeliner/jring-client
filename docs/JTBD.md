@@ -453,3 +453,27 @@ provenance, optional data cannot hide capabilities, errors redact identifiers, a
 destructive export replacement is explicit. Actual JRing motion events stay blocked
 until owner-authorized evidence establishes their protocol and the live-input safety
 state machine is specified.
+
+### Understand a possible vendor-authorization gate without contacting it
+
+When a reviewed local operation succeeds or fails, I want an offline, operation-bound
+explanation that distinguishes a proven local gate from ordinary transport uncertainty,
+so I do not mistake a timeout for account trouble or send identifiers to a vendor.
+
+Desired outcomes:
+
+- Require exact model, firmware point build, backend, operation, and decision-version
+  scope; never fall back to a firmware major or operation family.
+- Say a successful observation did not encounter a gate, not that the firmware is
+  globally ungated or that another live run is authorized.
+- Preserve generic failure, malformed traffic, route absence, disconnect, failed
+  control, cleanup uncertainty, offline state, and timeout without inventing a gate.
+- Recognize a blocked gate only from a separately approved exact denial contract or a
+  reviewed ordered denial/success differential after legitimate owner authorization.
+- Never contact a vendor service, reproduce application state, suggest a bypass, bind,
+  retry, or turn the classification into runtime authority.
+
+The complete state, privacy, and accessibility contract is in
+[VENDOR_AUTHORIZATION_GATES.md](VENDOR_AUTHORIZATION_GATES.md). Production terminal
+verdicts remain unavailable until #49 and real reviewed owner evidence close the named
+scope and receipt blockers.

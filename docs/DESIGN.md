@@ -650,6 +650,14 @@ The derived artifact is independently interpretable: it is schema-versioned, lab
 model and firmware scope as owner-declared, and embeds false runtime and repeat
 authority. Review acceptance cannot mutate those fields.
 
+The vendor-authorization classifier is a separate synchronous pure boundary described
+in [VENDOR_AUTHORIZATION_GATES.md](VENDOR_AUTHORIZATION_GATES.md). It has no Bluetooth,
+network, subprocess, binding, retry, or registry-mutation capability. Exact operation,
+model, firmware point build, backend, and decision version must match before
+classification. Its production approval ledger is empty until #49 and a gate-specific
+review receipt exist, so synthetic success or failure can preserve only ambiguous,
+offline, or timed-out explanations and all authority remains false.
+
 - Import and simulator tests work without Bleak or hardware.
 - Parsers reject truncated, oversized, malformed, and bad-checksum simulator data.
 - Discovery alone cannot connect; guided selection requires explicit scan and

@@ -134,7 +134,9 @@ fresh manual setup attempt, but never perform it.
 - `environment_unavailable`: local prerequisites or connection failed without a
   device-protocol conclusion.
 
-`blocked_vendor_authorization` is deliberately absent. Issue #23 may add it only after
+`blocked_vendor_authorization` is deliberately absent. A matched failure, disconnect,
+timeout, route absence, or review rejection is not proof of an authorization gate.
+Issue #23 may add the verdict only after
 approved owner evidence establishes an explicit local firmware-gate signature or a
 controlled paired observation. Disconnect alone can never select that status.
 
