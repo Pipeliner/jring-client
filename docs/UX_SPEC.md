@@ -178,6 +178,11 @@ operation cannot complete another, success-only branches do not gain invented fa
 codes, notification content requires its outbound marker, and a bytecode-disproved ECG
 failure collision is not reproduced.
 
+Offline stream parsers expose only bounded numeric fields and raw device timestamps.
+They do not start a sensor, subscribe, convert values to medical conclusions, or imply
+hardware support. Packed ECG frames are decoded as unsigned 12-bit samples without
+physiological labels.
+
 ### Safe step-to-input preview
 
 Given no ring, when a person runs
@@ -350,7 +355,8 @@ Both paths remain atomic and restrictive, and simulated rows keep provenance.
 | Read-only capability inventory | `test_hid_advertisement_is_not_called_usable`, `test_standard_hid_metadata_has_explicit_states`, `test_malformed_optional_descriptor_preserves_inventory`, `test_capability_inventory_performs_no_reads_or_subscriptions`, `test_cli_capability_inventory_is_private` |
 | Honest offline vendor decoding | `test_band_functions_expand_twelve_bytes_lsb_first`, `test_multi_sport_day_decodes_six_packed_records`, `test_oxygen_day_decodes_fifteen_one_minute_samples_without_guessing_end`, `test_advanced_sensor_day_preserves_three_neutral_five_byte_records` |
 | Complete request accounting | `test_static_vendor_operation_coverage_accounts_for_all_112_requests_once`, `test_only_seven_operations_have_offline_request_and_response_codecs`, `test_static_coverage_never_promotes_an_operation_to_hardware` |
-| Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_fifty_callback_families_have_offline_response_codecs` |
+| Complete callback accounting | `test_static_vendor_callback_coverage_accounts_for_all_105_callbacks_once`, `test_callback_coverage_distinguishes_unused_and_non_ble_sources`, `test_sixty_two_callback_families_have_offline_response_codecs` |
+| Offline sensor and ECG decoding | `test_sensor_measurement_state_distinguishes_open_close_and_failure`, `test_live_sensor_values_preserve_eight_neutral_bytes`, `test_ecg_values_unpack_six_groups_into_twelve_unsigned_values`, `test_ecg_history_info_and_start_end_use_exact_little_endian_fields` |
 | Operation-specific acknowledgements | `test_vendor_ack_decodes_operation_specific_success_and_failure`, `test_vendor_success_only_ack_rejects_guessed_failure_branch`, `test_notify_ack_requires_the_outbound_marker_for_success`, `test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode` |
 | Local protocol coverage UX | `test_protocol_coverage_human_summary_is_offline_and_honest`, `test_protocol_coverage_json_accounts_for_every_entry`, `test_protocol_coverage_never_constructs_a_transport` |
 | Offline raw channel | `test_static_raw_requests_share_the_exact_twenty_byte_envelope`, `test_raw_payload_notification_is_bounded_and_hidden_from_repr`, `test_raw_notification_decoder_rejects_short_unknown_and_truncated_data` |

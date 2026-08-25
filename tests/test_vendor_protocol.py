@@ -4,6 +4,7 @@ from jring.uuids import VENDOR_CHARACTERISTIC_33F3, VENDOR_CHARACTERISTIC_33F4
 from jring.vendor_protocol import (
     StaticQuery,
     StaticAckOperation,
+    StaticValueEvent,
     StaticVendorRequest,
     encode_day_query,
     encode_static_query,
@@ -28,6 +29,14 @@ from jring.vendor_protocol import (
     parse_vendor_touch_mode,
     parse_vendor_worship_info,
     parse_vendor_worship_times,
+    parse_vendor_ecg_history_info,
+    parse_vendor_ecg_start_end,
+    parse_vendor_ecg_values,
+    parse_vendor_sensor_measurement,
+    parse_vendor_sensor_state_change,
+    parse_vendor_sensor_values,
+    parse_vendor_temperature_data,
+    parse_vendor_value_event,
     static_protocol_coverage,
 )
 from jring.protocol import ProtocolError
@@ -575,3 +584,96 @@ def test_ecg_mode_ack_keeps_response_mode_without_inventing_failure_opcode():
     assert result.hardware_verified is False
     with pytest.raises(ProtocolError):
         parse_vendor_ecg_mode_ack(bytes((0x9A,)) + bytes(19))
+
+
+@pytest.mark.parametrize(
+    "opcode,success,active",
+    [(0x14, True, True), (0x15, True, False), (0x94, False, True), (0x95, False, False)],
+)
+def test_sensor_measurement_state_distinguishes_open_close_and_failure(
+    opcode, success, active
+):
+    data = (
+        bytes((opcode,))
+        + (123).to_bytes(4, "little")
+        + bytes((7, 8))
+        + bytes(13)
+    )
+
+    result = parse_vendor_sensor_measurement(data)
+
+    assert result.success is success
+    assert result.active is active
+    if opcode == 0x14:
+        assert (result.device_epoch_seconds, result.first_value, result.second_value) == (
+            123, 7, 8
+        )
+    else:
+        assert result.device_epoch_seconds == 0
+
+
+def test_live_sensor_values_preserve_eight_neutral_bytes():
+    result = parse_vendor_sensor_values(bytes((0x24,)) + bytes(range(1, 9)) + bytes(11))
+
+    assert result.values == tuple(range(1, 9))
+    assert result.meaning == "unknown"
+
+
+@pytest.mark.parametrize("opcode,family", [(0x27, 1), (0x28, 2)])
+def test_sensor_state_change_uses_static_family_without_guessing_sensor(opcode, family):
+    result = parse_vendor_sensor_state_change(bytes((opcode,)) + bytes(19))
+
+    assert result.family == family
+    assert result.state_code == 0
+    assert result.meaning == "unknown"
+
+
+@pytest.mark.parametrize(
+    "event,opcode",
+    [
+        (StaticValueEvent.TEMPERATURE_MODE, 0x37),
+        (StaticValueEvent.TEMPERATURE_MODE_CHANGE, 0x3B),
+        (StaticValueEvent.BLOOD_OXYGEN_MODE, 0x3E),
+        (StaticValueEvent.SENSOR_OXYGEN_DATA, 0x3F),
+    ],
+)
+def test_single_value_sensor_events_are_operation_specific(event, opcode):
+    result = parse_vendor_value_event(bytes((opcode, 77)) + bytes(18), event)
+
+    assert result.event is event
+    assert result.value == 77
+    assert result.hardware_verified is False
+
+
+def test_temperature_data_decodes_two_little_endian_values():
+    result = parse_vendor_temperature_data(
+        bytes((0x38,))
+        + (0x1234).to_bytes(2, "little")
+        + (0x5678).to_bytes(2, "little")
+        + bytes(15)
+    )
+
+    assert result.values == (0x1234, 0x5678)
+
+
+@pytest.mark.parametrize("opcode,kind", [(0x2B, "live"), (0x2E, "history")])
+def test_ecg_values_unpack_six_groups_into_twelve_unsigned_values(opcode, kind):
+    groups = bytes((0x23, 0x61, 0x45)) * 6
+    result = parse_vendor_ecg_values(bytes((opcode, 9)) + groups, kind=kind)
+
+    assert result.discriminator == 9
+    assert result.values == (0x123, 0x456) * 6
+    assert result.kind == kind
+
+
+def test_ecg_history_info_and_start_end_use_exact_little_endian_fields():
+    history = parse_vendor_ecg_history_info(
+        bytes((0x2C,)) + (123).to_bytes(4, "little") + bytes((7,)) + bytes(14)
+    )
+    start_end = parse_vendor_ecg_start_end(
+        bytes((0x2D, 1, 2)) + (456).to_bytes(4, "little") + bytes(13)
+    )
+
+    assert (history.device_epoch_seconds, history.value) == (123, 7)
+    assert (start_end.first_value, start_end.second_value) == (1, 2)
+    assert start_end.device_epoch_seconds == 456

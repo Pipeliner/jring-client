@@ -53,6 +53,13 @@ class StaticAckOperation(str, Enum):
     FEMALE_REMINDER = "female_reminder"
 
 
+class StaticValueEvent(str, Enum):
+    TEMPERATURE_MODE = "temperature_mode"
+    TEMPERATURE_MODE_CHANGE = "temperature_mode_change"
+    BLOOD_OXYGEN_MODE = "blood_oxygen_mode"
+    SENSOR_OXYGEN_DATA = "sensor_oxygen_data"
+
+
 _ZERO_ARGUMENT_OPCODES = {
     StaticQuery.CURRENT_SPORT: 0x03,
     StaticQuery.BATTERY: 0x0B,
@@ -91,6 +98,12 @@ _ACK_OPCODES = {
     StaticAckOperation.WALLPAPER_STATE: (0x36, None),
     StaticAckOperation.EDIT_DIAL_CUSTOM: (0x41, None),
     StaticAckOperation.FEMALE_REMINDER: (0x44, None),
+}
+_VALUE_EVENT_OPCODES = {
+    StaticValueEvent.TEMPERATURE_MODE: 0x37,
+    StaticValueEvent.TEMPERATURE_MODE_CHANGE: 0x3B,
+    StaticValueEvent.BLOOD_OXYGEN_MODE: 0x3E,
+    StaticValueEvent.SENSOR_OXYGEN_DATA: 0x3F,
 }
 
 
@@ -367,6 +380,67 @@ class VendorNotifyAcknowledgement:
 class VendorEcgModeAcknowledgement:
     success: bool
     response_mode: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorSensorMeasurement:
+    success: bool
+    active: bool
+    device_epoch_seconds: int
+    first_value: int
+    second_value: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorSensorValues:
+    values: tuple[int, int, int, int, int, int, int, int]
+    meaning: str = "unknown"
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorSensorStateChange:
+    family: int
+    state_code: int = 0
+    meaning: str = "unknown"
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorValueEvent:
+    event: StaticValueEvent
+    value: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorTemperatureData:
+    values: tuple[int, int]
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorEcgValues:
+    kind: str
+    discriminator: int
+    values: tuple[int, ...]
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorEcgHistoryInfo:
+    device_epoch_seconds: int
+    value: int
+    hardware_verified: bool = False
+
+
+@dataclass(frozen=True)
+class VendorEcgStartEnd:
+    first_value: int
+    second_value: int
+    device_epoch_seconds: int
     hardware_verified: bool = False
 
 
@@ -665,4 +739,84 @@ def parse_vendor_ecg_mode_ack(data: bytes) -> VendorEcgModeAcknowledgement:
     return VendorEcgModeAcknowledgement(
         success=True,
         response_mode=response[1],
+    )
+
+
+def parse_vendor_sensor_measurement(data: bytes) -> VendorSensorMeasurement:
+    response = _response(data, 0x14, 0x15, 0x94, 0x95)
+    if response[0] == 0x14:
+        return VendorSensorMeasurement(
+            success=True,
+            active=True,
+            device_epoch_seconds=int.from_bytes(response[1:5], "little"),
+            first_value=response[5],
+            second_value=response[6],
+        )
+    return VendorSensorMeasurement(
+        success=response[0] == 0x15,
+        active=response[0] in {0x14, 0x94},
+        device_epoch_seconds=0,
+        first_value=0,
+        second_value=0,
+    )
+
+
+def parse_vendor_sensor_values(data: bytes) -> VendorSensorValues:
+    response = _response(data, 0x24)
+    return VendorSensorValues(values=tuple(response[1:9]))
+
+
+def parse_vendor_sensor_state_change(data: bytes) -> VendorSensorStateChange:
+    response = _response(data, 0x27, 0x28)
+    return VendorSensorStateChange(family=1 if response[0] == 0x27 else 2)
+
+
+def parse_vendor_value_event(
+    data: bytes, event: StaticValueEvent
+) -> VendorValueEvent:
+    if not isinstance(event, StaticValueEvent):
+        raise TypeError("value event must be a StaticValueEvent")
+    response = _response(data, _VALUE_EVENT_OPCODES[event])
+    return VendorValueEvent(event=event, value=response[1])
+
+
+def parse_vendor_temperature_data(data: bytes) -> VendorTemperatureData:
+    response = _response(data, 0x38)
+    return VendorTemperatureData(
+        values=(
+            int.from_bytes(response[1:3], "little"),
+            int.from_bytes(response[3:5], "little"),
+        )
+    )
+
+
+def parse_vendor_ecg_values(data: bytes, *, kind: str) -> VendorEcgValues:
+    if kind not in {"live", "history"}:
+        raise ValueError("ECG value kind must be live or history")
+    response = _response(data, 0x2B if kind == "live" else 0x2E)
+    values = []
+    for offset in range(2, 20, 3):
+        first, middle, third = response[offset : offset + 3]
+        values.extend((first | ((middle & 0x0F) << 8), (middle >> 4) | (third << 4)))
+    return VendorEcgValues(
+        kind=kind,
+        discriminator=response[1],
+        values=tuple(values),
+    )
+
+
+def parse_vendor_ecg_history_info(data: bytes) -> VendorEcgHistoryInfo:
+    response = _response(data, 0x2C)
+    return VendorEcgHistoryInfo(
+        device_epoch_seconds=int.from_bytes(response[1:5], "little"),
+        value=response[5],
+    )
+
+
+def parse_vendor_ecg_start_end(data: bytes) -> VendorEcgStartEnd:
+    response = _response(data, 0x2D)
+    return VendorEcgStartEnd(
+        first_value=response[1],
+        second_value=response[2],
+        device_epoch_seconds=int.from_bytes(response[3:7], "little"),
     )

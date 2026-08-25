@@ -137,7 +137,7 @@ that treated only three interface methods as stubs; static call-site tracing sho
 `static_vendor_callback_coverage()` likewise accounts for all 105 callback declarations
 exactly once. Eighty-nine are reached by a structured main or raw Bluetooth opcode,
 14 originate in Android transport, scan, network, OTA, authorization, or cache flows,
-and two declarations have no invocation site in this SDK build. Fifty callback
+and two declarations have no invocation site in this SDK build. Sixty-two callback
 families now have offline response codecs: the seven query families plus bounded
 non-health state, action, counter, dial, schedule, current-data, and unknown-motion
 events, five raw notification families, and operation-specific acknowledgements. Every
@@ -237,6 +237,20 @@ marker in addition to the response opcode. ECG-mode acknowledgement is also sepa
 direct smali inspection disproved a decompiler-derived second `9a` branch, so `9a`
 remains only the negative goal acknowledgement and is never accepted as ECG failure.
 All acknowledgement results remain offline, static-only, and hardware-unverified.
+
+## Static sensor and ECG events
+
+Further offline parsers cover the `14`/`15` open/close measurement family and its
+failures, eight neutral one-byte sensor fields, two neutral sensor-state families,
+operation-specific one-byte temperature/oxygen state events, and two little-endian
+temperature values. Labels remain callback-family descriptions rather than medical
+interpretations or hardware claims.
+
+ECG codecs cover the history descriptor, start/end event, and both live and history
+sample frames. Six three-byte groups unpack into twelve unsigned 12-bit values. These
+functions perform no subscription or measurement start, keep device timestamps raw,
+and remain static-only. No physiological validation, diagnosis, owner measurement, or
+raw capture is stored in the repository.
 
 ## Required hardware evidence to advance
 

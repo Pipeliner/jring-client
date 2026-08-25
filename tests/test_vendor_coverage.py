@@ -108,7 +108,7 @@ def test_callback_coverage_distinguishes_unused_and_non_ble_sources():
     assert by_name["onGetDeviceAction"].source == "bluetooth_opcode"
 
 
-def test_fifty_callback_families_have_offline_response_codecs():
+def test_sixty_two_callback_families_have_offline_response_codecs():
     implemented = {
         entry.name
         for entry in static_vendor_callback_coverage()
@@ -127,17 +127,24 @@ def test_fifty_callback_families_have_offline_response_codecs():
         "onGetDeviceDialCustom",
         "onGetDeviceInfo",
         "onGetDeviceState",
+        "onGetEcgHistory",
+        "onGetEcgHistoryData",
+        "onGetEcgStartEnd",
+        "onGetEcgValue",
         "onGetGSensorData",
         "onGetMultipleSportData",
         "onGetOxygenOfflineData",
         "onGetPhoneVolume",
         "onGetRawData",
         "onGetScreenLightTime",
+        "onGetSenserData",
         "onGetSportSteps",
         "onGetTouchMode",
         "onGetWorshipInfo",
         "onGetWorshipTimesData",
         "onReadCurrentSportData",
+        "onReceiveSensorData",
+        "onReceiveSensorOxygenData",
         "onRecvDeviceVoiceCommandConfirm",
         "onEditDeviceDialCustom",
         "onSendVibrationSignal",
@@ -145,6 +152,7 @@ def test_fifty_callback_families_have_offline_response_codecs():
         "onSetAntiLost",
         "onSetBPAdjust",
         "onSetBloodPressureMode",
+        "onSetBloodOxygenMode",
         "onSetDeviceCode",
         "onSetDeviceDialState",
         "onSetDeviceHeartRateArea",
@@ -164,7 +172,11 @@ def test_fifty_callback_families_have_offline_response_codecs():
         "onSetReminder",
         "onSetReminderText",
         "onSetSleepTime",
+        "onSetTemperatureMode",
         "onSetUserInfo",
+        "onSensorStateChange",
+        "onTemperatureModeChange",
+        "onGetTemperatureData",
         "setAutoHeartMode",
     }
     assert all(
