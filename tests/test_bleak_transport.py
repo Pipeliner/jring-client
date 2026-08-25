@@ -51,6 +51,10 @@ def test_bleak_gatt_inventory_enumerates_metadata_without_reading_values(monkeyp
     assert result[0].uuid == HID_REPORT
     assert result[0].properties == ("notify",)
     assert result[0].descriptor_uuids == (REPORT_REFERENCE_DESCRIPTOR,)
+    assert result[0].instance_id == "service-1-characteristic-1"
+    assert result[0].descriptor_instance_ids == (
+        "service-1-characteristic-1-descriptor-1",
+    )
 
 
 def test_bleak_write_with_response_requests_and_awaits_gatt_response(monkeypatch):

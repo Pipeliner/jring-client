@@ -50,7 +50,7 @@ def test_standard_hid_metadata_has_explicit_states():
             assert states["hid_information"] == "read_property_advertised"
             assert states["report_map"] == "read_property_advertised"
             assert states["report"] == "advertised"
-            assert inventory.report_reference_state == "advertised"
+            assert inventory.report_reference_state == "all"
             assert inventory.neutral_event_state == "unsupported"
             assert inventory.neutral_events == ()
 
@@ -107,17 +107,84 @@ def test_repeated_hid_reports_preserve_instance_and_descriptor_metadata():
         async with JRingClient(transport) as client:
             inventory = await client.capability_inventory()
             assert len(inventory.hid_report_instances) == 2
+            report_feature = next(
+                item for item in inventory.characteristics if item.name == "report"
+            )
+            assert report_feature.instance_count == 2
+            assert report_feature.instance_resolution_state == "uuid_ambiguous"
+            assert report_feature.state == "multiple_mixed"
+            assert report_feature.instance_states == (
+                "advertised",
+                "read_property_advertised",
+            )
+            assert inventory.report_reference_state == "mixed"
             first, second = inventory.hid_report_instances
             assert first.instance == 1
+            assert first.characteristic_instance_id == "inventory-report-1"
+            assert first.characteristic_identity_state == "inventory_only"
             assert first.state == "advertised"
             assert first.report_reference_state == "advertised"
+            assert first.report_reference_instance_ids == (
+                "inventory-report-1-descriptor-1",
+            )
+            assert first.targeting_state == "metadata_only_not_targetable"
             assert first.value_state == "not_read"
             assert second.instance == 2
+            assert second.characteristic_instance_id == "inventory-report-2"
             assert second.state == "read_property_advertised"
             assert second.report_reference_state == "unsupported"
+            assert second.report_reference_instance_ids == ()
+            assert second.targeting_state == "metadata_only_not_targetable"
             assert second.value_state == "not_read"
 
     run(scenario())
+
+
+def test_repeated_hid_aggregate_is_order_independent_and_preserves_malformed_peer():
+    records = (
+        GattCharacteristicMetadata(
+            HUMAN_INTERFACE_DEVICE_SERVICE,
+            HID_REPORT,
+            ("notify",),
+            (REPORT_REFERENCE_DESCRIPTOR,),
+        ),
+        GattCharacteristicMetadata(
+            HUMAN_INTERFACE_DEVICE_SERVICE,
+            HID_REPORT,
+            ("read",),
+            ("not-a-uuid",),
+        ),
+    )
+
+    async def inventory(metadata):
+        async with JRingClient(
+            FakeTransport(
+                {}, {HUMAN_INTERFACE_DEVICE_SERVICE}, gatt_metadata=metadata
+            )
+        ) as client:
+            return await client.capability_inventory()
+
+    first = run(inventory(records))
+    reversed_order = run(inventory(tuple(reversed(records))))
+    first_report = next(item for item in first.characteristics if item.name == "report")
+    reversed_report = next(
+        item for item in reversed_order.characteristics if item.name == "report"
+    )
+
+    assert first_report.state == reversed_report.state == "multiple_mixed"
+    assert first_report.instance_count == reversed_report.instance_count == 2
+    assert first_report.instance_states == reversed_report.instance_states == (
+        "advertised",
+        "read_property_advertised",
+    )
+    assert first.report_reference_state == "malformed_mixed"
+    assert reversed_order.report_reference_state == "malformed_mixed"
+    assert len({row.characteristic_instance_id for row in first.hid_report_instances}) == 2
+    assert all(row.value_state == "not_read" for row in first.hid_report_instances)
+    assert all(
+        row.targeting_state == "metadata_only_not_targetable"
+        for row in first.hid_report_instances
+    )
 
 
 def test_metadata_failure_preserves_advertised_service_state():

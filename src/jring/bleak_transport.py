@@ -42,13 +42,32 @@ class BleakTransport:
         return {service.uuid.lower() for service in services}
 
     async def gatt_characteristics(self) -> tuple[GattCharacteristicMetadata, ...]:
-        return tuple(
-            GattCharacteristicMetadata(
-                service.uuid.lower(),
-                characteristic.uuid.lower(),
-                tuple(sorted(str(value).lower() for value in characteristic.properties)),
-                tuple(sorted(descriptor.uuid.lower() for descriptor in characteristic.descriptors)),
-            )
-            for service in self._client.services
-            for characteristic in service.characteristics
-        )
+        records = []
+        for service_index, service in enumerate(self._client.services, start=1):
+            for characteristic_index, characteristic in enumerate(
+                service.characteristics, start=1
+            ):
+                instance_id = (
+                    f"service-{service_index}-characteristic-{characteristic_index}"
+                )
+                descriptors = sorted(
+                    characteristic.descriptors,
+                    key=lambda item: str(item.uuid).lower(),
+                )
+                records.append(
+                    GattCharacteristicMetadata(
+                        service.uuid.lower(),
+                        characteristic.uuid.lower(),
+                        tuple(sorted(
+                            str(value).lower()
+                            for value in characteristic.properties
+                        )),
+                        tuple(descriptor.uuid.lower() for descriptor in descriptors),
+                        instance_id,
+                        tuple(
+                            f"{instance_id}-descriptor-{index}"
+                            for index, _descriptor in enumerate(descriptors, start=1)
+                        ),
+                    )
+                )
+        return tuple(records)

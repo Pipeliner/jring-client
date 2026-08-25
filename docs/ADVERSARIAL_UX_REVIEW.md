@@ -37,6 +37,8 @@ Date: 2026-08-24
 | An eight-channel parser silently discarded the final motion value | The fixed-frame decoder consumes nine signed pairs while keeping every axis meaning unknown |
 | Input-focused inventory hid blocked device actions | All 13 mapped actions are discoverable; seven side-effecting actions remain visibly blocked and input-ineligible |
 | HID Report UUID deduplication hid multiple report instances | Each observed report record keeps a numbered property/descriptor state and an explicit `not_read` value state |
+| Repeated HID aggregation was still UUID-last-wins | Aggregate state is order-independent `multiple_consistent`/`multiple_mixed`, with all malformed descriptor peers retained |
+| Metadata IDs implied a usable duplicate selector | Opaque IDs are connection/inventory-scoped metadata only and remain explicitly non-targetable without a private generation-bound object registry |
 | `readable` sounded like a successful read | The state is `read_property_advertised`; human output says the value was not read |
 | Callback targets, invoke sites, and opcode branches were treated as one count | The dispatcher crosswalk separates 85 targets, 125 syntactic/124 reachable invokes, and 104 distinct opcodes |
 | A duplicated case-insensitive opcode made every invoke look reachable | The shadowed ECG failure invoke is retained as syntax evidence but excluded from reachable routes |

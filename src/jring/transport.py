@@ -21,6 +21,8 @@ class GattCharacteristicMetadata:
     uuid: str
     properties: tuple[str, ...]
     descriptor_uuids: tuple[str, ...]
+    instance_id: str | None = None
+    descriptor_instance_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

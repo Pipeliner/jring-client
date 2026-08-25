@@ -68,6 +68,9 @@ class CapabilityFeature:
     name: str
     uuid: str
     state: str
+    instance_count: int = 0
+    instance_resolution_state: str = "unavailable"
+    instance_states: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -80,8 +83,12 @@ class VendorGattObservation:
 @dataclass(frozen=True)
 class HidReportMetadataInstance:
     instance: int
+    characteristic_instance_id: str
+    characteristic_identity_state: str
     state: str
     report_reference_state: str
+    report_reference_instance_ids: tuple[str, ...]
+    targeting_state: str = "metadata_only_not_targetable"
     value_state: str = "not_read"
 
 
@@ -230,32 +237,66 @@ class JRingClient:
         else:
             service_state = "timed_out" if "timed_out" in {services_state, metadata_state} else "unavailable"
 
-        records_by_uuid = {record.uuid.lower(): record for record in hid_records}
+        records_by_uuid: dict[str, list[GattCharacteristicMetadata]] = {}
+        for record in hid_records:
+            records_by_uuid.setdefault(record.uuid.lower(), []).append(record)
         features = []
         for name, uuid in _HID_FEATURES:
-            record = records_by_uuid.get(uuid)
+            records = tuple(records_by_uuid.get(uuid, ()))
+            record_states: tuple[str, ...] = ()
             if service_state == "unsupported":
                 state = "unsupported"
             elif metadata_state != "available":
                 state = metadata_state
-            elif record is None:
+            elif not records:
                 state = "unsupported"
-            elif not isinstance(record.properties, tuple) or not all(
-                isinstance(value, str) for value in record.properties
-            ):
-                state = "malformed"
             else:
-                properties = {value.lower() for value in record.properties}
-                state = (
-                    "read_property_advertised"
-                    if "read" in properties
+                record_states = tuple(
+                    "malformed"
+                    if not isinstance(record.properties, tuple)
+                    or not all(
+                        isinstance(value, str) for value in record.properties
+                    )
+                    else "read_property_advertised"
+                    if "read" in {
+                        value.lower() for value in record.properties
+                    }
                     else "advertised"
+                    for record in records
                 )
-            features.append(CapabilityFeature(name, uuid, state))
+                state = (
+                    record_states[0]
+                    if len(record_states) == 1
+                    else "multiple_consistent"
+                    if len(set(record_states)) == 1
+                    else "multiple_mixed"
+                )
+            record_states = tuple(sorted(record_states))
+            instance_count = len(records)
+            resolution = (
+                "uuid_ambiguous"
+                if instance_count > 1
+                else "uuid_unique" if instance_count == 1 else "unavailable"
+            )
+            features.append(
+                CapabilityFeature(
+                    name, uuid, state, instance_count, resolution, record_states
+                )
+            )
 
         report_records = tuple(record for record in hid_records if record.uuid.lower() == HID_REPORT)
         report_instances = []
         for index, record in enumerate(report_records, start=1):
+            characteristic_instance_id = (
+                record.instance_id
+                if isinstance(record.instance_id, str) and record.instance_id
+                else f"inventory-report-{index}"
+            )
+            characteristic_identity_state = (
+                "connection_scoped_metadata_only"
+                if isinstance(record.instance_id, str) and record.instance_id
+                else "inventory_only"
+            )
             if not isinstance(record.properties, tuple) or not all(
                 isinstance(value, str) for value in record.properties
             ):
@@ -283,28 +324,69 @@ class JRingClient:
                 instance_descriptor_state = "malformed"
             else:
                 instance_descriptor_state = "unsupported"
+            descriptor_uuids = (
+                record.descriptor_uuids
+                if isinstance(record.descriptor_uuids, tuple)
+                else ()
+            )
+            descriptor_instance_ids = (
+                record.descriptor_instance_ids
+                if (
+                    isinstance(record.descriptor_instance_ids, tuple)
+                    and len(record.descriptor_instance_ids)
+                    == len(descriptor_uuids)
+                    and all(
+                        isinstance(value, str) and value
+                        for value in record.descriptor_instance_ids
+                    )
+                )
+                else tuple(
+                    f"{characteristic_instance_id}-descriptor-{descriptor_index}"
+                    for descriptor_index, _value in enumerate(
+                        descriptor_uuids, start=1
+                    )
+                )
+            )
+            report_reference_instance_ids = tuple(
+                descriptor_instance_ids[descriptor_index]
+                for descriptor_index, descriptor_uuid in enumerate(
+                    descriptor_uuids
+                )
+                if isinstance(descriptor_uuid, str)
+                and descriptor_uuid.lower() == REPORT_REFERENCE_DESCRIPTOR
+            )
             report_instances.append(
                 HidReportMetadataInstance(
                     instance=index,
+                    characteristic_instance_id=characteristic_instance_id,
+                    characteristic_identity_state=characteristic_identity_state,
                     state=report_state,
                     report_reference_state=instance_descriptor_state,
+                    report_reference_instance_ids=report_reference_instance_ids,
                 )
             )
-        descriptor_values = tuple(
-            value for record in report_records for value in record.descriptor_uuids
-        )
         if service_state == "unsupported":
             descriptor_state = "unsupported"
         elif metadata_state != "available":
             descriptor_state = metadata_state
-        elif REPORT_REFERENCE_DESCRIPTOR in {
-            value.lower() for value in descriptor_values if isinstance(value, str)
-        }:
-            descriptor_state = "advertised"
-        elif any(not _valid_uuid(value) for value in descriptor_values):
-            descriptor_state = "malformed"
         else:
-            descriptor_state = "unsupported"
+            descriptor_states = tuple(
+                item.report_reference_state for item in report_instances
+            )
+            if not descriptor_states:
+                descriptor_state = "unsupported"
+            elif set(descriptor_states) == {"advertised"}:
+                descriptor_state = "all"
+            elif set(descriptor_states) == {"unsupported"}:
+                descriptor_state = "none"
+            elif "malformed" in descriptor_states:
+                descriptor_state = (
+                    "malformed"
+                    if set(descriptor_states) == {"malformed"}
+                    else "malformed_mixed"
+                )
+            else:
+                descriptor_state = "mixed"
 
         states = {services_state, metadata_state}
         inventory_state = (

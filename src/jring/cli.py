@@ -941,13 +941,20 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
     print(f"Standard HID service: {hid['service_state']}")
     for feature in hid["characteristics"]:
         label = feature["name"].replace("_", " ").title().replace("Hid", "HID")
-        print(f"{label}: {feature['state']}")
+        instance_detail = (
+            f"; {feature['instance_count']} instance(s); "
+            f"{feature['instance_resolution_state'].replace('_', ' ')}"
+            if feature["instance_count"]
+            else ""
+        )
+        print(f"{label}: {feature['state']}{instance_detail}")
     print(f"Report Reference descriptor: {hid['report_reference_descriptor']['state']}")
     print(f"HID Report instances: {len(hid['report_instances'])}")
     for report in hid["report_instances"]:
         print(
             f"- Report instance {report['instance']}: {report['state']}; "
-            f"Report Reference {report['report_reference_state']}; value not read"
+            f"Report Reference {report['report_reference_state']}; value not read; "
+            f"{report['targeting_state'].replace('_', ' ')}"
         )
     print("Report Map contents: not read")
     print(f"HID usability: {hid['usability_state'].replace('_', ' ')}")

@@ -271,6 +271,13 @@ The APK does not contain evidence that the ring exposes the standard HID service
 HID report UUID family. The client's standard HID inventory remains useful for any
 model that advertises those assigned UUIDs, but it is a generic compatibility check,
 not a claim about this APK or tested JRing firmware.
+Repeated Report characteristics keep unique opaque metadata IDs and per-instance
+property/Report-Reference states. Aggregate state is `multiple_consistent` or
+`multiple_mixed`, never whichever same-UUID record happened to be last. Descriptor
+coverage distinguishes all, none, mixed, malformed, and malformed-mixed. IDs are
+connection/inventory-scoped metadata only: no raw handle, backend object, path, value,
+or Report Map is exposed, and current reads/subscriptions cannot target them. Duplicate
+UUID selection therefore remains blocked rather than guessing an instance.
 
 The strongest statically proven future input source is a main-channel device-action
 event. `parse_vendor_device_action()` accepts the 20-byte `06` event and the `22`
