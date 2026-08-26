@@ -83,6 +83,13 @@ values, subscribes, or writes. It evaluates fixed main/raw vendor route structur
 current-snapshot target ownership without exposing target identities. Structural
 readiness grants no live eligibility, owner authorization, or hardware support.
 
+To prepare a reviewable public handoff after a metadata-only probe, add
+`--issue-draft-url` to `capabilities`. The client creates a GitHub issue-draft URL
+locally; it does not open a browser or make a network request. Its prefilled text is
+limited to coarse inventory states and a route count. Review it before opening it—raw
+packets, addresses, values, health data, private paths, and firmware details are never
+included.
+
 `jring heart-rate` collects exactly one standard Bluetooth Heart Rate Measurement and
 then disables its notification before displaying a result. Hardware use requires
 `--allow-notifications` before a transport is constructed because BlueZ may perform

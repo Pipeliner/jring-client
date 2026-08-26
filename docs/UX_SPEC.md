@@ -237,6 +237,14 @@ distinguish service `advertised`, characteristic `read_property_advertised` or
 `unsupported`, malformed optional descriptor metadata, `not_verified` usability, and
 `not_checked` OS attachment.
 
+Given `jring capabilities --issue-draft-url`, the client locally creates a reviewable
+GitHub issue-draft URL and includes it in the matching human or JSON result. It does
+not open a browser or issue a network request. The fixed draft names itself
+unverified and contains only coarse inventory/metadata states plus vendor-route count;
+it excludes device identifiers, targets, paths, packets, values, health information,
+battery, and firmware fields. Human output tells the owner to review the draft before
+opening it. A draft cannot establish compatibility, authorization, or runtime support.
+
 The vendor section always presents exactly two rows in main-then-raw order. For each,
 service and metadata inventory availability, the stable structural preflight result,
 and current-snapshot transport target ownership are distinct fields. If either source
