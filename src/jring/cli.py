@@ -358,6 +358,33 @@ def _print_readiness(report: ReadinessReport) -> None:
     print(f"Next: {report.next_step}")
 
 
+def _print_terminal_home() -> None:
+    """Print the fixed, side-effect-free first screen for a bare human invocation."""
+
+    print("JRING — SAFE START")
+    print("No ring selected. No Bluetooth, scan, network, or desktop-input action occurred.")
+    print()
+    print("Start safely")
+    print("  jring status --simulate")
+    print("  Preview the local simulated status workflow.")
+    print()
+    print("Check this computer (optional)")
+    print("  jring doctor")
+    print("  Passively inspect local prerequisites without selecting or contacting a ring.")
+    print()
+    print("Explore recovered evidence (offline)")
+    print("  jring non-health-capabilities")
+    print("  jring protocol-coverage")
+    print()
+    print("Use hardware only when ready")
+    print("  Run jring doctor, then use --address-file (preferred) with a supported command.")
+    print()
+    print("Unavailable today: live vendor Bluetooth operations, hardware-verified vendor behavior,")
+    print("and host input from ring events.")
+    print()
+    print("More commands: jring --help")
+
+
 def _print_input_actions(inventory: dict[str, list[dict[str, object]]]) -> None:
     print("Simulator profiles")
     for profile in inventory["simulator_profiles"]:
@@ -2742,6 +2769,9 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     json_requested = "--json" in raw_argv
+    if not raw_argv:
+        _print_terminal_home()
+        return ExitCode.OK
     if json_requested:
         rendered_error = StringIO()
         try:

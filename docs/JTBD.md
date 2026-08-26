@@ -71,6 +71,8 @@ decide whether I trust it.
 
 Desired outcomes:
 
+- Start with a bare `jring` terminal home that names the safe simulator path and
+  boundaries before any scan, selection, connection, or terminal-control behavior.
 - Reach a useful simulated result without Bluetooth or an account.
 - Choose a named `basic` or `hid` simulator profile, see that profile in every
   result, and receive the same advertised-capability state across commands.

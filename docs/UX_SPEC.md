@@ -31,6 +31,21 @@ into guesswork.
 
 ## Acceptance scenarios
 
+### Bare terminal home
+
+Given no arguments and no `--json`, when a person runs `jring`, then the client exits
+successfully after rendering a fixed, dependency-free terminal home. Its reading order
+is: no-I/O boundary, safe simulated status command, optional passive diagnosis,
+offline evidence commands, hardware preparation, unavailable capabilities, and help.
+It asks no question; uses no color, cursor control, terminal-size detection, or
+interactive widget; and does not parse a command, run diagnostics, construct a
+transport, scan, select a ring, access the network, or emit desktop input. This is a
+least-surprising terminal start screen, not a curses UI or a GUI.
+
+Given `jring --json` with no command, the command preserves the existing schema-1 JSON
+usage-error envelope and never prints the human home. Explicit commands and `--help`
+are unchanged.
+
 ### First safe success
 
 Given no ring and no optional Bluetooth dependency, when a person runs

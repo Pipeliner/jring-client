@@ -14,6 +14,7 @@ Linux distributions that do not provide a `python` command:
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e .
+jring
 jring doctor
 jring non-health-capabilities
 jring protocol-coverage
@@ -98,6 +99,25 @@ automation. Both task-first options (`jring status --simulate`) and the original
 global-first form (`jring --simulate status`) are supported.
 Simulated human output clearly states that no ring was contacted; structured results
 and exports include source and schema provenance.
+
+## Comparative research, alternatives, and data sources
+
+Start with the [external JRing / 56ff prior-art ledger](docs/EXTERNAL_JRING_PRIOR_ART.md).
+It links the public [PulseLoop iOS](https://github.com/saksham2001/PulseLoopiOS) and
+[PulseLoop Android](https://github.com/foureight84/PulseLoopAndroid) implementations,
+an [independent JRing capture write-up](https://jw-tech.fr/en/blog/smart-ring-reverse-engineering),
+and SR08 retail/manual material. These sources are useful comparative evidence for
+forming reconciliation candidates, and are explicitly not runtime authority: a model
+name, frame resemblance, or third-party implementation never enables a JRing feature.
+
+For adjacent tools or a different companion-app approach, see
+[BlueZ](https://www.bluez.org/) and [Gadgetbridge](https://gadgetbridge.org/). They are
+alternatives to evaluate on their own terms; this project does not claim they support a
+selected JRing or share its protocol. The authoritative sources for JRing behavior stay
+separate: the clean-room recovered scope, the public prior-art ledger, and
+owner-authorized private evidence. Each external claim must be independently reconciled
+before it can affect a specification, and owner-hardware evidence is still required
+before a live capability can be considered.
 
 JSON successes include `schema_version`, `operation`, `source`, and `ok`. JSON failures
 write one redacted envelope to stdout and nothing to stderr. Stable failure exits are

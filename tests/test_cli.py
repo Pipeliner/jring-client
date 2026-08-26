@@ -309,6 +309,55 @@ def test_expected_error_is_actionable_without_traceback(monkeypatch, capsys):
     assert "Traceback" not in error
 
 
+def test_bare_human_invocation_is_a_safe_fixed_order_terminal_home(monkeypatch, capsys):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("the terminal home must not run a command or probe hardware")
+
+    monkeypatch.setattr(cli, "_parse_cli_args", forbidden)
+    monkeypatch.setattr(cli, "_run", forbidden)
+    monkeypatch.setattr(cli, "diagnose", forbidden)
+
+    assert cli.main([]) == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert captured.out.splitlines() == [
+        "JRING — SAFE START",
+        "No ring selected. No Bluetooth, scan, network, or desktop-input action occurred.",
+        "",
+        "Start safely",
+        "  jring status --simulate",
+        "  Preview the local simulated status workflow.",
+        "",
+        "Check this computer (optional)",
+        "  jring doctor",
+        "  Passively inspect local prerequisites without selecting or contacting a ring.",
+        "",
+        "Explore recovered evidence (offline)",
+        "  jring non-health-capabilities",
+        "  jring protocol-coverage",
+        "",
+        "Use hardware only when ready",
+        "  Run jring doctor, then use --address-file (preferred) with a supported command.",
+        "",
+        "Unavailable today: live vendor Bluetooth operations, hardware-verified vendor behavior,",
+        "and host input from ring events.",
+        "",
+        "More commands: jring --help",
+    ]
+    assert "\x1b" not in captured.out
+
+
+def test_bare_json_invocation_remains_a_structured_usage_error(capsys):
+    assert cli.main(["--json"]) == 2
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["ok"] is False
+    assert result["operation"] == "cli"
+    assert result["source"] == "unknown"
+    assert result["error"]["code"] == "usage"
+    assert captured.err == ""
+
+
 def test_time_sync_requires_explicit_confirmation(capsys):
     with pytest.raises(SystemExit) as raised:
         cli.main(["time-sync", "--simulate"])
