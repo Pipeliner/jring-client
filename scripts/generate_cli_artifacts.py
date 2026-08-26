@@ -335,7 +335,7 @@ def render_bash(surface: CliSurface) -> str:
         "        *) return ;;",
         "    esac",
         "",
-        '    case "$command:$current" in',
+        '    case "$command:$previous" in',
     ])
     for command in surface.commands:
         if command.positional_choices:
@@ -345,6 +345,12 @@ def render_bash(surface: CliSurface) -> str:
                 "            return",
                 "            ;;",
             ])
+    lines.extend([
+        "        *) ;;",
+        "    esac",
+        "",
+        '    case "$command:$current" in',
+    ])
     for command in surface.commands:
         lines.extend(_bash_attached_dispatch(command.options, prefix=f"{command.name}:"))
     lines.extend([

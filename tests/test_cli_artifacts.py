@@ -360,6 +360,26 @@ printf 'file=%s\\n' "${{COMPREPLY[@]}}"
     ]
 
 
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is unavailable")
+def test_bash_completion_handles_required_positional_shell_choice():
+    artifact = ROOT / "src" / "jring" / "resources" / "completions" / "jring.bash"
+    script = f'''source "{artifact}"
+COMP_WORDS=(jring completion b)
+COMP_CWORD=2
+_jring_completion
+printf '%s\\n' "${{COMPREPLY[@]}}"
+'''
+    completed = subprocess.run(
+        ["bash", "--noprofile", "--norc"],
+        input=script,
+        check=True,
+        capture_output=True,
+        text=True,
+        env={"PATH": os.environ.get("PATH", "")},
+    )
+    assert completed.stdout.splitlines() == ["bash"]
+
+
 def test_generator_check_is_read_only_and_detects_stale_output(tmp_path):
     generated = generate_artifacts(build_parser())
     for relative, content in generated.items():
