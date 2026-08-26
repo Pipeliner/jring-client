@@ -386,6 +386,8 @@ def _print_terminal_home() -> None:
     print()
     print("Use hardware only when ready")
     print("  Run jring doctor, then use --address-file (preferred) with a supported command.")
+    print("  For private protocol investigation: capabilities → observe → review-observation.")
+    print("  This stores bounded unknown notifications locally; it does not decode or enable behavior.")
     print()
     print("Unavailable today: live vendor Bluetooth operations, hardware-verified vendor behavior,")
     print("and host input from ring events.")
