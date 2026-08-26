@@ -18,6 +18,7 @@ from jring.private_observation import (
     prepare_observation_plan,
     require_observation_authority,
     select_observation_target,
+    load_private_observation,
 )
 from jring.transport import (
     GattCharacteristicMetadata,
@@ -98,6 +99,27 @@ def test_observation_recorder_writes_only_private_records(tmp_path: Path):
     assert recorder.finish() == {"capture_status": "completed", "record_count": 1,
         "private_output": "mode_0600", "runtime_authorized": False}
     assert (tmp_path / "observation.json").stat().st_mode & 0o777 == 0o600
+
+
+def test_private_observation_review_is_value_free_and_rejects_invalid_hex(tmp_path: Path):
+    tmp_path.chmod(0o700)
+    plan = prepare_observation_plan(address="synthetic-selected-ring", allow_connect=True,
+        allow_notifications=True, allow_observation=True, timeout=5.0, max_records=1,
+        private_output=tmp_path / "observation.json")
+    recorder = begin_observation(plan)
+    recorder.record(b"\x01")
+    recorder.finish()
+    assert load_private_observation(tmp_path / "observation.json") == {
+        "capture_status": "completed", "record_count": 1, "decoder": "none",
+        "runtime_authorized": False,
+    }
+    (tmp_path / "invalid.json").write_text(
+        '{"schema_version":1,"record_type":"private_owner_observation",'
+        '"capture_status":"completed","records":["not-hex"]}', encoding="utf-8"
+    )
+    (tmp_path / "invalid.json").chmod(0o600)
+    with pytest.raises(ObservationError, match="invalid_private_observation"):
+        load_private_observation(tmp_path / "invalid.json")
 
 
 def test_observation_authority_is_exact_generation_target_and_single_use(tmp_path: Path):

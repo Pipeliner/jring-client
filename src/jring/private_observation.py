@@ -13,7 +13,11 @@ import time
 from collections.abc import Callable
 from weakref import WeakKeyDictionary
 
-from .owner_hardware_evidence import OwnerEvidenceError, _write_exclusive_json
+from .owner_hardware_evidence import (
+    OwnerEvidenceError,
+    _read_restrictive_json,
+    _write_exclusive_json,
+)
 from .transport import (
     GattCharacteristicMetadata,
     GattCharacteristicTarget,
@@ -95,6 +99,43 @@ class ObservationResult:
 
     def __repr__(self) -> str:
         return "ObservationResult(records=<private>, target=<redacted>)"
+
+
+def load_private_observation(path: Path) -> dict[str, object]:
+    """Validate a private capture and return only its value-free review summary."""
+
+    try:
+        payload = _read_restrictive_json(
+            path,
+            unsafe_code="unsafe_private_input",
+            invalid_code="invalid_private_observation",
+        )
+    except OwnerEvidenceError as exc:
+        raise ObservationError(exc.code) from exc
+    if (
+        type(payload) is not dict
+        or payload.get("schema_version") != 1
+        or payload.get("record_type") != "private_owner_observation"
+        or payload.get("capture_status")
+        not in {item.value for item in ObservationStatus}
+    ):
+        raise ObservationError("invalid_private_observation")
+    records = payload.get("records")
+    if not isinstance(records, list) or not 0 <= len(records) <= 128:
+        raise ObservationError("invalid_private_observation")
+    for record in records:
+        if (
+            not isinstance(record, str)
+            or len(record) % 2
+            or any(character not in "0123456789abcdef" for character in record)
+        ):
+            raise ObservationError("invalid_private_observation")
+    return {
+        "capture_status": payload["capture_status"],
+        "record_count": len(records),
+        "decoder": "none",
+        "runtime_authorized": False,
+    }
 
 
 class ObservationRecorder:
