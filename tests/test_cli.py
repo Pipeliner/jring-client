@@ -26,12 +26,42 @@ def test_tui_is_a_safe_menu_and_quits_without_probing(monkeypatch, capsys):
 
 
 def test_tui_pairing_prompt_requires_literal_confirmation(monkeypatch, capsys):
-    answers = iter(["p", "~/.config/jring/address", "no", "q"])
+    candidate = cli.SelectionCandidate(
+        alias="ring-1", likely_jring=True, service_uuids=(), rssi=-48,
+        _address=":".join(("AA", "BB", "CC", "DD", "EE", "FF")),
+    )
+    async def discover(**_):
+        return [candidate]
+    monkeypatch.setattr(cli, "discover_for_selection", discover)
+    monkeypatch.setattr(cli, "_tui_store_selected_address", lambda *_: True)
+    answers = iter(["p", "1", "~/.config/jring/address", "no", "q"])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
     assert cli.main(["tui"]) == 0
     output = capsys.readouterr().out
     assert "p) Pair (and optionally trust) one selected device" in output
     assert "Pairing cancelled; nothing was run." in output
+
+
+def test_tui_pairing_picker_runs_scan_then_pair_and_trust(monkeypatch, capsys, tmp_path):
+    candidate = cli.SelectionCandidate(
+        alias="ring-1", likely_jring=True, service_uuids=(), rssi=-48,
+        _address=":".join(("AA", "BB", "CC", "DD", "EE", "FF")),
+    )
+    async def discover(**_):
+        return [candidate]
+    monkeypatch.setattr(cli, "discover_for_selection", discover)
+    saved = {}
+    monkeypatch.setattr(cli, "_tui_store_selected_address", lambda path, address: saved.update(path=path, address=address) or True)
+    commands = []
+    monkeypatch.setattr(cli, "_tui_command", lambda argv: commands.append(argv) or "paired")
+    answers = iter(["p", "1", str(tmp_path / "address"), "PAIR", "y", "q"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    assert cli.main(["tui"]) == 0
+    assert saved["address"] == ":".join(("AA", "BB", "CC", "DD", "EE", "FF"))
+    assert commands == [["pair", "--address-file", str(tmp_path / "address"), "--allow-pairing", "--allow-trust"]]
+    output = capsys.readouterr().out
+    assert "Choose the device to pair" in output
+    assert "ring-1" in output
 
 
 def test_tui_simulated_status_action_is_available(monkeypatch, capsys):

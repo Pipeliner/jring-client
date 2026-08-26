@@ -418,10 +418,75 @@ def _tui_select_address_path(current: str | None = None) -> str | None:
     return os.path.expanduser(entered or default_path)
 
 
+def _tui_pick_pair_candidate() -> SelectionCandidate | None:
+    """Scan once and let a human choose the device to pair, without printing its address."""
+    print("Scanning for nearby Bluetooth devices (no connection yet)…")
+    try:
+        candidates = asyncio.run(discover_for_selection(timeout=5.0))
+    except Exception as exc:
+        print(f"Could not scan for devices: {_sanitize_error(exc)}")
+        return None
+    if not candidates:
+        print("No nearby devices found. Wake the ring, keep it close, and try again.")
+        return None
+    print("Choose the device to pair:")
+    for index, candidate in enumerate(candidates, start=1):
+        kind = "possible JRing" if candidate.likely_jring else "other device"
+        print(f"{index}. {candidate.alias} — {kind}, signal {_signal_strength(candidate.rssi)}")
+    try:
+        answer = input("Device number (or q to cancel): ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        answer = "q"
+    if answer in {"q", "quit", "cancel"}:
+        print("Pairing cancelled; no device was selected.")
+        return None
+    if not answer.isdecimal() or not 1 <= int(answer) <= len(candidates):
+        print("Pairing cancelled; choose one of the listed device numbers.")
+        return None
+    selected = candidates[int(answer) - 1]
+    print(f"Selected {selected.alias} ({'possible JRing' if selected.likely_jring else 'unidentified device'}).")
+    return selected
+
+
+def _tui_store_selected_address(path: str, address: str) -> bool:
+    """Store a picker result in a user-owned mode-0600 file, refusing symlinks."""
+    target = Path(path).expanduser()
+    try:
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if target.exists() or target.is_symlink():
+            details = target.lstat()
+            if (
+                not stat.S_ISREG(details.st_mode)
+                or details.st_uid != os.getuid()
+                or stat.S_IMODE(details.st_mode) != 0o600
+                or details.st_nlink != 1
+            ):
+                print("Selected address file must already be a user-owned regular file with mode 0600.")
+                return False
+        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(target, flags, 0o600)
+        try:
+            os.fchmod(descriptor, 0o600)
+            os.write(descriptor, (address + "\n").encode("ascii"))
+        finally:
+            os.close(descriptor)
+    except (OSError, UnicodeError) as exc:
+        print(f"Could not save the selected device: {_sanitize_error(exc)}")
+        return False
+    return True
+
+
 def _run_tui_pair_prompt(current_path: str | None = None) -> str | None:
     try:
+        selected = _tui_pick_pair_candidate()
+        if selected is None:
+            return current_path
         path = _tui_select_address_path(current_path)
         if path is None:
+            return current_path
+        if not _tui_store_selected_address(path, selected.connection_address()):
             return current_path
         if input("Type PAIR to authorize one BlueZ pairing operation: ").strip() != "PAIR":
             print("Pairing cancelled; nothing was run.")
