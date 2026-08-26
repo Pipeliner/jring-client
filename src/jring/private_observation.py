@@ -31,6 +31,7 @@ class _PlanState:
 
 _PLANS: WeakKeyDictionary[object, _PlanState] = WeakKeyDictionary()
 _RECORDERS: WeakKeyDictionary[object, tuple[ObservationPlan, list[bytes], bool]] = WeakKeyDictionary()
+_AUTHORITIES: WeakKeyDictionary[object, tuple[ObservationPlan, int, object, bool]] = WeakKeyDictionary()
 
 
 class ObservationPlan:
@@ -89,6 +90,43 @@ class ObservationRecorder:
 
     def __repr__(self) -> str:
         return "ObservationRecorder(records=<private>)"
+
+
+class ObservationAuthority:
+    __slots__ = ("__weakref__",)
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("use prepare_observation_authority")
+
+    def __repr__(self) -> str:
+        return "ObservationAuthority(generation=<sealed>, target=<redacted>, single_use=True)"
+
+
+def prepare_observation_authority(
+    plan: ObservationPlan, *, connection_generation: int, target: object
+) -> ObservationAuthority:
+    if type(plan) is not ObservationPlan or plan not in _PLANS:
+        raise ObservationError("invalid_observation_plan")
+    if isinstance(connection_generation, bool) or not isinstance(connection_generation, int) or connection_generation <= 0:
+        raise ObservationError("invalid_connection_generation")
+    if target is None:
+        raise ObservationError("invalid_observation_target")
+    authority = object.__new__(ObservationAuthority)
+    _AUTHORITIES[authority] = (plan, connection_generation, target, False)
+    return authority
+
+
+def require_observation_authority(
+    authority: ObservationAuthority, *, connection_generation: int, target: object
+) -> None:
+    if type(authority) is not ObservationAuthority or authority not in _AUTHORITIES:
+        raise ObservationError("invalid_observation_authority")
+    plan, expected_generation, expected_target, used = _AUTHORITIES[authority]
+    if used or plan not in _PLANS:
+        raise ObservationError("stale_observation_authority")
+    if connection_generation != expected_generation or target is not expected_target:
+        raise ObservationError("observation_authority_mismatch")
+    _AUTHORITIES[authority] = (plan, expected_generation, expected_target, True)
 
 
 def begin_observation(plan: ObservationPlan) -> ObservationRecorder:

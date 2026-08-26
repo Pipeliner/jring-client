@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from jring.private_observation import ObservationError, begin_observation, prepare_observation_plan
+from jring.private_observation import (
+    ObservationError,
+    begin_observation,
+    prepare_observation_authority,
+    prepare_observation_plan,
+    require_observation_authority,
+)
 
 
 def test_observation_plan_requires_all_explicit_consents_before_io(tmp_path: Path):
@@ -56,3 +62,19 @@ def test_observation_recorder_writes_only_private_records(tmp_path: Path):
     assert recorder.finish() == {"capture_status": "bounded_recorded", "record_count": 1,
         "private_output": "mode_0600", "runtime_authorized": False}
     assert (tmp_path / "observation.json").stat().st_mode & 0o777 == 0o600
+
+
+def test_observation_authority_is_exact_generation_target_and_single_use(tmp_path: Path):
+    tmp_path.chmod(0o700)
+    plan = prepare_observation_plan(address="synthetic-selected-ring", allow_connect=True,
+        allow_notifications=True, allow_observation=True, timeout=5.0, max_records=1,
+        private_output=tmp_path / "observation.json")
+    target = object()
+    authority = prepare_observation_authority(plan, connection_generation=1, target=target)
+    with pytest.raises(ObservationError, match="observation_authority_mismatch"):
+        require_observation_authority(authority, connection_generation=2, target=target)
+    with pytest.raises(ObservationError, match="observation_authority_mismatch"):
+        require_observation_authority(authority, connection_generation=1, target=object())
+    require_observation_authority(authority, connection_generation=1, target=target)
+    with pytest.raises(ObservationError, match="stale_observation_authority"):
+        require_observation_authority(authority, connection_generation=1, target=target)
