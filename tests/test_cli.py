@@ -24,6 +24,15 @@ def test_tui_is_a_safe_menu_and_quits_without_probing(monkeypatch, capsys):
     assert "No Bluetooth" in output
 
 
+def test_tui_pairing_prompt_requires_literal_confirmation(monkeypatch, capsys):
+    answers = iter(["p", "~/.config/jring/address", "no", "q"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    assert cli.main(["tui"]) == 0
+    output = capsys.readouterr().out
+    assert "p) Pair (and optionally trust) one selected device" in output
+    assert "Pairing cancelled; nothing was run." in output
+
+
 def test_tui_simulated_status_action_is_available(monkeypatch, capsys):
     answers = iter(["s", "q"])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))

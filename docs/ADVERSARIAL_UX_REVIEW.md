@@ -207,3 +207,20 @@ Every remaining item is now owned by the public [roadmap](ROADMAP.md): guided se
 safety [#1](https://github.com/Pipeliner/jring-client/issues/1), the compatibility matrix
 [#11](https://github.com/Pipeliner/jring-client/issues/11), and an explicit owner license
 decision [#12](https://github.com/Pipeliner/jring-client/issues/12).
+
+## Hurry-first adversarial pass (2026-08-26)
+
+Persona: a user who wants the ring working immediately, skips security/privacy text,
+and treats every prompt as friction. Findings were ranked by the point at which this
+persona is likely to abandon the client:
+
+| Finding | User-visible failure | Change made | Residual boundary |
+|---|---|---|---|
+| Optional runtime extras made `uvx` look incomplete | The first hardware command failed after an apparently successful install | Bleak and evdev are now base runtime dependencies; docs and CI use one install path | BlueZ daemon, adapter permissions, and kernel uinput still need distro setup |
+| TUI was a static menu with no obvious hardware preparation | User did not know how to pair or whether the screen was alive | Added refreshable keyboard TUI with `s/c/d/i/p/r/q`, plus plain-terminal fallback | TUI never scans or connects implicitly |
+| Pairing and trust are commonly conflated | User either retries blindly or trusts a device accidentally | Added guided `p` flow and explicit `PAIR`/trust confirmations; CLI exposes `--allow-pairing` and `--allow-trust` separately | Pairing/trust remain OS state, not vendor binding or compatibility |
+| Timeout recovery was ambiguous | User may immediately repeat a possibly completed operation | Pairing reports uncertainty and tells the user to inspect BlueZ state first | A human must decide whether a second attempt is appropriate |
+
+The impatient path is now short (`uvx … jring tui` → `p` → address file → literal
+confirmation), while every irreversible boundary remains visible and independently
+authorized. No live ring was contacted during this audit.

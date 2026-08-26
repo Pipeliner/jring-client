@@ -408,6 +408,22 @@ def _tui_command(argv: list[str]) -> str:
     return output.getvalue()
 
 
+def _run_tui_pair_prompt() -> None:
+    default_path = "~/.config/jring/address"
+    try:
+        entered = input(f"Address file [{default_path}]: ").strip()
+        path = entered or default_path
+        if input("Type PAIR to authorize one BlueZ pairing operation: ").strip() != "PAIR":
+            print("Pairing cancelled; nothing was run.")
+            return
+        argv = ["pair", "--address-file", os.path.expanduser(path), "--allow-pairing"]
+        if input("Also trust this device after pairing? [y/N]: ").strip().lower() in {"y", "yes"}:
+            argv.append("--allow-trust")
+        print(_tui_command(argv))
+    except (EOFError, KeyboardInterrupt):
+        print("Pairing cancelled; nothing was run.")
+
+
 def _run_plain_tui() -> int:
     print("JRING — SAFE TUI")
     print("No ring selected. No Bluetooth, scan, network, or desktop-input action occurred.")
@@ -416,20 +432,21 @@ def _run_plain_tui() -> int:
     print("c) Simulated capabilities (including HID metadata)")
     print("d) Check this computer (doctor)")
     print("i) Explore input actions")
+    print("p) Pair (and optionally trust) one selected device")
     print("h) Show command-line quickstart")
     print("r) Refresh the selected view")
     print("q) Quit")
     last_view = ["s"]
     while True:
         try:
-            choice = input("\nChoose an option [s/c/d/i/h/q]: ").strip().lower()
+            choice = input("\nChoose an option [s/c/d/i/p/h/q]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             print()
             return ExitCode.OK
         if choice == "q":
             print("Goodbye. No ring was contacted.")
             return ExitCode.OK
-        if choice in {"s", "c", "d", "i", "h"}:
+        if choice in {"s", "c", "d", "i", "p", "h"}:
             last_view[0] = choice
         if choice in {"s", "r"}:
             print(_tui_command(["status", "--simulate"]))
@@ -439,11 +456,13 @@ def _run_plain_tui() -> int:
             print(_tui_command(["doctor"]))
         elif choice == "i":
             print(_tui_command(["input-actions"]))
+        elif choice == "p":
+            _run_tui_pair_prompt()
         elif choice == "h":
             _print_terminal_home()
         else:
             if choice != "r":
-                print("Choose s, c, d, i, h, r, or q. Nothing was run.")
+                print("Choose s, c, d, i, p, h, r, or q. Nothing was run.")
 
 
 def _run_curses_tui() -> int:
@@ -476,7 +495,7 @@ def _run_curses_tui() -> int:
             title = " JRING — SAFE TUI (simulator) "
             stdscr.addnstr(0, 0, title, max(0, width - 1), curses.A_REVERSE)
             stdscr.addnstr(1, 0, "No ring selected • no scan • no connection • no input", max(0, width - 1))
-            stdscr.addnstr(3, 0, "[s] status  [c] capabilities  [d] doctor  [i] inputs  [r] refresh  [q] quit", max(0, width - 1))
+            stdscr.addnstr(3, 0, "[s] status  [c] capabilities  [d] doctor  [i] inputs  [p] pair  [r] refresh  [q] quit", max(0, width - 1))
             stdscr.addnstr(4, 0, f"View: {views[state['view']][0]}  (refreshes every 2s)", max(0, width - 1), curses.A_BOLD)
             for row, line in enumerate(state["text"].splitlines(), start=6):
                 if row >= height - 1:
@@ -491,6 +510,17 @@ def _run_curses_tui() -> int:
                 refresh_view()
                 last_refresh = time.monotonic()
             elif key in (ord("r"), ord("R")):
+                refresh_view()
+                last_refresh = time.monotonic()
+            elif key in (ord("p"), ord("P")):
+                curses.nocbreak()
+                curses.echo()
+                curses.endwin()
+                _run_tui_pair_prompt()
+                curses.def_prog_mode()
+                curses.reset_prog_mode()
+                stdscr.nodelay(True)
+                stdscr.keypad(True)
                 refresh_view()
                 last_refresh = time.monotonic()
             time.sleep(0.05)

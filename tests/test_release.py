@@ -20,7 +20,7 @@ ROOT = Path(__file__).parents[1]
 
 def make_artifacts(
     directory,
-    version="0.5.0",
+    version=__version__,
     extra_member=None,
     extra_member_content="unsafe",
     readme_content="README.md",
@@ -94,7 +94,7 @@ def test_artifact_inspection_and_checksums_are_deterministic(tmp_path):
     first = write_checksums(tmp_path, list(artifacts)).read_text()
     second = write_checksums(tmp_path, list(reversed(artifacts))).read_text()
     assert first == second
-    assert first.splitlines()[0].endswith("jring_client-0.5.0-py3-none-any.whl")
+    assert first.splitlines()[0].endswith(f"jring_client-{__version__}-py3-none-any.whl")
 
 
 def test_artifact_inspection_rejects_secret_or_undeclared_members(tmp_path):

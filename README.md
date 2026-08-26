@@ -38,10 +38,12 @@ jring history --simulate --output history.jsonl
 jring input --simulate --map step=click:left
 ```
 
-After installation, `jring tui` opens the same dependency-free terminal menu and
-`jring-tui` is an equivalent console-script shortcut. It never scans, connects, or
-emits desktop input from the menu itself; hardware actions remain explicit commands
-with separate consent flags.
+After installation, `jring tui` opens a keyboard-driven, refreshable terminal menu
+(`s` status, `c` capabilities, `d` doctor, `i` inputs, `p` pairing, `r` refresh, `q`
+quit) and `jring-tui` is an equivalent console-script shortcut. It never scans,
+connects, or emits desktop input from the menu itself. The `p` flow asks for the
+address-file path and literal confirmations for pairing and optional trust; hardware
+actions remain explicit commands with separate consent flags.
 
 `--simulate` uses the named `basic` profile everywhere: it has standard status data
 and does not advertise HID. To inspect a synthetic, metadata-only HID inventory, name
