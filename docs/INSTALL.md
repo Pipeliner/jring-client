@@ -115,6 +115,17 @@ install a man page or copy files into host completion directories. Distribution
 packagers may place reviewed copies according to their own packaging policy; this
 project does not claim availability in any distribution.
 
+For a user-local Bash setup after installation, use the packaged command rather than
+copying files from the source tree:
+
+```sh
+mkdir -p ~/.local/share/bash-completion/completions
+jring completion bash > ~/.local/share/bash-completion/completions/jring
+```
+
+The command is offline and only supports Bash; Fish and other shells remain out of
+scope.
+
 The base install has no Bluetooth or desktop-input dependency. Add only the extra for
 the job at hand:
 
