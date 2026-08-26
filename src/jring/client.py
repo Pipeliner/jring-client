@@ -123,6 +123,15 @@ class HidReportMetadataInstance:
 
 
 @dataclass(frozen=True)
+class ObservationTargetMetadata:
+    """Selector fields exposed only by an explicit metadata-manifest opt-in."""
+
+    service_uuid: str
+    characteristic_uuid: str
+    instance_id: str
+
+
+@dataclass(frozen=True)
 class StandardHeartRateCapability:
     service_state: str
     measurement_characteristic_state: str
@@ -150,6 +159,7 @@ class CapabilityInventory:
     neutral_event_state: str = "unsupported"
     neutral_events: tuple[str, ...] = ()
     vendor_routes: tuple[VendorRouteCapability, ...] = ()
+    observation_targets: tuple[ObservationTargetMetadata, ...] = ()
 
 
 def _vendor_route_capabilities(
@@ -672,6 +682,23 @@ class JRingClient:
             metadata_state,
             self.transport,
         )
+        observation_targets = tuple(
+            ObservationTargetMetadata(
+                service_uuid=record.service_uuid.lower(),
+                characteristic_uuid=record.uuid.lower(),
+                instance_id=record.instance_id,
+            )
+            for record in metadata
+            if isinstance(record, GattCharacteristicMetadata)
+            and isinstance(record.service_uuid, str)
+            and isinstance(record.uuid, str)
+            and isinstance(record.instance_id, str)
+            and bool(record.instance_id)
+            and isinstance(record.properties, tuple)
+            and "notify" in {value.casefold() for value in record.properties}
+            and record.descriptor_uuids.count(CLIENT_CHARACTERISTIC_CONFIGURATION) == 1
+            and len(record.descriptor_targets) == 1
+        )
         return CapabilityInventory(
             inventory_state=inventory_state,
             metadata_state=metadata_state,
@@ -694,6 +721,7 @@ class JRingClient:
                 metadata_state,
                 self.transport,
             ),
+            observation_targets=observation_targets,
         )
 
     async def status(self) -> Status:

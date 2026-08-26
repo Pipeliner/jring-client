@@ -1635,9 +1635,11 @@ def _print_non_health_capabilities(payload: dict[str, object]) -> None:
     print("Live vendor-event collection is not implemented.")
 
 
-def _capability_payload(inventory: object) -> dict[str, object]:
+def _capability_payload(
+    inventory: object, *, include_observation_targets: bool = False
+) -> dict[str, object]:
     characteristics = [asdict(item) for item in inventory.characteristics]
-    return {
+    payload = {
         "inventory_state": inventory.inventory_state,
         "metadata_state": inventory.metadata_state,
         "standard_heart_rate": asdict(inventory.standard_heart_rate),
@@ -1661,6 +1663,11 @@ def _capability_payload(inventory: object) -> dict[str, object]:
         "vendor_gatt": [asdict(item) for item in inventory.vendor_gatt],
         "vendor_routes": [asdict(item) for item in inventory.vendor_routes],
     }
+    if include_observation_targets:
+        payload["observation_targets"] = [
+            asdict(item) for item in inventory.observation_targets
+        ]
+    return payload
 
 
 def _capability_issue_draft_url(payload: dict[str, object]) -> str:
@@ -1824,8 +1831,8 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
         "hardware eligibility"
     )
     print(
-        "For private observation selectors, rerun with --json; UUIDs and "
-        "instance IDs are metadata only and are not shown in this human view"
+        "For private observation selectors, rerun with --include-observation-targets "
+        "--json; UUIDs and instance IDs are metadata only and are not shown in this human view"
     )
     print("Vendor meanings: unknown; values not read; writes disabled")
     if "issue_draft_url" in payload:
@@ -2264,7 +2271,10 @@ async def _run(args: argparse.Namespace) -> int:
     async with JRingClient(transport, timeout=args.timeout) as client:
         if args.command == "capabilities":
             inventory = await client.capability_inventory()
-            payload = _capability_payload(inventory)
+            payload = _capability_payload(
+                inventory,
+                include_observation_targets=args.include_observation_targets,
+            )
             if args.issue_draft_url:
                 payload["issue_draft_url"] = _capability_issue_draft_url(payload)
             if source == "simulator":
@@ -2460,6 +2470,13 @@ def build_parser() -> argparse.ArgumentParser:
     capabilities.add_argument(
         "--issue-draft-url", action="store_true",
         help="include a reviewable sanitized GitHub issue-draft URL",
+    )
+    capabilities.add_argument(
+        "--include-observation-targets", action="store_true",
+        help=(
+            "include exact notify-target selector metadata in JSON; values and "
+            "addresses remain excluded"
+        ),
     )
     heart_rate = sub.add_parser(
         "heart-rate",

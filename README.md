@@ -85,8 +85,8 @@ readiness grants no live eligibility, owner authorization, or hardware support.
 
 For a bounded owner investigation of one notify-capable metadata row, keep the address
 and capture outside the repository and choose the exact service, characteristic, and
-instance from the metadata-only JSON output of the same local capability inventory
-(`jring capabilities ... --json`):
+instance from the explicitly opted-in, metadata-only selector manifest
+(`jring capabilities ... --include-observation-targets --json`):
 
 ```sh
 jring observe --address-file ~/.config/jring/address \
@@ -102,6 +102,11 @@ decodes a frame, enables an input action, uploads, opens a browser, or retries.
 `review-observation` is offline-only and displays only capture state and count; it
 never renders a captured frame, address, target identity, or private path. An
 observation is not proof of protocol meaning, compatibility, or runtime authorization.
+
+The selector manifest contains only service UUID, characteristic UUID, and a
+connection-scoped instance ID for notify endpoints with exactly one advertised CCCD.
+It is omitted by default and contains no characteristic values, addresses, paths, or
+connection generations.
 
 To prepare a reviewable public handoff after a metadata-only probe, add
 `--issue-draft-url` to `capabilities`. The client creates a GitHub issue-draft URL

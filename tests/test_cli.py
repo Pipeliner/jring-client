@@ -217,6 +217,19 @@ def test_capabilities_report_metadata_only_standard_heart_rate(capsys):
         "targeting_state": "structurally_ready",
         "value_state": "not_read",
     }
+    assert "observation_targets" not in result
+
+
+def test_capabilities_can_opt_into_value_free_observation_target_manifest(capsys):
+    assert cli.main([
+        "capabilities", "--simulate", "--simulate-profile", "hid",
+        "--include-observation-targets", "--json",
+    ]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert isinstance(result["observation_targets"], list)
+    for target in result["observation_targets"]:
+        assert set(target) == {"service_uuid", "characteristic_uuid", "instance_id"}
+        assert all(isinstance(value, str) and value for value in target.values())
 
 
 def test_capabilities_issue_draft_url_contains_only_sanitized_probe_summary(capsys):
@@ -242,7 +255,7 @@ def test_capabilities_human_issue_draft_is_reviewable_and_local(capsys):
 def test_capabilities_human_guides_private_observation_selector_source(capsys):
     assert cli.main(["capabilities", "--simulate"]) == 0
     output = capsys.readouterr().out
-    assert "For private observation selectors, rerun with --json" in output
+    assert "For private observation selectors, rerun with --include-observation-targets --json" in output
     assert "UUIDs and instance IDs are metadata only" in output
 
 
