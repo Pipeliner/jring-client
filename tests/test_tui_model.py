@@ -73,6 +73,14 @@ def test_pair_result_opens_trust_only_after_success():
     assert state.side_effect_possible is False
 
 
+def test_picker_render_marks_focus_without_relying_on_color():
+    state = reduce(TuiState.initial(), Event.key("p"))
+    state = reduce(state, Event.scan_completed(1, (candidate("SR08"), candidate("Keyboard"))))
+    model = render_model(state)
+    assert "> 1. Keyboard" in model["body"]
+    assert "2. SR08" in model["body"]
+
+
 def test_failed_pair_never_offers_trust_and_cancellation_is_explicit():
     state = TuiState.initial()
     state = reduce(state, Event.key("p"))

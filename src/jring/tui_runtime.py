@@ -140,6 +140,12 @@ class TuiRuntime:
         if self.state.screen is Screen.PICKER and key in (curses.KEY_DOWN, curses.KEY_UP, ord("j"), ord("k"), 10, 13):
             self.dispatch(Event.key({curses.KEY_DOWN: "down", curses.KEY_UP: "up", ord("j"): "j", ord("k"): "k"}.get(key, "enter")))
             return False
+        if self.state.screen is Screen.PICKER and ord("1") <= key <= ord("9"):
+            index = key - ord("1")
+            if index < len(self.state.candidates):
+                self.state = self.state.__class__(**{**self.state.__dict__, "focus_index": index})
+                self.dispatch(Event.key("enter"))
+            return False
         if self.state.screen is Screen.PAIR_CONFIRM and key in (ord("y"), ord("Y")) and self.state.selected_candidate:
             selected = self.state.selected_candidate
             path = self._prompt_path(stdscr, self.state.address_file)

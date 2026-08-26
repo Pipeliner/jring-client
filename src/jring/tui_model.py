@@ -134,11 +134,18 @@ def reduce(state: TuiState, event: Event) -> TuiState:
 
 
 def render_model(state: TuiState) -> dict[str, object]:
+    body = state.body
+    if state.screen is Screen.PICKER and state.candidates:
+        rows = []
+        for index, item in enumerate(state.candidates, 1):
+            marker = ">" if index - 1 == state.focus_index else " "
+            rows.append(f"{marker} {index}. {item.display_name or 'unnamed device'} [{item.alias}]")
+        body = "Names are advertisement labels, not identity proof; results can be stale.\n\n" + "\n".join(rows)
     return {
         "screen": state.screen.value,
         "title": "JRING — DEVICES" if state.screen is Screen.DEVICES else f"JRING — {state.screen.value.upper()}",
         "purpose": "Nearby devices and pairing" if state.screen is Screen.DEVICES else state.status,
-        "body": state.body,
+        "body": body,
         "focus_index": state.focus_index,
         "status": state.status,
         "keys": "r scan  p pair  s status  c capabilities  d doctor  i inputs  v simulator  q quit  Ctrl-C cancel",
