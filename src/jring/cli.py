@@ -590,6 +590,31 @@ def _protocol_coverage_payload() -> dict[str, object]:
         hardware_verified_vendor_operations=hardware_verified_vendor_operations,
     )
     return {
+        "user_guidance": {
+            "scope": "offline_evidence_and_simulator_only",
+            "safe_now": [
+                {
+                    "command": "jring doctor",
+                    "purpose": (
+                        "check local prerequisites without selecting or contacting a ring"
+                    ),
+                },
+                {
+                    "command": "jring status --simulate",
+                    "purpose": "preview the safe simulator workflow",
+                },
+                {
+                    "command": "jring non-health-capabilities",
+                    "purpose": "inspect static non-health candidates and their boundaries",
+                },
+            ],
+            "unavailable": [
+                "live vendor Bluetooth operations",
+                "hardware-verified vendor behavior",
+                "host input from ring events",
+            ],
+            "next_safe_action": "jring doctor",
+        },
         "bluetooth_capability_parity": parity,
         "clean_room_bluetooth_parity_manifest": bluetooth_parity_manifest_payload(),
         "clean_room_analysis_gaps": clean_room_gap_payload(),
@@ -1133,6 +1158,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
 
 def _print_protocol_coverage(payload: dict[str, object]) -> None:
     summary = payload["summary"]
+    guidance = payload["user_guidance"]
     parity = payload["bluetooth_capability_parity"]
     parity_dimensions = parity["dimensions"]
     aidl = parity_dimensions["known_aidl_declaration_accounting"]
@@ -1172,6 +1198,11 @@ def _print_protocol_coverage(payload: dict[str, object]) -> None:
         f"{statuses.get('unsafe', 0)} unsafe, and "
         f"{statuses.get('excluded_non_ring', 0)} excluded non-ring rows."
     )
+    print("What you can do now: local evidence inspection and simulator preview only.")
+    for action in guidance["safe_now"]:
+        print(f"- {action['command']}: {action['purpose']}.")
+    print("Not available: " + "; ".join(guidance["unavailable"]) + ".")
+    print(f"Next safe action: {guidance['next_safe_action']}")
     print("Static row accounting does not satisfy semantic, live, or hardware gates.")
     print("Static source recovery completeness: not established.")
     print(

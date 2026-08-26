@@ -383,6 +383,14 @@ top-level verdict while `ok: true` means only that report generation succeeded. 
 independent dimensions keep recovered-AIDL row accounting separate from source
 semantics, live vendor availability, and hardware verification; no percentage or
 unknown-firmware capability denominator is invented. The report includes a schema-1
+guidance object and a matching human-first section: local evidence inspection and the
+simulator are safe to explore, while live vendor Bluetooth, hardware-verified vendor
+behavior, and host input from ring events remain unavailable. The fixed next safe
+action is `jring doctor`, which checks local prerequisites without selecting or
+contacting a ring. This recommendation does not imply ring compatibility or authorize
+Bluetooth access.
+
+The report includes a schema-1
 operation registry with all 112 request rows: 103 are ring-facing, nine are explicitly
 non-ring platform behavior, 101 remain `offline_only`, and generic `setUuid` plus
 `writeCharacteristic` are `unsafe`. Every row exposes sanitized capability, route,

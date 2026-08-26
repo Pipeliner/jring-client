@@ -624,7 +624,7 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
     assert cli.main(["protocol-coverage"]) == 0
     output = capsys.readouterr().out
 
-    assert output.splitlines()[:8] == [
+    assert output.splitlines()[:14] == [
         "OFFLINE PROTOCOL COVERAGE — no ring contacted",
         "Complete APK-to-Python Bluetooth capability parity: NO — not established.",
         (
@@ -641,6 +641,21 @@ def test_protocol_coverage_human_summary_is_offline_and_honest(capsys):
             "Operation registry: 103 ring-facing; 101 offline-only, 2 unsafe, "
             "and 9 excluded non-ring rows."
         ),
+        "What you can do now: local evidence inspection and simulator preview only.",
+        (
+            "- jring doctor: check local prerequisites without selecting or contacting "
+            "a ring."
+        ),
+        "- jring status --simulate: preview the safe simulator workflow.",
+        (
+            "- jring non-health-capabilities: inspect static non-health candidates and "
+            "their boundaries."
+        ),
+        (
+            "Not available: live vendor Bluetooth operations; hardware-verified vendor "
+            "behavior; host input from ring events."
+        ),
+        "Next safe action: jring doctor",
         "Static row accounting does not satisfy semantic, live, or hardware gates.",
     ]
     assert "Static source recovery completeness: not established." in output
@@ -839,6 +854,31 @@ def test_protocol_coverage_json_accounts_for_every_entry(capsys):
     assert result["operation"] == "protocol_coverage"
     assert result["source"] == "local"
     assert result["ok"] is True
+    assert result["user_guidance"] == {
+        "scope": "offline_evidence_and_simulator_only",
+        "safe_now": [
+            {
+                "command": "jring doctor",
+                "purpose": (
+                    "check local prerequisites without selecting or contacting a ring"
+                ),
+            },
+            {
+                "command": "jring status --simulate",
+                "purpose": "preview the safe simulator workflow",
+            },
+            {
+                "command": "jring non-health-capabilities",
+                "purpose": "inspect static non-health candidates and their boundaries",
+            },
+        ],
+        "unavailable": [
+            "live vendor Bluetooth operations",
+            "hardware-verified vendor behavior",
+            "host input from ring events",
+        ],
+        "next_safe_action": "jring doctor",
+    }
     assert result["summary"]["request_total"] == 112
     assert result["summary"]["callback_total"] == 105
     assert result["summary"]["offline_request_codecs"] == 85
