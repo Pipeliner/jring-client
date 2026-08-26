@@ -133,6 +133,8 @@ class TuiRuntime:
             self.dispatch(Event.key("r")); self._scan(); return False
         if key in (ord("r"), ord("R")) and self.state.screen is Screen.PICKER:
             self.dispatch(Event.key("p")); self._scan(); return False
+        if key in (ord("r"), ord("R")) and self.state.screen in {Screen.ERROR, Screen.RESULT}:
+            self.dispatch(Event.key("r")); self._scan(); return False
         if key in (ord("p"), ord("P")) and self.state.screen is Screen.DEVICES:
             self.dispatch(Event.key("p")); self._scan(); return False
         if self.state.screen is Screen.DEVICES and key in (ord("v"), ord("V")):

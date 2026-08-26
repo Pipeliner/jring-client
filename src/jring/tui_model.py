@@ -97,6 +97,10 @@ def reduce(state: TuiState, event: Event) -> TuiState:
             generation = state.scan_generation + 1
             return replace(state, scan_generation=generation,
                            status="Refreshing device list…", body="Waiting for nearby Bluetooth advertisements…")
+        if state.screen in {Screen.ERROR, Screen.RESULT} and key == "r":
+            generation = state.scan_generation + 1
+            return replace(state, screen=Screen.SCANNING, scan_generation=generation,
+                           status="Scanning… no connection has started.", body="Waiting for nearby Bluetooth advertisements…")
         if state.screen is Screen.DEVICES and key == "p":
             generation = state.scan_generation + 1 if not state.candidates else state.scan_generation
             return replace(state, screen=Screen.PICKER, focus_index=0, scan_generation=generation,

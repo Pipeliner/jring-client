@@ -94,3 +94,4 @@ def test_failed_pair_never_offers_trust_and_cancellation_is_explicit():
     state = reduce(TuiState.initial(), Event.key("p"))
     state = reduce(state, Event.key("escape"))
     assert state.side_effect_possible is False
+    assert reduce(state, Event.key("r")).screen is Screen.SCANNING
