@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish the validated artifacts to PyPI after environment approval
+        description: Publish the validated artifacts to PyPI
         required: true
         type: boolean
         default: false
@@ -102,9 +102,6 @@ jobs:
         startsWith(github.ref_name, 'v')
       )
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/jring-client/
     permissions:
       id-token: write
     steps:

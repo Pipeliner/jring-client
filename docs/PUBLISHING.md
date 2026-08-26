@@ -29,17 +29,17 @@ PyPI.
   `v*` tag pushes also start the guarded release path automatically.
 - Validation has read-only repository access and no OIDC permission.
 - Publication is possible only for a matching protected version tag when
-  `publish: true`; the `pypi` environment must approve the deployment.
+  `publish: true`; it starts automatically after validation.
 - The publication job downloads the validation job's immutable artifact ID and runs
   the PyPA publisher once. It does not check out or execute repository code.
 - Every external action is pinned to a full commit SHA. No password, API token,
   repository write permission, or pull-request publication path exists. An automatic
-  tag run still requires a protected `v*` ref and the `pypi` environment approval.
+  tag run still requires a protected `v*` ref.
 
 ## Configured GitHub controls
 
-The repository has a `pypi` environment with `Pipeliner` as its required reviewer and
-a custom deployment policy that accepts only `v*` tags. An active repository ruleset
+The repository may retain a `pypi` environment for metadata, but it has no required reviewer;
+a custom deployment policy accepts only `v*` tags. An active repository ruleset
 restricts creation, update, and deletion of matching tags to `Pipeliner`; this also
 makes `github.ref_protected` true for an authorized version tag.
 
@@ -63,12 +63,12 @@ cannot be performed by the repository workflow and must be reviewed in PyPI.
 ### Owner checklist on GitHub
 
 The repository side is already wired in `.github/workflows/publish-pypi.yml`: the
-publishing job requests only `id-token: write`, uses the `pypi` environment, accepts
+publishing job requests only `id-token: write`, accepts
 only a protected `v*` tag (automatically, or via an explicit `publish: true` dispatch
 input), and publishes the exact artifact produced by the validation job. In GitHub,
 verify:
 
-1. **Settings → Environments → `pypi`** has the required reviewer `Pipeliner`.
+1. **Settings → Environments → `pypi`** has no required reviewer (or is removed).
 2. The environment deployment branch/tag rule permits only `v*` tags.
 3. **Settings → Rules → Rulesets** keeps matching version tags protected and limits
    tag creation/update/deletion to `Pipeliner`.
@@ -122,8 +122,8 @@ the release workflow builds twice from the selected commit and compares fresh ou
    workflow.
 3. The protected tag push starts `publish-pypi` automatically. For a manual fallback,
    dispatch it at that exact tag with `publish: true`.
-4. Wait for `build-and-validate` to finish. Inspect that job and its immutable
-   artifact before approving the pending `pypi` environment deployment.
+4. Wait for `build-and-validate` to finish. The immutable artifact then publishes
+   automatically; no environment approval is requested.
 5. The publishing job downloads that artifact by GitHub artifact ID. It does not
    check out source, rebuild, run project code, accept `skip-existing`, or receive a
    repository token with write access. Its only elevated permission is

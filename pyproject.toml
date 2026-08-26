@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jring-client"
-version = "0.6.4"
+version = "0.6.5"
 description = "Privacy-first Linux client for explicitly selected JRing BLE devices"
 readme = "README.md"
 requires-python = ">=3.10"
