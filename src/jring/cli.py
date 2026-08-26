@@ -621,6 +621,10 @@ def _run_plain_tui() -> int:
 
 def _run_curses_tui() -> int:
     import curses
+    from .tui_runtime import TuiRuntime
+    return curses.wrapper(TuiRuntime(_tui_command, _tui_store_selected_address).run)
+
+    # Legacy implementation retained below until the renderer migration is complete.
     import time
 
     views = {
