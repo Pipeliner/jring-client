@@ -85,7 +85,8 @@ readiness grants no live eligibility, owner authorization, or hardware support.
 
 For a bounded owner investigation of one notify-capable metadata row, keep the address
 and capture outside the repository and choose the exact service, characteristic, and
-instance shown by the same local capability inventory:
+instance from the metadata-only JSON output of the same local capability inventory
+(`jring capabilities ... --json`):
 
 ```sh
 jring observe --address-file ~/.config/jring/address \
