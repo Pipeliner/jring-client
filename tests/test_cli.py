@@ -232,6 +232,13 @@ def test_capabilities_issue_draft_url_contains_only_sanitized_probe_summary(caps
         assert forbidden not in url.lower()
 
 
+def test_capabilities_human_issue_draft_is_reviewable_and_local(capsys):
+    assert cli.main(["capabilities", "--simulate", "--issue-draft-url"]) == 0
+    output = capsys.readouterr().out
+    assert "Sanitized issue draft: generated locally; review before opening." in output
+    assert "https://github.com/Pipeliner/jring-client/issues/new?" in output
+
+
 @pytest.mark.parametrize(
     "argv, operation, source",
     [

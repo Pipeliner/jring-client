@@ -1785,6 +1785,9 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
         "hardware eligibility"
     )
     print("Vendor meanings: unknown; values not read; writes disabled")
+    if "issue_draft_url" in payload:
+        print("Sanitized issue draft: generated locally; review before opening.")
+        print(payload["issue_draft_url"])
 
 
 async def _run(args: argparse.Namespace) -> int:
