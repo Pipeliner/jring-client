@@ -31,7 +31,7 @@ from .input import (
     parse_binding,
 )
 from .non_health import static_non_health_capabilities
-from .pairing import pair_device
+from .pairing import pair_device, trust_device
 from .owner_hardware_evidence import (
     OwnerEvidenceError,
     OwnerEvidenceStatus,
@@ -2520,6 +2520,20 @@ async def _run(args: argparse.Namespace) -> int:
             if result.status in {"timed_out", "trust_timed_out"}
             else ExitCode.UNAVAILABLE
         )
+    if args.command == "trust":
+        address = _selected_address(args)
+        result = trust_device(address, timeout=args.timeout, allow_trust=args.allow_trust)
+        payload = {"trust_status": result.status, "detail": result.detail, "trust_changed": result.status == "trusted"}
+        if args.json:
+            if result.status == "trusted":
+                _print_json_success("trust", "hardware", payload)
+            else:
+                _print_json_error(RuntimeError(result.detail), operation="trust", source="hardware", contract=_UNAVAILABLE, payload=payload)
+        else:
+            print("OS TRUST — explicitly selected device")
+            print(f"Result: {result.status.replace('_', ' ')}")
+            print(result.detail)
+        return 0 if result.status == "trusted" else ExitCode.UNAVAILABLE
     if args.command == "discover":
         results = await discover(timeout=args.timeout)
         if args.json:
@@ -2774,6 +2788,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="pairing deadline in seconds (default: 8; timeout outcome is uncertain)",
     )
     _add_json_option(pairing)
+    trusting = sub.add_parser(
+        "trust", help="trust one already-paired device through local BlueZ"
+    )
+    trusting.add_argument("--address-file", type=Path, required=True,
+                          help="mode-0600 file containing the selected device address")
+    trusting.add_argument("--allow-trust", action="store_true", required=True,
+                          help="authorize one OS trust operation")
+    trusting.add_argument("--timeout", type=_timeout, default=8.0,
+                          help="trust deadline in seconds (default: 8)")
+    _add_json_option(trusting)
     status = sub.add_parser("status", help="read battery, device information, and capabilities")
     _add_runtime_options(status, suppress=True, simulator_profiles=True)
     status.add_argument(
@@ -3056,6 +3080,7 @@ _OPERATIONS = {
     "heart-rate": "heart_rate",
     "discover": "discover",
     "pair": "pair",
+    "trust": "trust",
     "status": "status",
     "time-sync": "time_sync",
     "history": "history",
@@ -3180,7 +3205,7 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
             parser.error("verify-device-info does not support simulation")
         if not address_file and not guided_selection:
             parser.error("verify-device-info requires --address-file or --select --active-scan")
-    if args.command in {"observe", "pair"}:
+    if args.command in {"observe", "pair", "trust"}:
         if address:
             parser.error(f"{args.command} requires --address-file; direct addresses are not accepted")
         if simulate or guided_selection or active_scan:
@@ -3240,8 +3265,8 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         if ignored:
             option = sorted(ignored)[0].replace("_", "-")
             parser.error(f"--{option} is not supported by completion")
-    if args.command == "pair" and address:
-        parser.error("pair requires --address-file; direct addresses are not accepted")
+    if args.command in {"pair", "trust"} and address:
+        parser.error(f"{args.command} requires --address-file; direct addresses are not accepted")
     if args.command == "protocol-coverage":
         ignored = provided & {"address", "address_file", "simulate", "timeout"}
         if ignored:

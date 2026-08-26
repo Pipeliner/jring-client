@@ -26,6 +26,8 @@ class Event:
     generation: int | None = None
     candidates: tuple[SelectionCandidate, ...] = ()
     message: str = ""
+    operation: str | None = None
+    outcome: str | None = None
 
     @classmethod
     def key(cls, key_name: str) -> "Event":
@@ -34,6 +36,10 @@ class Event:
     @classmethod
     def scan_completed(cls, generation: int, candidates: Iterable[SelectionCandidate]) -> "Event":
         return cls("scan_completed", generation=generation, candidates=tuple(candidates))
+
+    @classmethod
+    def task_completed(cls, generation: int, operation: str, outcome: str) -> "Event":
+        return cls("task_completed", generation=generation, operation=operation, outcome=outcome)
 
 
 @dataclass(frozen=True)
@@ -45,6 +51,10 @@ class TuiState:
     quit_requested: bool = False
     status: str = "Ready. No Bluetooth operation has started."
     body: str = "Press r to scan nearby devices, p to pair, or v for the offline simulator."
+    selected_candidate: SelectionCandidate | None = None
+    address_file: str | None = None
+    operation_kind: str | None = None
+    side_effect_possible: bool = False
 
     @classmethod
     def initial(cls) -> "TuiState":
@@ -66,9 +76,15 @@ def reduce(state: TuiState, event: Event) -> TuiState:
         if key in {"ctrl-c", "q"}:
             if state.screen is Screen.DEVICES:
                 return replace(state, quit_requested=True, status="Goodbye. No ring was contacted.")
-            return replace(state, screen=Screen.DEVICES, status="Cancelled; no operation was run.")
+            possible = state.screen is Screen.TASK_RUNNING and state.side_effect_possible
+            return replace(state, screen=Screen.RESULT, side_effect_possible=possible,
+                           status="Cancelled; outcome is uncertain because the operation may have started." if possible else "Cancelled; no operation was run.")
         if key in {"escape", "esc"}:
-            return replace(state, screen=Screen.DEVICES, status="Cancelled; no operation was run.")
+            if state.screen is Screen.TASK_RUNNING:
+                return replace(state, screen=Screen.RESULT, side_effect_possible=True,
+                               status="Cancelled; outcome is uncertain because the operation may have started.")
+            generation = state.scan_generation + 1 if state.screen in {Screen.SCANNING, Screen.PICKER} else state.scan_generation
+            return replace(state, screen=Screen.DEVICES, scan_generation=generation, status="Cancelled; no operation was run.")
         if state.screen is Screen.DEVICES and key == "r":
             generation = state.scan_generation + 1
             return replace(state, screen=Screen.SCANNING, scan_generation=generation,
@@ -88,7 +104,15 @@ def reduce(state: TuiState, event: Event) -> TuiState:
             if key in {"up", "k"} and state.candidates:
                 return replace(state, focus_index=max(state.focus_index - 1, 0))
             if key in {"enter", "return"} and state.candidates:
-                return replace(state, screen=Screen.PAIR_CONFIRM, status="Confirm pairing for the selected device.")
+                selected = state.candidates[state.focus_index]
+                return replace(state, screen=Screen.PAIR_CONFIRM, selected_candidate=selected,
+                               status="Confirm pairing for the selected device.", body=f"Selected: {selected.display_name or 'unnamed device'} [{selected.alias}]\nType PAIR to authorize one pairing operation.")
+        if state.screen is Screen.PAIR_CONFIRM and key in {"confirm-pair", "pair"}:
+            return replace(state, screen=Screen.TASK_RUNNING, operation_kind="pair",
+                           side_effect_possible=True, status="Pairing…", body="One BlueZ pairing operation is running.")
+        if state.screen is Screen.TRUST_CONFIRM and key in {"confirm-trust", "trust"}:
+            return replace(state, screen=Screen.TASK_RUNNING, operation_kind="trust",
+                           side_effect_possible=True, status="Trusting…", body="One BlueZ trust operation is running.")
     elif event.kind == "scan_completed":
         if state.screen not in {Screen.SCANNING, Screen.PICKER} or event.generation != state.scan_generation:
             return state
@@ -97,6 +121,15 @@ def reduce(state: TuiState, event: Event) -> TuiState:
         return replace(state, screen=screen, candidates=candidates, focus_index=0,
                        status="Scan complete." if candidates else "No nearby devices found; press r to retry.",
                        body="\n".join(f"{i}. {item.display_name or 'unnamed device'} [{item.alias}]" for i, item in enumerate(candidates, 1)))
+    elif event.kind == "task_completed":
+        if state.screen is not Screen.TASK_RUNNING or event.generation != state.scan_generation:
+            return state
+        outcome = event.outcome or "unknown"
+        if event.operation == "pair" and outcome in {"paired", "already_paired"}:
+            return replace(state, screen=Screen.TRUST_CONFIRM, operation_kind=None, side_effect_possible=False,
+                           status="Pairing succeeded. Trust this device?", body="Trust is separate and defaults to No. Press t to trust, or n to finish.")
+        return replace(state, screen=Screen.RESULT, operation_kind=None, side_effect_possible=False,
+                       status=f"{event.operation or 'Task'} result: {outcome}.", body="Press r to retry or Escape to return.")
     return state
 
 

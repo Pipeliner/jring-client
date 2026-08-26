@@ -36,6 +36,9 @@ actively scan with explicit consent; redacts addresses and never connects
 .B pair
 pair one selected device through local BlueZ (never trusts it)
 .TP
+.B trust
+trust one already\-paired device through local BlueZ
+.TP
 .B status
 read battery, device information, and capabilities
 .TP
@@ -186,6 +189,22 @@ separately authorize the following local BlueZ trust operation
 .TP
 .B \-\-timeout \fITIMEOUT\fR
 pairing deadline in seconds (default: 8; timeout outcome is uncertain)
+.TP
+.B \-\-json
+print structured JSON
+.SS "jring trust"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-address\-file \fIADDRESS\-FILE\fR
+mode\-0600 file containing the selected device address Required.
+.TP
+.B \-\-allow\-trust
+authorize one OS trust operation Required.
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+trust deadline in seconds (default: 8)
 .TP
 .B \-\-json
 print structured JSON

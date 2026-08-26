@@ -58,3 +58,30 @@ def test_render_model_has_accessible_screen_contract():
     assert set(("screen", "title", "purpose", "body", "focus_index", "status", "keys")) <= set(model)
     assert model["screen"] == "devices"
     assert "simulator" not in model["title"].lower()
+
+
+def test_pair_result_opens_trust_only_after_success():
+    selected = candidate("SR08", likely=True)
+    state = reduce(TuiState.initial(), Event.key("p"))
+    state = reduce(state, Event.scan_completed(1, (selected,)))
+    state = reduce(state, Event.key("enter"))
+    assert state.screen is Screen.PAIR_CONFIRM
+    state = reduce(state, Event.key("confirm-pair"))
+    assert state.screen is Screen.TASK_RUNNING
+    state = reduce(state, Event.task_completed(state.scan_generation, "pair", "paired"))
+    assert state.screen is Screen.TRUST_CONFIRM
+    assert state.side_effect_possible is False
+
+
+def test_failed_pair_never_offers_trust_and_cancellation_is_explicit():
+    state = TuiState.initial()
+    state = reduce(state, Event.key("p"))
+    state = reduce(state, Event.scan_completed(1, (candidate("SR08"),)))
+    state = reduce(state, Event.key("enter"))
+    state = reduce(state, Event.key("confirm-pair"))
+    state = reduce(state, Event.task_completed(state.scan_generation, "pair", "rejected"))
+    assert state.screen is Screen.RESULT
+    assert "trust" not in state.status.lower()
+    state = reduce(TuiState.initial(), Event.key("p"))
+    state = reduce(state, Event.key("escape"))
+    assert state.side_effect_possible is False

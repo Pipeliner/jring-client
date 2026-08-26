@@ -78,3 +78,24 @@ def pair_device(
         return PairingResult("trust_rejected", "BlueZ pairing succeeded but trust was rejected")
     except RuntimeError as exc:
         return PairingResult("unavailable", str(exc))
+
+
+def trust_device(address: str, *, timeout: float, allow_trust: bool) -> PairingResult:
+    """Trust one already-paired address; never invokes pairing."""
+    if not allow_trust:
+        return PairingResult("consent_required", "trust requires explicit consent")
+    if shutil.which("bluetoothctl") is None:
+        return PairingResult("unavailable", "bluetoothctl is not installed")
+    try:
+        completed = subprocess.run(
+            ["bluetoothctl", "trust", address], capture_output=True, text=True,
+            timeout=timeout, check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return PairingResult("trust_timed_out", "trust outcome is uncertain; inspect BlueZ state before another attempt")
+    except OSError as exc:
+        return PairingResult("unavailable", _sanitize(str(exc)) or "bluetoothctl unavailable")
+    output = _sanitize(" ".join(part for part in (completed.stdout, completed.stderr) if part)).lower()
+    if completed.returncode == 0 and ("successful" in output or "trust succeeded" in output or output == "success"):
+        return PairingResult("trusted", "BlueZ reports the selected device is trusted")
+    return PairingResult("trust_rejected", "BlueZ rejected trust; pairing was not changed")

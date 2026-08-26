@@ -59,6 +59,15 @@ def test_trust_requires_its_own_confirmation_and_is_a_second_operation(monkeypat
     assert denied.status == "paired"
 
 
+def test_trust_device_is_standalone_and_never_pairs(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pairing.shutil, "which", lambda _name: "/usr/bin/bluetoothctl")
+    monkeypatch.setattr(pairing.subprocess, "run", lambda command, **kwargs: calls.append(command) or SimpleNamespace(returncode=0, stdout="trust succeeded", stderr=""))
+    result = pairing.trust_device(ADDRESS, timeout=2, allow_trust=True)
+    assert result.status == "trusted"
+    assert calls == [["bluetoothctl", "trust", ADDRESS]]
+
+
 def test_pairing_timeout_is_uncertain_and_not_retried(monkeypatch):
     monkeypatch.setattr(pairing.shutil, "which", lambda _name: "/usr/bin/bluetoothctl")
     def fake_run(*_args, **_kwargs):
@@ -75,3 +84,10 @@ def test_cli_pair_requires_explicit_consent_before_selection(monkeypatch, capsys
     with pytest.raises(SystemExit):
         cli.main(["pair", "--address-file", "/tmp/address"])
     assert "--allow-pairing" in capsys.readouterr().err
+
+
+def test_cli_trust_requires_explicit_consent_before_selection(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_selected_address", lambda _args: (_ for _ in ()).throw(AssertionError("must gate first")))
+    with pytest.raises(SystemExit):
+        cli.main(["trust", "--address-file", "/tmp/address"])
+    assert "--allow-trust" in capsys.readouterr().err

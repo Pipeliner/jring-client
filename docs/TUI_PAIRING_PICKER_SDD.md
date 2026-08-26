@@ -82,6 +82,22 @@ contain `screen`, `title`, `purpose`, `body`, `focus_index`, `status`, and
 `keys`. This vocabulary is the contract tested by TDD and is independent of
 whether the renderer uses curses, Textual, or prompt-toolkit.
 
+### Pairing and cancellation result contract
+
+The reducer retains `selected_candidate`, `address_file`, `operation_kind`, and
+`side_effect_possible` independently of rendered text. Pairing is two operations:
+`PAIR_CONFIRM` authorizes one pair call; only a `PAIR_RESULT` of `paired` or
+`already_paired` may transition to `TRUST_CONFIRM`; `TRUST_CONFIRM` authorizes
+one trust call and never repeats pairing. Rejected, unavailable, timed-out, or
+uncertain pairing ends in a result/error state with trust unavailable.
+
+Cancellation has three outcomes: before worker dispatch, `cancelled` with
+`side_effect_possible=false`; after dispatch but before a result, `uncertain`
+with `side_effect_possible=true`; after a completed result, ordinary result
+handling wins. No cancelled/uncertain operation is retried automatically, and
+stale result events (wrong generation) are ignored. The renderer states which
+outcome occurred.
+
 ## Devices view
 
 Devices is the default screen on every launch, even when an address file exists.

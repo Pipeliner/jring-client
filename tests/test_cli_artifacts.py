@@ -33,6 +33,7 @@ EXPECTED_COMMANDS = (
     "input",
     "discover",
     "pair",
+    "trust",
     "status",
     "capabilities",
     "heart-rate",
@@ -60,6 +61,7 @@ EXPECTED_OPTIONS = {
     "tui": (("-h", "--help"),),
     "completion": (("-h", "--help"),),
     "pair": (("-h", "--help"), ("--address-file",), ("--allow-pairing",), ("--allow-trust",), ("--timeout",), ("--json",)),
+    "trust": (("-h", "--help"), ("--address-file",), ("--allow-trust",), ("--timeout",), ("--json",)),
     "protocol-coverage": (("-h", "--help"), ("--json",)),
     "non-health-capabilities": (("-h", "--help"), ("--json",)),
     "input": (
@@ -240,7 +242,7 @@ def test_bash_completion_preserves_per_command_option_scope():
     assert "input:--map)" in bash
     for command in ("status", "capabilities", "heart-rate", "time-sync"):
         assert f"{command}:--address-file)" in bash
-    assert bash.count("compopt -o filenames 2>/dev/null || true") == 24
+    assert bash.count("compopt -o filenames 2>/dev/null || true") == 26
 
 
 def test_generation_is_reproducible_private_and_host_independent(monkeypatch):

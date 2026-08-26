@@ -19,7 +19,7 @@ class TuiRuntime:
         self.state = TuiState.initial()
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="jring-tui")
         self.future: Future[Any] | None = None
-        self._cancelled = False
+        self.active_operation: str | None = None
 
     def close(self) -> None:
         if self.future and not self.future.done():
@@ -35,6 +35,7 @@ class TuiRuntime:
         self.future._jring_generation = generation  # type: ignore[attr-defined]
 
     def _start_task(self, argv: list[str]) -> None:
+        self.active_operation = argv[0] if argv else None
         self.future = self.executor.submit(self.command, argv)
 
     def _set_task_state(self, label: str, argv: list[str]) -> None:
@@ -47,7 +48,7 @@ class TuiRuntime:
         if not self.future or not self.future.done():
             return
         future, self.future = self.future, None
-        if future.cancelled() or self._cancelled:
+        if future.cancelled():
             return
         try:
             value = future.result()
@@ -55,7 +56,14 @@ class TuiRuntime:
                 generation = getattr(future, "_jring_generation", self.state.scan_generation)
                 self.dispatch(Event.scan_completed(generation, value))
             else:
-                self.state = self.state.__class__(**{**self.state.__dict__, "screen": Screen.RESULT, "status": "Task complete.", "body": str(value)})
+                operation = self.active_operation
+                self.active_operation = None
+                if operation in {"pair", "trust"}:
+                    text = str(value).lower()
+                    outcome = "paired" if "paired" in text else "trusted" if "trusted" in text else "rejected"
+                    self.dispatch(Event.task_completed(self.state.scan_generation, operation, outcome))
+                else:
+                    self.state = self.state.__class__(**{**self.state.__dict__, "screen": Screen.RESULT, "status": "Task complete.", "body": str(value)})
         except Exception as exc:
             self.state = self.state.__class__(**{**self.state.__dict__, "screen": Screen.ERROR, "status": "Task failed; no automatic retry.", "body": str(exc)})
 
@@ -92,7 +100,6 @@ class TuiRuntime:
                 pass
             return False
         if key in (3, 27):
-            self._cancelled = True
             self.dispatch(Event.key("ctrl-c" if key == 3 else "escape"))
             return self.state.quit_requested
         if key in (ord("q"), ord("Q")):
@@ -115,13 +122,21 @@ class TuiRuntime:
         if self.state.screen is Screen.PICKER and key in (curses.KEY_DOWN, curses.KEY_UP, ord("j"), ord("k"), 10, 13):
             self.dispatch(Event.key({curses.KEY_DOWN: "down", curses.KEY_UP: "up", ord("j"): "j", ord("k"): "k"}.get(key, "enter")))
             return False
-        if self.state.screen is Screen.PAIR_CONFIRM and key in (ord("y"), ord("Y")) and self.state.candidates:
-            selected = self.state.candidates[self.state.focus_index]
+        if self.state.screen is Screen.PAIR_CONFIRM and key in (ord("y"), ord("Y")) and self.state.selected_candidate:
+            selected = self.state.selected_candidate
             path = os.path.expanduser("~/.config/jring/address")
             if self.store_address(path, selected.connection_address()):
-                self.state = self.state.__class__(**{**self.state.__dict__, "screen": Screen.TASK_RUNNING, "status": "Pairing…", "body": "BlueZ pairing is in progress."})
+                self.state = self.state.__class__(**{**self.state.__dict__, "address_file": path})
+                self.dispatch(Event.key("confirm-pair"))
                 self._start_task(["pair", "--address-file", path, "--allow-pairing"])
             return False
+        if self.state.screen is Screen.TRUST_CONFIRM and key in (ord("t"), ord("T")) and self.state.selected_candidate:
+            path = self.state.address_file or os.path.expanduser("~/.config/jring/address")
+            self.dispatch(Event.key("confirm-trust"))
+            self._start_task(["trust", "--address-file", path, "--allow-trust"])
+            return False
+        if self.state.screen is Screen.TRUST_CONFIRM and key in (ord("n"), ord("N")):
+            self.dispatch(Event.key("escape")); return False
         return False
 
     def run(self, stdscr: Any) -> int:
