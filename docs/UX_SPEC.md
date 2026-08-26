@@ -1,6 +1,14 @@
 # JRing human UX specification
 
-Status: accepted for v0.5 after adversarial review
+Status: accepted baseline; TUI redesign is specified in `docs/TUI_PAIRING_PICKER_SDD.md`
+
+## TUI contract
+
+The terminal UI follows the event-driven screen, focus, cancellation, and
+rendering contract in [`TUI_PAIRING_PICKER_SDD.md`](TUI_PAIRING_PICKER_SDD.md).
+That SDD supersedes the legacy curses implementation details: no blocking BLE
+work or `input()` calls may run in the renderer, and no progress/error text may
+leak outside the active TUI screen.
 
 ## Human goal
 
