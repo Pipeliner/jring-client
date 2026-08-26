@@ -68,7 +68,7 @@ async def _scan(*, timeout: float) -> tuple[DiscoveryObservation, ...]:
     try:
         from bleak import BleakScanner
     except ImportError as exc:
-        raise UnavailableError("discovery requires: pip install '.[ble]'") from exc
+        raise UnavailableError("discovery requires the installed package dependencies") from exc
     found = await BleakScanner.discover(timeout=timeout, return_adv=True)
     observations = []
     for address, (device, advertisement) in found.items():

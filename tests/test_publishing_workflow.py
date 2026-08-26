@@ -149,3 +149,11 @@ def test_uvx_quickstart_and_tui_entrypoint_are_documented():
     for text in (readme, install):
         assert "uvx --from jring-client jring tui" in text
         assert "status --simulate" in text
+
+
+def test_runtime_dependencies_are_in_base_project_metadata():
+    metadata = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert '"bleak>=0.22,<2"' in metadata
+    assert '"evdev>=1.7,<2"' in metadata
+    assert "dependencies = []" not in metadata
+    assert "[project.optional-dependencies]" in metadata

@@ -28,7 +28,10 @@ keywords = [
     "uinput",
     "wearable",
 ]
-dependencies = []
+dependencies = [
+    "bleak>=0.22,<2",
+    "evdev>=1.7,<2",
+]
 classifiers = [
     "Environment :: Console",
     "Operating System :: POSIX :: Linux",
@@ -46,8 +49,6 @@ Issues = "https://github.com/Pipeliner/jring-client/issues"
 Repository = "https://github.com/Pipeliner/jring-client"
 
 [project.optional-dependencies]
-ble = ["bleak>=0.22,<2"]
-input = ["evdev>=1.7,<2"]
 dev = [
     "pytest>=8.0",
     "setuptools==84.0.0",

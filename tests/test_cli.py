@@ -43,7 +43,7 @@ def not_ready_report():
         checks=(
             ReadinessCheck("python", True, "Python 3.14 is supported"),
             ReadinessCheck(
-                "bleak", False, "Bleak is not installed", "pip install -e '.[ble]'"
+                "bleak", False, "Bleak is not installed", "Install the package dependencies: python -m pip install -e ."
             ),
         ),
         simulator_ready=True,
@@ -388,7 +388,7 @@ def test_simulator_profiles_never_construct_hardware_transport(
 
 def test_expected_error_is_actionable_without_traceback(monkeypatch, capsys):
     async def fail(_args):
-        raise RuntimeError("hardware support requires: pip install '.[ble]'")
+        raise RuntimeError("hardware support requires: python -m pip install -e .")
 
     monkeypatch.setattr(cli, "_run", fail)
     assert cli.main(["status", "--simulate"]) == 70
@@ -488,7 +488,7 @@ def test_doctor_json_can_strictly_require_hardware(monkeypatch, capsys):
     assert result["simulator_ready"] is True
     assert result["hardware_ready"] is False
     assert result["input_ready"] is False
-    assert result["checks"][1]["remedy"] == "pip install -e '.[ble]'"
+    assert result["checks"][1]["remedy"] == "Install the package dependencies: python -m pip install -e ."
 
 
 def test_doctor_can_strictly_require_desktop_input(monkeypatch, capsys):

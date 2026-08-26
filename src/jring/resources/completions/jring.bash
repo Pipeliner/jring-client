@@ -11,7 +11,7 @@ _jring_completion()
         word="${COMP_WORDS[index]}"
         case "$word" in
             --address|--address-file|--simulate-profile|--timeout) ((index++)) ;;
-            doctor|input-actions|tui|completion|protocol-coverage|non-health-capabilities|input|discover|status|capabilities|heart-rate|time-sync|history|verify-device-info|observe|review-observation|review-owner-evidence|derive-owner-evidence) command="$word"; break ;;
+            doctor|input-actions|tui|completion|protocol-coverage|non-health-capabilities|input|discover|pair|status|capabilities|heart-rate|time-sync|history|verify-device-info|observe|review-observation|review-owner-evidence|derive-owner-evidence) command="$word"; break ;;
         esac
     done
 
@@ -56,7 +56,7 @@ _jring_completion()
                 return
                 ;;
         esac
-        words='-h --help --version --address --address-file --simulate --simulate-profile --timeout --json doctor input-actions tui completion protocol-coverage non-health-capabilities input discover status capabilities heart-rate time-sync history verify-device-info observe review-observation review-owner-evidence derive-owner-evidence'
+        words='-h --help --version --address --address-file --simulate --simulate-profile --timeout --json doctor input-actions tui completion protocol-coverage non-health-capabilities input discover pair status capabilities heart-rate time-sync history verify-device-info observe review-observation review-owner-evidence derive-owner-evidence'
         mapfile -t COMPREPLY < <(compgen -W "$words" -- "$current")
         return
     fi
@@ -70,6 +70,7 @@ _jring_completion()
         non-health-capabilities) words='-h --help --json' ;;
         input) words='-h --help --simulate --simulate-profile --json --map --allow-input' ;;
         discover) words='-h --help --simulate --timeout --json --active-scan' ;;
+        pair) words='-h --help --address-file --allow-pairing --allow-trust --timeout --json' ;;
         status) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan' ;;
         capabilities) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan --issue-draft-url --include-observation-targets' ;;
         heart-rate) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan --allow-notifications' ;;
@@ -106,6 +107,20 @@ _jring_completion()
             return
             ;;
         discover:--timeout=*)
+            COMPREPLY=()
+            return
+            ;;
+        pair:--address-file=*)
+            option_prefix="${current%%=*}="
+            option_value="${current#*=}"
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$option_value")
+            for index in "${!COMPREPLY[@]}"; do
+                COMPREPLY[index]="$option_prefix${COMPREPLY[index]}"
+            done
+            return
+            ;;
+        pair:--timeout=*)
             COMPREPLY=()
             return
             ;;
@@ -289,6 +304,15 @@ _jring_completion()
             return
             ;;
         discover:--timeout)
+            COMPREPLY=()
+            return
+            ;;
+        pair:--address-file)
+            compopt -o filenames 2>/dev/null || true
+            mapfile -t COMPREPLY < <(compgen -f -- "$current")
+            return
+            ;;
+        pair:--timeout)
             COMPREPLY=()
             return
             ;;

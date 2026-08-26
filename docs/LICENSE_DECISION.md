@@ -14,9 +14,9 @@ licenses.
 - The repository was public without a license grant before this decision. It now has
   canonical MIT text in `LICENSE` and `pyproject.toml` declares the `MIT` SPDX
   expression.
-- The base package declares no runtime dependencies. Optional direct dependencies in
-  the current lock are Bleak 1.1.1 (MIT), evdev 1.9.3 (BSD-3-Clause), and pytest 9.1.1
-  (MIT). Release tooling pins build 1.5.0 and setuptools 84.0.0, both MIT.
+- The base package declares Bleak 1.1.1 (MIT) and evdev 1.9.3 (BSD-3-Clause) as
+  mandatory runtime dependencies; pytest 9.1.1 (MIT) remains development-only.
+  Release tooling pins build 1.5.0 and setuptools 84.0.0, both MIT.
 - The completed metadata inspection covers every package in `uv.lock`, plus the pinned
   release tools. It does not establish the ownership of repository history, copied
   snippets, trademarks, patents, or every contributor's authority to license work.
@@ -67,9 +67,10 @@ The exact locked dependency and release-tool metadata was inspected on 2026-08-2
 - Other permissive metadata: typing-extensions (`PSF-2.0`) and exceptiongroup
   (PyPI's MIT classifier; no SPDX expression in its metadata).
 
-The base installation has no runtime dependencies. Optional packages are referenced as
-dependencies rather than copied into JRing distributions, and release tools are not
-shipped. No reciprocal/copyleft license was found in the inspected metadata. On that
+The base installation includes the runtime Bluetooth and Linux-input dependencies.
+Development-only packages are referenced as dependencies rather than copied into
+JRing distributions, and release tools are not shipped. No reciprocal/copyleft license
+was found in the inspected metadata. On that
 scope, no conflict with distributing JRing itself under MIT was identified. This is a
 metadata and packaging review, not a legal opinion or a substitute for reviewing the
 dependencies' full license texts when redistributing them.

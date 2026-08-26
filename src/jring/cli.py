@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from collections import Counter
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 import importlib.resources
 import json
 import math
@@ -31,6 +31,7 @@ from .input import (
     parse_binding,
 )
 from .non_health import static_non_health_capabilities
+from .pairing import pair_device
 from .owner_hardware_evidence import (
     OwnerEvidenceError,
     OwnerEvidenceStatus,
@@ -400,13 +401,14 @@ def _print_terminal_home() -> None:
     print("More commands: jring --help")
 
 
-def _run_tui() -> int:
-    """Run a small, dependency-free, safe-first terminal menu.
+def _tui_command(argv: list[str]) -> str:
+    output = StringIO()
+    with redirect_stdout(output):
+        main(argv)
+    return output.getvalue()
 
-    The menu only dispatches to existing commands.  It never selects a device,
-    starts a scan, opens a connection, or emits desktop input on its own.
-    """
 
+def _run_plain_tui() -> int:
     print("JRING — SAFE TUI")
     print("No ring selected. No Bluetooth, scan, network, or desktop-input action occurred.")
     print()
@@ -415,7 +417,9 @@ def _run_tui() -> int:
     print("d) Check this computer (doctor)")
     print("i) Explore input actions")
     print("h) Show command-line quickstart")
+    print("r) Refresh the selected view")
     print("q) Quit")
+    last_view = ["s"]
     while True:
         try:
             choice = input("\nChoose an option [s/c/d/i/h/q]: ").strip().lower()
@@ -425,18 +429,86 @@ def _run_tui() -> int:
         if choice == "q":
             print("Goodbye. No ring was contacted.")
             return ExitCode.OK
-        if choice == "s":
-            main(["status", "--simulate"])
+        if choice in {"s", "c", "d", "i", "h"}:
+            last_view[0] = choice
+        if choice in {"s", "r"}:
+            print(_tui_command(["status", "--simulate"]))
         elif choice == "c":
-            main(["capabilities", "--simulate", "--simulate-profile", "hid"])
+            print(_tui_command(["capabilities", "--simulate", "--simulate-profile", "hid"]))
         elif choice == "d":
-            main(["doctor"])
+            print(_tui_command(["doctor"]))
         elif choice == "i":
-            main(["input-actions"])
+            print(_tui_command(["input-actions"]))
         elif choice == "h":
             _print_terminal_home()
         else:
-            print("Choose s, c, d, i, h, or q. Nothing was run.")
+            if choice != "r":
+                print("Choose s, c, d, i, h, r, or q. Nothing was run.")
+
+
+def _run_curses_tui() -> int:
+    import curses
+    import time
+
+    views = {
+        "s": ("SIMULATED STATUS", ["status", "--simulate"]),
+        "c": ("SIMULATED CAPABILITIES", ["capabilities", "--simulate", "--simulate-profile", "hid"]),
+        "d": ("LOCAL READINESS", ["doctor"]),
+        "i": ("INPUT ACTIONS", ["input-actions"]),
+    }
+    state = {"view": "s", "text": ""}
+
+    def refresh_view() -> None:
+        state["text"] = _tui_command(views[state["view"]][1])
+
+    def draw(stdscr: Any) -> None:
+        curses.curs_set(0)
+        stdscr.nodelay(True)
+        stdscr.keypad(True)
+        refresh_view()
+        last_refresh = time.monotonic()
+        while True:
+            if time.monotonic() - last_refresh >= 2:
+                refresh_view()
+                last_refresh = time.monotonic()
+            height, width = stdscr.getmaxyx()
+            stdscr.erase()
+            title = " JRING — SAFE TUI (simulator) "
+            stdscr.addnstr(0, 0, title, max(0, width - 1), curses.A_REVERSE)
+            stdscr.addnstr(1, 0, "No ring selected • no scan • no connection • no input", max(0, width - 1))
+            stdscr.addnstr(3, 0, "[s] status  [c] capabilities  [d] doctor  [i] inputs  [r] refresh  [q] quit", max(0, width - 1))
+            stdscr.addnstr(4, 0, f"View: {views[state['view']][0]}  (refreshes every 2s)", max(0, width - 1), curses.A_BOLD)
+            for row, line in enumerate(state["text"].splitlines(), start=6):
+                if row >= height - 1:
+                    break
+                stdscr.addnstr(row, 0, line, max(0, width - 1))
+            stdscr.refresh()
+            key = stdscr.getch()
+            if key in (ord("q"), ord("Q"), 27):
+                return
+            if key in (ord("s"), ord("S"), ord("c"), ord("C"), ord("d"), ord("D"), ord("i"), ord("I")):
+                state["view"] = chr(key).lower()
+                refresh_view()
+                last_refresh = time.monotonic()
+            elif key in (ord("r"), ord("R")):
+                refresh_view()
+                last_refresh = time.monotonic()
+            time.sleep(0.05)
+
+    try:
+        curses.wrapper(draw)
+    except (curses.error, OSError):
+        return _run_plain_tui()
+    print("Goodbye. No ring was contacted.")
+    return ExitCode.OK
+
+
+def _run_tui() -> int:
+    """Run a refreshable simulator-first TUI with a plain-terminal fallback."""
+
+    if sys.stdin.isatty() and sys.stdout.isatty() and not os.environ.get("JRING_TUI_PLAIN"):
+        return _run_curses_tui()
+    return _run_plain_tui()
 
 
 def tui_main() -> int:
@@ -2281,6 +2353,49 @@ async def _run(args: argparse.Namespace) -> int:
             )
             print(f"Emitted: {event.kind} -> {action.description}")
         return 0
+    if args.command == "pair":
+        address = _selected_address(args)
+        result = pair_device(
+            address,
+            timeout=args.timeout,
+            allow_pairing=args.allow_pairing,
+            allow_trust=args.allow_trust,
+        )
+        payload = {
+            "pairing_status": result.status,
+            "detail": result.detail,
+            "trust_changed": result.status == "trusted",
+            "application_binding_changed": False,
+        }
+        if args.json:
+            if result.status in {"paired", "already_paired", "trusted"}:
+                _print_json_success("pair", "hardware", payload)
+            else:
+                _print_json_error(
+                    RuntimeError(result.detail),
+                    operation="pair",
+                    source="hardware",
+                    contract=(
+                        _TIMEOUT if result.status in {"timed_out", "trust_timed_out"} else _UNAVAILABLE
+                    ),
+                    payload=payload,
+                )
+        else:
+            print("OS PAIRING — explicitly selected device")
+            print(f"Result: {result.status.replace('_', ' ')}")
+            print(result.detail)
+            print(
+                "Trust: changed by explicit confirmation"
+                if result.status == "trusted"
+                else "Trust: unchanged; application/vendor binding: unchanged"
+            )
+        return (
+            ExitCode.OK
+            if result.status in {"paired", "already_paired", "trusted"}
+            else ExitCode.TIMEOUT
+            if result.status in {"timed_out", "trust_timed_out"}
+            else ExitCode.UNAVAILABLE
+        )
     if args.command == "discover":
         results = await discover(timeout=args.timeout)
         if args.json:
@@ -2515,6 +2630,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--active-scan", action="store_true",
         help="authorize BLE scan requests; does not connect",
     )
+    pairing = sub.add_parser(
+        "pair", help="pair one selected device through local BlueZ (never trusts it)"
+    )
+    pairing.add_argument(
+        "--address-file", type=Path, required=True,
+        help="mode-0600 file containing the one explicitly selected ring address",
+    )
+    pairing.add_argument(
+        "--allow-pairing", action="store_true", required=True,
+        help="authorize one OS pairing operation; no trust or vendor binding is changed",
+    )
+    pairing.add_argument(
+        "--allow-trust", action="store_true",
+        help="separately authorize the following local BlueZ trust operation",
+    )
+    pairing.add_argument(
+        "--timeout", type=_timeout, default=8.0,
+        help="pairing deadline in seconds (default: 8; timeout outcome is uncertain)",
+    )
+    _add_json_option(pairing)
     status = sub.add_parser("status", help="read battery, device information, and capabilities")
     _add_runtime_options(status, suppress=True, simulator_profiles=True)
     status.add_argument(
@@ -2796,6 +2931,7 @@ _OPERATIONS = {
     "capabilities": "capabilities",
     "heart-rate": "heart_rate",
     "discover": "discover",
+    "pair": "pair",
     "status": "status",
     "time-sync": "time_sync",
     "history": "history",
@@ -2920,11 +3056,11 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
             parser.error("verify-device-info does not support simulation")
         if not address_file and not guided_selection:
             parser.error("verify-device-info requires --address-file or --select --active-scan")
-    if args.command == "observe":
+    if args.command in {"observe", "pair"}:
         if address:
-            parser.error("observe requires --address-file; direct addresses are not accepted")
+            parser.error(f"{args.command} requires --address-file; direct addresses are not accepted")
         if simulate or guided_selection or active_scan:
-            parser.error("observe requires one mode-0600 --address-file and does not scan or simulate")
+            parser.error(f"{args.command} requires one mode-0600 --address-file and does not scan or simulate")
     if args.command in {"review-owner-evidence", "derive-owner-evidence", "review-observation"}:
         if simulate or has_hardware or guided_selection or active_scan:
             parser.error(f"{args.command} is offline and does not accept device selection")
@@ -2980,6 +3116,8 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         if ignored:
             option = sorted(ignored)[0].replace("_", "-")
             parser.error(f"--{option} is not supported by completion")
+    if args.command == "pair" and address:
+        parser.error("pair requires --address-file; direct addresses are not accepted")
     if args.command == "protocol-coverage":
         ignored = provided & {"address", "address_file", "simulate", "timeout"}
         if ignored:

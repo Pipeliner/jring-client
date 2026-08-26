@@ -29,9 +29,8 @@ select, scan for, or connect to a ring. The equivalent one-shot command is:
 uvx --from jring-client jring status --simulate
 ```
 
-`uvx` installs the package in a temporary isolated environment. For optional
-Bluetooth support, add it explicitly to that environment, for example:
-`uvx --from jring-client --with bleak jring doctor`.
+`uvx` installs the package and its runtime Bluetooth/Linux-input dependencies in a
+temporary isolated environment; no extra flags are needed for those capabilities.
 
 The package metadata accepts CPython 3.10 and newer. The repository's regular CI
 currently exercises Python 3.10 and 3.13 on a GitHub-hosted Ubuntu runner. Other
@@ -147,23 +146,36 @@ jring completion bash > ~/.local/share/bash-completion/completions/jring
 The command is offline and only supports Bash; Fish and other shells remain out of
 scope.
 
-The base install has no Bluetooth or desktop-input dependency. Add only the extra for
-the job at hand:
+The base install includes the Bluetooth and desktop-input Python dependencies:
 
 ```sh
-# Source checkout: Bluetooth reads and explicitly authorized discovery
-python -m pip install -e '.[ble]'
-
-# Source checkout: simulated desktop-input emission
-python -m pip install -e '.[input]'
+python -m pip install -e .
 ```
 
-For an installed wheel, install the matching optional dependencies into the same
-virtual environment with `python -m pip`, or use `pipx inject`/`uv tool` package
-injection. Keep the dependency bounds recorded in `pyproject.toml`; do not use `sudo
-pip`. The `evdev` package may have a wheel for the selected interpreter. If it builds
-from source, evdev may need a compiler, Python headers, and Linux input headers; the
-distro recipes install those prerequisites.
+For an installed wheel, the same dependencies arrive automatically. Keep the bounds
+recorded in `pyproject.toml`; do not use `sudo pip`. The `evdev` package may have a
+wheel for the selected interpreter. If it builds from source, evdev may need a compiler, Python headers, and Linux input headers; the distro recipes install those prerequisites.
+
+If the selected ring requires an OS bond, use the explicit pairing command after
+creating the protected address file:
+
+```sh
+jring pair --address-file ~/.config/jring/address --allow-pairing
+```
+
+Pairing is local BlueZ state only. It does not trust the device, establish vendor
+binding, or prove compatibility; a timeout is uncertain and must be checked in the
+desktop Bluetooth UI or with `bluetoothctl info` before another attempt.
+
+To also mark the device trusted for local reconnect policy, opt into that independent
+operation explicitly:
+
+```sh
+jring pair --address-file ~/.config/jring/address --allow-pairing --allow-trust
+```
+
+The client runs `bluetoothctl trust` only after a successful pairing result. Trust is
+never implied by pairing and does not establish vendor binding.
 
 ## Distribution prerequisites
 

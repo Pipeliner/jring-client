@@ -23,7 +23,7 @@ def test_missing_hardware_prerequisites_have_specific_remedies():
     assert not report.hardware_ready
     assert not report.input_ready
     failed = {check.name: check for check in report.checks if not check.ok}
-    assert "pip install" in failed["bleak"].remedy
+    assert "pip install -e ." in failed["bleak"].remedy
     assert "BlueZ" in failed["bluetoothctl"].remedy
     assert report.next_step == "jring status --simulate"
 

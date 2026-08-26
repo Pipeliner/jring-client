@@ -114,7 +114,7 @@ def test_native_distro_smoke_is_simulator_only_and_checks_every_layer():
     workflow = DISTRO_SMOKE_PATH.read_text(encoding="utf-8")
 
     for command in (
-        "python -m pip install -e '.[ble,input,dev]'",
+        "python -m pip install -e '.[dev]'",
         "python -m pytest -q",
         "jring doctor --json",
         "jring status --simulate --json",

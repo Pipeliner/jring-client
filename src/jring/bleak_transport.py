@@ -56,7 +56,7 @@ class BleakTransport:
         try:
             from bleak import BleakClient
         except ImportError as exc:
-            raise UnavailableError("hardware support requires: pip install '.[ble]'") from exc
+            raise UnavailableError("hardware support requires the installed package dependencies") from exc
         self._connection_generation = 0
         self._disconnect_notified_generation = 0
         self._disconnect_listeners: dict[int, DisconnectListener] = {}

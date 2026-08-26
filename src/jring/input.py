@@ -290,7 +290,7 @@ class UInputSink:
         try:
             from evdev import UInput, ecodes
         except ImportError as exc:
-            raise UnavailableError("input injection requires: pip install -e '.[input]'") from exc
+            raise UnavailableError("input injection requires the installed package dependencies") from exc
         codes = list(dict.fromkeys(getattr(ecodes, action.code) for action in actions))
         try:
             self._device = UInput({ecodes.EV_KEY: codes}, name="JRing input mapper")

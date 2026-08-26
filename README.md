@@ -16,8 +16,8 @@ uvx --from jring-client jring tui
 
 The menu's `s` and `c` choices only run offline simulator commands. For a one-shot
 check, use `uvx --from jring-client jring status --simulate`; `uvx` creates and
-discards an isolated environment automatically. Add `--with bleak` only when a
-command explicitly needs the optional Bluetooth dependency.
+discards an isolated environment automatically. The base package includes its
+runtime Bluetooth and Linux-input dependencies; no extras are needed.
 
 From a clone, create an isolated environment. `python3` is used for bootstrapping on
 Linux distributions that do not provide a `python` command:
@@ -55,14 +55,36 @@ jring --simulate --simulate-profile hid status
 Human and JSON results name the selected profile. The HID profile never reads or
 emits HID reports and does not claim operating-system attachment.
 
-For hardware, install the optional Bleak dependency. Discovery is an active radio scan:
+For hardware, the base package already includes Bleak. Discovery is an active radio scan:
 `--active-scan` explicitly acknowledges that BLE scan requests are transmitted. It
 redacts addresses and never connects.
 
 ```sh
-python -m pip install -e '.[ble]'
 jring discover --active-scan
 ```
+
+If BlueZ requires an OS bond before connecting, pairing is a separate, explicit
+operation. Keep the address in the same private mode-0600 file and confirm the
+one-time action:
+
+```sh
+jring pair --address-file ~/.config/jring/address --allow-pairing
+```
+
+This invokes only `bluetoothctl pair`; it never trusts the device, changes vendor
+binding, writes a vendor characteristic, or retries an uncertain timeout. A successful
+OS bond is not proof of JRing compatibility. Review the result in your desktop
+Bluetooth settings or with `bluetoothctl info` before continuing.
+
+If your desktop requires a trusted device for reconnects, trust is a separate explicit
+choice in the same command:
+
+```sh
+jring pair --address-file ~/.config/jring/address --allow-pairing --allow-trust
+```
+
+That runs `bluetoothctl trust` only after pairing succeeds. Pairing never implies
+trust, and neither operation changes application/vendor binding.
 
 Use BlueZ locally to identify your ring, then put its exact address on one line in a
 private file. The client rejects files accessible by another user:
@@ -529,11 +551,11 @@ is suitable for screen readers. It labels the mouse actions as primary (left),
 secondary (right), and middle, and states that `step` is currently a simulator
 event—not a required physical gesture.
 
-To deliberately inject one simulated event through Linux `uinput`, install the input
-extra and add the confirmation flag:
+To deliberately inject one simulated event through Linux `uinput`, keep the base
+runtime install and add the confirmation flag:
 
 ```sh
-python -m pip install -e '.[input]'
+python -m pip install -e .
 jring input --simulate --map step=key:space --allow-input
 ```
 
@@ -617,7 +639,7 @@ contact/notification upload, or telemetry is implemented.
 Run all repository tests with:
 
 ```sh
-python -m pip install -e '.[ble,dev]'
+python -m pip install -e '.[dev]'
 python -m pytest
 ```
 

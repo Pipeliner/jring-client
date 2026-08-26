@@ -350,7 +350,7 @@ def diagnose(
             "bleak",
             bleak_ok,
             "Bleak Python support is installed" if bleak_ok else "Bleak Python support is missing",
-            None if bleak_ok else "From this repository, run: python -m pip install -e '.[ble]'",
+            None if bleak_ok else "Install the package dependencies: python -m pip install -e .",
         ),
         ReadinessCheck(
             "bluetoothctl",
@@ -392,7 +392,7 @@ def diagnose(
             "evdev",
             evdev_ok,
             "Python evdev support is installed" if evdev_ok else "Python evdev support is missing",
-            None if evdev_ok else "From this repository, run: python -m pip install -e '.[input]'",
+            None if evdev_ok else "Install the package dependencies: python -m pip install -e .",
         ),
         ReadinessCheck(
             "uinput",

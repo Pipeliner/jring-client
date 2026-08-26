@@ -33,6 +33,9 @@ simulator\-only preview or emission; live ring events are unavailable
 .B discover
 actively scan with explicit consent; redacts addresses and never connects
 .TP
+.B pair
+pair one selected device through local BlueZ (never trusts it)
+.TP
 .B status
 read battery, device information, and capabilities
 .TP
@@ -167,6 +170,25 @@ print structured JSON
 .TP
 .B \-\-active\-scan
 authorize BLE scan requests; does not connect
+.SS "jring pair"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-address\-file \fIADDRESS\-FILE\fR
+mode\-0600 file containing the one explicitly selected ring address Required.
+.TP
+.B \-\-allow\-pairing
+authorize one OS pairing operation; no trust or vendor binding is changed Required.
+.TP
+.B \-\-allow\-trust
+separately authorize the following local BlueZ trust operation
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+pairing deadline in seconds (default: 8; timeout outcome is uncertain)
+.TP
+.B \-\-json
+print structured JSON
 .SS "jring status"
 .TP
 .B \-h, \-\-help

@@ -59,7 +59,7 @@ are unchanged.
 
 ### First safe success
 
-Given no ring and no optional Bluetooth dependency, when a person runs
+Given no ring and no available Bluetooth adapter, when a person runs
 `jring status --simulate`, then they see battery, identity, capability, and safety
 information in readable text and the command exits successfully.
 
