@@ -44,6 +44,22 @@ class TuiRuntime:
                                              "body": "The task is running; Ctrl-C cancels waiting."})
         self._start_task(argv)
 
+    @staticmethod
+    def _prompt_path(stdscr: Any, current: str | None = None) -> str | None:
+        default = current or "~/.config/jring/address"
+        width = max(1, stdscr.getmaxyx()[1] - 1)
+        stdscr.erase()
+        stdscr.addnstr(0, 0, " SELECT ADDRESS FILE ", width, curses.A_REVERSE)
+        stdscr.addnstr(2, 0, f"Path [{default}] (Enter accepts, Ctrl-C/Esc cancels):", width)
+        stdscr.refresh(); stdscr.nodelay(False); curses.echo()
+        try:
+            value = stdscr.getstr(3, 0, min(240, width)).decode("utf-8").strip()
+        except (KeyboardInterrupt, curses.error):
+            return None
+        finally:
+            curses.noecho(); stdscr.nodelay(True)
+        return os.path.expanduser(value or default)
+
     def _poll(self) -> None:
         if not self.future or not self.future.done():
             return
@@ -117,14 +133,18 @@ class TuiRuntime:
             self._set_task_state("input action inventory", ["input-actions"]); return False
         if self.state.screen is Screen.DEVICES and key in (ord("s"), ord("S"), ord("c"), ord("C")):
             command = "status" if key in (ord("s"), ord("S")) else "capabilities"
-            path = os.path.expanduser("~/.config/jring/address")
-            self._set_task_state(command, [command, "--address-file", path]); return False
+            path = self._prompt_path(stdscr)
+            if path:
+                self._set_task_state(command, [command, "--address-file", path])
+            return False
         if self.state.screen is Screen.PICKER and key in (curses.KEY_DOWN, curses.KEY_UP, ord("j"), ord("k"), 10, 13):
             self.dispatch(Event.key({curses.KEY_DOWN: "down", curses.KEY_UP: "up", ord("j"): "j", ord("k"): "k"}.get(key, "enter")))
             return False
         if self.state.screen is Screen.PAIR_CONFIRM and key in (ord("y"), ord("Y")) and self.state.selected_candidate:
             selected = self.state.selected_candidate
-            path = os.path.expanduser("~/.config/jring/address")
+            path = self._prompt_path(stdscr, self.state.address_file)
+            if not path:
+                return False
             if self.store_address(path, selected.connection_address()):
                 self.state = self.state.__class__(**{**self.state.__dict__, "address_file": path})
                 self.dispatch(Event.key("confirm-pair"))
