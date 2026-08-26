@@ -107,8 +107,10 @@ It links the public [PulseLoop iOS](https://github.com/saksham2001/PulseLoopiOS)
 [PulseLoop Android](https://github.com/foureight84/PulseLoopAndroid) implementations,
 an [independent JRing capture write-up](https://jw-tech.fr/en/blog/smart-ring-reverse-engineering),
 and SR08 retail/manual material. These sources are useful comparative evidence for
-forming reconciliation candidates, and are explicitly not runtime authority: a model
-name, frame resemblance, or third-party implementation never enables a JRing feature.
+forming reconciliation candidates. An implementation may inform an explicitly
+unverified offline decoder or owner-consented probe candidate, but is not verification
+or runtime authorization: a model name, frame resemblance, or third-party claim never
+marks a JRing capability supported, hardware-verified, or safe to replay.
 
 For adjacent tools or a different companion-app approach, see
 [BlueZ](https://www.bluez.org/) and [Gadgetbridge](https://gadgetbridge.org/). They are

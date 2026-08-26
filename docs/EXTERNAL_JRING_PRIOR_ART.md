@@ -20,9 +20,14 @@ where behavior is involved, owner-hardware evidence.
 1. Do not copy captures, identifiers, credentials, or third-party source into the
    client. Cite an attributable public factual claim only where the license permits.
 2. Keep claimed compatible family separate from exact model and firmware scope.
-3. A match to the APK's static UUID/frame shape is corroboration, not proof of a field
-   meaning, terminal rule, delivery, or safety contract.
-4. Route every usable claim through [#58](https://github.com/Pipeliner/jring-client/issues/58), then the clean-room parity manifest and relevant owner-evidence issue before implementation.
+3. Public implementations may inform a clearly marked unverified candidate decoder,
+   simulator comparison, or owner-consented no-write probe. They are not copied into
+   this client and do not themselves establish a field meaning, terminal rule,
+   delivery, model scope, or safety contract.
+4. A match to the APK's static UUID/frame shape is corroboration, not proof. Runtime
+   use remains unavailable until the relevant clean-room reconciliation, exact scope,
+   and owner-hardware evidence gates pass; vendor writes remain disabled.
+5. Route every usable claim through [#58](https://github.com/Pipeliner/jring-client/issues/58), then the clean-room parity manifest and relevant owner-evidence issue before implementation.
 
 `SR08`, `RS08`, and similarly marketed ring names are retail/model labels, never runtime
 scope selectors. A visible app association or matching radio/sensor bill of materials
