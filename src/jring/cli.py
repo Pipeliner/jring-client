@@ -2531,7 +2531,10 @@ def build_parser() -> argparse.ArgumentParser:
     evidence.add_argument("--firmware-major", required=True, help="coarse reviewed firmware major")
     evidence.add_argument(
         "--timeout", type=_timeout, default=8.0,
-        help="one overall canary deadline in seconds (default: 8)",
+        help=(
+            "one overall canary deadline covering setup, response, and cleanup "
+            "(default: 8 seconds; an early expiry is uncertain and non-retryable)"
+        ),
     )
     _add_json_option(evidence)
     evidence.add_argument(

@@ -64,7 +64,9 @@ incompatibility, or vendor authorization.
 ## Deadline, cancellation, and uncertainty
 
 One monotonic Bluetooth deadline reserves time for unsubscribe and disconnect while
-bounding every transport await. Equality is expired. The fixed-size atomic evidence
+bounding every transport await; the CLI default is 8 seconds and includes setup,
+response, and cleanup. Equality is expired. A deadline that ends before cleanup
+completes is uncertain and non-retryable. The fixed-size atomic evidence
 commit begins only after cleanup; filesystem `fsync` is not falsely described as
 cancellable by Python. Cancellation records the stage, performs bounded cleanup,
 commits the private attempt when possible, and is then re-raised to preserve exit 130.
