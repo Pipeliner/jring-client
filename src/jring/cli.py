@@ -47,6 +47,7 @@ from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
 from .uuids import HEART_RATE_MEASUREMENT
 from .vendor_app_use_evidence import recovered_vendor_app_use_evidence
+from .bluetooth_parity_manifest import bluetooth_parity_manifest_payload
 from .vendor_artifact_evidence import recovered_artifact_surface_evidence
 from .vendor_binder_evidence import recovered_vendor_binder_evidence
 from .vendor_callback_surfaces import recovered_callback_behavior_surfaces
@@ -589,6 +590,7 @@ def _protocol_coverage_payload() -> dict[str, object]:
     )
     return {
         "bluetooth_capability_parity": parity,
+        "clean_room_bluetooth_parity_manifest": bluetooth_parity_manifest_payload(),
         "operation_registry": vendor_operation_registry_payload(),
         "summary": {
             "request_total": len(requests),

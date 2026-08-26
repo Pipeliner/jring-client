@@ -47,6 +47,16 @@ hardware verification.
 
 ## Static parity boundary
 
+`jring protocol-coverage --json` also emits a schema-1 clean-room Bluetooth parity
+manifest. It deterministically reconciles every recovered request, callback, session
+transition, binding reaction, standard/vendor GATT route, platform Bluetooth family,
+OTA/transfer family, and explicit non-ring exclusion against a specification row and
+tracker issue. The manifest is an accounting/release-gate input, not a capability
+claim: rows remain offline-only or not-established unless separately reviewed live
+evidence changes their terminal disposition. A missing or duplicate source row fails
+the manifest builder rather than being hidden by otherwise green request/callback
+counts.
+
 A second, owner-authorized clean-room pass used JADX 1.5.6 on the same digest-verified
 archive in a mode-0700 temporary directory. Its structured pass processed 6,705 class
 units and emitted 10,185 Java renderings. The run reported 89 failures; an exhaustive
