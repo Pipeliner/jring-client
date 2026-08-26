@@ -70,6 +70,9 @@ completes is uncertain and non-retryable. The fixed-size atomic evidence
 commit begins only after cleanup; filesystem `fsync` is not falsely described as
 cancellable by Python. Cancellation records the stage, performs bounded cleanup,
 commits the private attempt when possible, and is then re-raised to preserve exit 130.
+The runner reserves a proportional cleanup window of 20% of the deadline, bounded
+between 10 ms and 1 s; therefore no arbitrary fixed minimum is claimed, while the
+8-second default remains the practical recommendation for owner runs.
 For this command, interruption is non-retryable: the write may have escaped even when
 the process reports exit 130. Human and JSON recovery therefore direct the owner to
 inspect the requested private record, when it exists, before considering another
