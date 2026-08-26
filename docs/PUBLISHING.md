@@ -81,9 +81,11 @@ checks `jring`, `jring status --simulate --json`, `jring capabilities --simulate
 --json`, and `jring-tui` offline. It is an installability check, not a PyPI upload or
 a hardware test.
 
-Then, on PyPI, go to **Your projects → jring-client → Publishing → Add a new
-publisher** and enter exactly `Pipeliner`, `jring-client`, `publish-pypi.yml`, and
-`pypi`. Save it, then use a validation-only dispatch before the first real release.
+Then, signed in to the PyPI owner account `vadim-evard`, go to **Your projects →
+jring-client → Publishing → Add a new publisher** and enter exactly `Pipeliner`,
+`jring-client`, `publish-pypi.yml`, and `pypi`. `Pipeliner` is the GitHub owner; it is
+not the PyPI username. Save it, then use a validation-only dispatch before the first
+real release.
 
 The official setup references are the
 [PyPI Trusted Publisher guide](https://docs.pypi.org/trusted-publishers/adding-a-publisher/),
