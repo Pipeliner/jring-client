@@ -84,6 +84,7 @@ EXPECTED_OPTIONS = {
         ("--json",),
         ("--select",),
         ("--active-scan",),
+        ("--issue-draft-url",),
     ),
     "heart-rate": (
         ("-h", "--help"),

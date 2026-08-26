@@ -219,6 +219,19 @@ def test_capabilities_report_metadata_only_standard_heart_rate(capsys):
     }
 
 
+def test_capabilities_issue_draft_url_contains_only_sanitized_probe_summary(capsys):
+    assert cli.main(["capabilities", "--simulate", "--issue-draft-url", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+
+    url = result["issue_draft_url"]
+    assert url.startswith("https://github.com/Pipeliner/jring-client/issues/new?")
+    assert "Unverified%20metadata-only%20compatibility%20probe" in url
+    assert "inventory_state%3A%20available" in url
+    assert "vendor_route_count%3A%202" in url
+    for forbidden in ("aa%3abb", "001122", "72%20bpm", "battery_percent", "firmware_major"):
+        assert forbidden not in url.lower()
+
+
 @pytest.mark.parametrize(
     "argv, operation, source",
     [

@@ -69,7 +69,7 @@ _jring_completion()
         input) words='-h --help --simulate --simulate-profile --json --map --allow-input' ;;
         discover) words='-h --help --simulate --timeout --json --active-scan' ;;
         status) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan' ;;
-        capabilities) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan' ;;
+        capabilities) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan --issue-draft-url' ;;
         heart-rate) words='-h --help --address --address-file --simulate --simulate-profile --timeout --json --select --active-scan --allow-notifications' ;;
         time-sync) words='-h --help --address --address-file --simulate --timeout --json --allow-write --yes' ;;
         history) words='-h --help --simulate --json --output --force' ;;

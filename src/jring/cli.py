@@ -10,6 +10,7 @@ import os
 import re
 import stat
 import sys
+from urllib.parse import quote, urlencode
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import IntEnum
@@ -1653,6 +1654,29 @@ def _capability_payload(inventory: object) -> dict[str, object]:
     }
 
 
+def _capability_issue_draft_url(payload: dict[str, object]) -> str:
+    """Return a reviewable public handoff containing only coarse metadata states."""
+
+    body = "\n".join((
+        "## Unverified metadata-only compatibility probe",
+        "",
+        "This draft contains no device identifier, characteristic value, packet, path, or health data.",
+        "",
+        f"inventory_state: {payload['inventory_state']}",
+        f"metadata_state: {payload['metadata_state']}",
+        f"vendor_route_count: {len(payload['vendor_routes'])}",
+        "",
+        "The result is unverified comparative evidence only; it does not establish compatibility or authorize runtime behavior.",
+    ))
+    return "https://github.com/Pipeliner/jring-client/issues/new?" + urlencode(
+        {
+            "title": "Unverified metadata-only compatibility probe",
+            "body": body,
+        },
+        quote_via=quote,
+    )
+
+
 def _print_owner_evidence_summary(
     payload: dict[str, object], *, interrupted: bool = False
 ) -> None:
@@ -2120,6 +2144,8 @@ async def _run(args: argparse.Namespace) -> int:
         if args.command == "capabilities":
             inventory = await client.capability_inventory()
             payload = _capability_payload(inventory)
+            if args.issue_draft_url:
+                payload["issue_draft_url"] = _capability_issue_draft_url(payload)
             if source == "simulator":
                 payload["simulator_profile"] = args.simulator_profile
             if args.json:
@@ -2309,6 +2335,10 @@ def build_parser() -> argparse.ArgumentParser:
     capabilities.add_argument(
         "--active-scan", action="store_true",
         help="authorize BLE scan requests for interactive selection",
+    )
+    capabilities.add_argument(
+        "--issue-draft-url", action="store_true",
+        help="include a reviewable sanitized GitHub issue-draft URL",
     )
     heart_rate = sub.add_parser(
         "heart-rate",
