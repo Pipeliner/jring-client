@@ -29,7 +29,9 @@ PyPI.
   `v*` tag pushes also start the guarded release path automatically.
 - Validation has read-only repository access and no OIDC permission.
 - Publication is possible only for a matching protected version tag when
-  `publish: true`; it starts automatically after validation.
+  `publish: true`; it starts automatically after validation. The `pypi`
+  environment is retained solely to match the Trusted Publisher claim and has
+  no required reviewer.
 - The publication job downloads the validation job's immutable artifact ID and runs
   the PyPA publisher once. It does not check out or execute repository code.
 - Every external action is pinned to a full commit SHA. No password, API token,
@@ -38,8 +40,8 @@ PyPI.
 
 ## Configured GitHub controls
 
-The repository may retain a `pypi` environment for metadata, but it has no required reviewer;
-a custom deployment policy accepts only `v*` tags. An active repository ruleset
+The repository has a `pypi` environment with no required reviewer; a custom deployment policy
+accepts only `v*` tags. An active repository ruleset
 restricts creation, update, and deletion of matching tags to `Pipeliner`; this also
 makes `github.ref_protected` true for an authorized version tag.
 
@@ -68,7 +70,8 @@ only a protected `v*` tag (automatically, or via an explicit `publish: true` dis
 input), and publishes the exact artifact produced by the validation job. In GitHub,
 verify:
 
-1. **Settings → Environments → `pypi`** has no required reviewer (or is removed).
+1. **Settings → Environments → `pypi`** exists with no required reviewer; its name must match
+   the PyPI Trusted Publisher environment claim exactly.
 2. The environment deployment branch/tag rule permits only `v*` tags.
 3. **Settings → Rules → Rulesets** keeps matching version tags protected and limits
    tag creation/update/deletion to `Pipeliner`.

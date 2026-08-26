@@ -61,7 +61,7 @@ def test_publish_job_is_tag_environment_and_protected_ref_gated():
         "startsWith(github.ref_name, 'v')",
     ):
         assert gate in publish
-    assert "environment:" not in publish
+    assert "environment:" in publish
     assert "name: pypi" in publish
     assert "id-token: write" in publish
     assert "contents: write" not in publish
