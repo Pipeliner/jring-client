@@ -48,6 +48,9 @@ run one owner\-hardware device\-info transport canary
 .B observe
 privately collect bounded unknown notifications from one explicit metadata target
 .TP
+.B review\-observation
+review one private observation without Bluetooth I/O
+.TP
 .B review\-owner\-evidence
 review one private owner\-evidence record without Bluetooth I/O
 .TP
@@ -352,6 +355,16 @@ authorize one metadata\-selected notification subscription Required.
 .TP
 .B \-\-allow\-observation
 confirm private capture of unknown notification bytes Required.
+.SS "jring review-observation"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-private\-input \fIPRIVATE\-INPUT\fR
+mode\-0600 private observation record Required.
+.TP
+.B \-\-json
+print structured JSON
 .SS "jring review-owner-evidence"
 .TP
 .B \-h, \-\-help

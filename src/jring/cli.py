@@ -47,6 +47,7 @@ from .private_observation import (
     ObservationError,
     ObservationStatus,
     PrivateObservationRunner,
+    load_private_observation,
     prepare_observation_plan,
 )
 from .protocol import HeartRate, ProtocolError
@@ -1797,6 +1798,17 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.command == "review-observation":
+        payload = load_private_observation(args.private_input)
+        if args.json:
+            _print_json_success("review_private_observation", "private_local", payload)
+        else:
+            print("OFFLINE PRIVATE-OBSERVATION REVIEW — no Bluetooth operation")
+            print(f"Capture: {payload['capture_status'].replace('_', ' ')}")
+            print(f"Private records: {payload['record_count']}")
+            print("Decoder: none; runtime behavior: unchanged")
+            print("Values, identifiers, target identity, and private path: withheld")
+        return ExitCode.OK
     if args.command == "review-owner-evidence":
         result = load_private_owner_evidence(args.private_input)
         payload = result.review_payload()
@@ -2509,6 +2521,14 @@ def build_parser() -> argparse.ArgumentParser:
     observe.add_argument("--allow-connect", action="store_true", required=True, help="authorize one connection to the selected ring")
     observe.add_argument("--allow-notifications", action="store_true", required=True, help="authorize one metadata-selected notification subscription")
     observe.add_argument("--allow-observation", action="store_true", required=True, help="confirm private capture of unknown notification bytes")
+    review_observation = sub.add_parser(
+        "review-observation", help="review one private observation without Bluetooth I/O"
+    )
+    review_observation.add_argument(
+        "--private-input", type=Path, required=True,
+        help="mode-0600 private observation record",
+    )
+    _add_json_option(review_observation)
     review = sub.add_parser(
         "review-owner-evidence",
         help="review one private owner-evidence record without Bluetooth I/O",
@@ -2643,6 +2663,7 @@ _OPERATIONS = {
     "history": "history",
     "verify-device-info": "owner_hardware_evidence",
     "observe": "private_observation",
+    "review-observation": "review_private_observation",
     "review-owner-evidence": "review_owner_evidence",
     "derive-owner-evidence": "derive_owner_evidence",
 }
@@ -2658,7 +2679,7 @@ def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
         source = "simulator"
     elif operation == "cli":
         source = "unknown"
-    elif operation in {"review_owner_evidence", "derive_owner_evidence"}:
+    elif operation in {"review_owner_evidence", "derive_owner_evidence", "review_private_observation"}:
         source = "private_local"
     else:
         source = "hardware"
@@ -2666,7 +2687,7 @@ def _intent_from_argv(argv: list[str]) -> tuple[str, str]:
 
 
 def _source_from_args(args: argparse.Namespace) -> str:
-    if args.command in {"review-owner-evidence", "derive-owner-evidence"}:
+    if args.command in {"review-owner-evidence", "derive-owner-evidence", "review-observation"}:
         return "private_local"
     if args.command in {
         "doctor", "input-actions", "protocol-coverage", "non-health-capabilities"
@@ -2766,7 +2787,7 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
             parser.error("observe requires --address-file; direct addresses are not accepted")
         if simulate or guided_selection or active_scan:
             parser.error("observe requires one mode-0600 --address-file and does not scan or simulate")
-    if args.command in {"review-owner-evidence", "derive-owner-evidence"}:
+    if args.command in {"review-owner-evidence", "derive-owner-evidence", "review-observation"}:
         if simulate or has_hardware or guided_selection or active_scan:
             parser.error(f"{args.command} is offline and does not accept device selection")
     if args.command == "review-owner-evidence":
@@ -2844,7 +2865,7 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
     if (
         args.command not in {
             "discover", "doctor", "input", "input-actions", "protocol-coverage",
-            "non-health-capabilities", "review-owner-evidence", "derive-owner-evidence",
+            "non-health-capabilities", "review-owner-evidence", "derive-owner-evidence", "review-observation",
         }
         and not simulate
         and not has_hardware

@@ -37,6 +37,7 @@ EXPECTED_COMMANDS = (
     "history",
     "verify-device-info",
     "observe",
+    "review-observation",
     "review-owner-evidence",
     "derive-owner-evidence",
 )
@@ -138,6 +139,11 @@ EXPECTED_OPTIONS = {
         ("--allow-notifications",),
         ("--allow-observation",),
     ),
+    "review-observation": (
+        ("-h", "--help"),
+        ("--private-input",),
+        ("--json",),
+    ),
     "review-owner-evidence": (
         ("-h", "--help"),
         ("--private-input",),
@@ -226,7 +232,7 @@ def test_bash_completion_preserves_per_command_option_scope():
     assert "input:--map)" in bash
     for command in ("status", "capabilities", "heart-rate", "time-sync"):
         assert f"{command}:--address-file)" in bash
-    assert bash.count("compopt -o filenames 2>/dev/null || true") == 20
+    assert bash.count("compopt -o filenames 2>/dev/null || true") == 22
 
 
 def test_generation_is_reproducible_private_and_host_independent(monkeypatch):
