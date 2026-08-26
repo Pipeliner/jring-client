@@ -232,6 +232,13 @@ def test_capabilities_can_opt_into_value_free_observation_target_manifest(capsys
         assert all(isinstance(value, str) and value for value in target.values())
 
 
+def test_observation_target_manifest_requires_structured_output(capsys):
+    assert cli.main([
+        "capabilities", "--simulate", "--include-observation-targets",
+    ]) == 2
+    assert "--include-observation-targets requires --json" in capsys.readouterr().err
+
+
 def test_capabilities_issue_draft_url_contains_only_sanitized_probe_summary(capsys):
     assert cli.main(["capabilities", "--simulate", "--issue-draft-url", "--json"]) == 0
     result = json.loads(capsys.readouterr().out)

@@ -2918,6 +2918,8 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
             parser.error("discover requires --active-scan because it sends BLE scan requests")
     if args.command == "history" and json_output:
         parser.error("--json is not supported by history; choose a .jsonl output path")
+    if args.command == "capabilities" and getattr(args, "include_observation_targets", False) and not json_output:
+        parser.error("--include-observation-targets requires --json")
     if args.command == "input" and provided & {"address", "address_file", "timeout"}:
         parser.error("input does not accept hardware selection or --timeout; use --simulate")
     if args.command == "input" and not simulate:
