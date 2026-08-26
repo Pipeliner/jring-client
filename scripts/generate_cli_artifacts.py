@@ -392,8 +392,10 @@ def render_man(surface: CliSurface) -> str:
             lines.extend(_man_option(option))
     lines.extend([
         '.SH "EXIT STATUS"',
-        "Zero indicates success. Nonzero values identify usage, unavailable prerequisite, "
-        "permission, timeout, protocol, or internal failures.",
+        "Zero indicates success. Exit 2 is usage, 3 unavailable, 4 timeout, "
+        "5 protocol incompatibility, 6 permission denied, 70 internal failure, "
+        "and 130 interruption. An interrupted owner-hardware canary is non-retryable "
+        "because a write may already have been dispatched; inspect its private record.",
         '.SH "PRIVACY AND FILES"',
         "Completion and manual artifacts are static package resources. Installing JRing "
         "does not configure a shell or copy these files into host completion or manual "
