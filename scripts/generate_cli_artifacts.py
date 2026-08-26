@@ -42,6 +42,7 @@ class CommandSurface:
     name: str
     help: str
     options: tuple[OptionSurface, ...]
+    positional_choices: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -136,6 +137,14 @@ def extract_surface(parser: argparse.ArgumentParser) -> CliSurface:
             name=_plain(name),
             help=command_help[name],
             options=_visible_options(command_parser),
+            positional_choices=tuple(
+                _plain(choice)
+                for action in command_parser._actions
+                if not action.option_strings
+                and action.help is not argparse.SUPPRESS
+                and action.choices
+                for choice in action.choices
+            ),
         )
         for name, command_parser in subparser.choices.items()
     )
@@ -328,6 +337,14 @@ def render_bash(surface: CliSurface) -> str:
         "",
         '    case "$command:$current" in',
     ])
+    for command in surface.commands:
+        if command.positional_choices:
+            lines.extend([
+                f"        {command.name}:{command.name})",
+                f'            mapfile -t COMPREPLY < <(compgen -W "{" ".join(command.positional_choices)}" -- "$current")',
+                "            return",
+                "            ;;",
+            ])
     for command in surface.commands:
         lines.extend(_bash_attached_dispatch(command.options, prefix=f"{command.name}:"))
     lines.extend([

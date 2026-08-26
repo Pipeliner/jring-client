@@ -83,6 +83,10 @@ _jring_completion()
     esac
 
     case "$command:$current" in
+        completion:completion)
+            mapfile -t COMPREPLY < <(compgen -W "bash" -- "$current")
+            return
+            ;;
         input:--simulate-profile=*)
             option_prefix="${current%%=*}="
             option_value="${current#*=}"
