@@ -655,6 +655,28 @@ def test_cli_owner_evidence_canary_is_task_first_explicit_and_private(
     assert str(output) not in serialized
 
 
+def test_cli_owner_evidence_human_output_has_ordered_recovery_summary(
+    monkeypatch, tmp_path, capsys
+):
+    _install_bleak_backend(monkeypatch)
+    address_file = tmp_path / "selected-ring"
+    address_file.write_text(_PRIVATE_ADDRESS + "\n", encoding="utf-8")
+    address_file.chmod(0o600)
+    output = _private_output(tmp_path)
+    assert cli.main([
+        "verify-device-info", "--address-file", str(address_file),
+        "--private-output", str(output), "--model-family", "synthetic-family",
+        "--firmware-major", "synthetic-major", "--allow-connect",
+        "--allow-notifications", "--allow-write", "--negative-control",
+    ]) == 0
+    rendered = capsys.readouterr().out
+    assert rendered.index("RESULT — owner-hardware transport canary") < rendered.index("Attempt:")
+    assert rendered.index("Attempt:") < rendered.index("Cleanup:")
+    assert rendered.index("Cleanup:") < rendered.index("Recovery:")
+    assert _PRIVATE_ADDRESS not in rendered
+    assert str(output) not in rendered
+
+
 def test_cli_review_and_public_derivation_are_separate_offline_no_overwrite_steps(
     monkeypatch, tmp_path, capsys
 ):
