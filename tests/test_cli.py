@@ -266,6 +266,13 @@ def test_completion_command_prints_packaged_bash_script(capsys):
     assert "complete -F _jring_completion jring" in output
 
 
+def test_completion_help_names_required_shell(capsys):
+    with pytest.raises(SystemExit) as raised:
+        cli.main(["completion", "--help"])
+    assert raised.value.code == 0
+    assert "shell" in capsys.readouterr().out
+
+
 def test_completion_command_rejects_side_effecting_global_options(capsys):
     with pytest.raises(SystemExit) as raised:
         cli.main(["--simulate", "completion", "bash"])

@@ -110,6 +110,10 @@ def _visible_options(parser: argparse.ArgumentParser) -> tuple[OptionSurface, ..
             raise ValueError("nested subcommands are unsupported")
         if action.help is argparse.SUPPRESS:
             continue
+        # Positional arguments are rendered by argparse but are not option-surface
+        # entries for completion/man option generation.
+        if not action.option_strings:
+            continue
         options.append(_option(action))
     return tuple(options)
 

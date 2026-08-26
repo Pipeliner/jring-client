@@ -2419,7 +2419,7 @@ def build_parser() -> argparse.ArgumentParser:
         "completion", help="print an installed shell completion script"
     )
     completion.add_argument(
-        "shell", choices=("bash",), help=argparse.SUPPRESS
+        "shell", choices=("bash",), help="shell to generate (currently: bash)"
     )
     protocol_coverage = sub.add_parser(
         "protocol-coverage",
