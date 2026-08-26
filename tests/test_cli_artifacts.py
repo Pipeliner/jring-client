@@ -281,6 +281,9 @@ def test_manual_leads_with_safety_and_covers_every_parser_item_once():
         assert manual.count(f'.SS "jring {command.name}"') == 1
     assert r"\-\-allow\-write, \-\-yes" in manual
     assert "basic, hid" in manual
+    assert "130 interruption" in manual
+    assert "non-retryable" in manual
+    assert "setup, response, and cleanup" in manual
 
 
 def test_roff_renderer_neutralizes_macro_and_control_injection():
