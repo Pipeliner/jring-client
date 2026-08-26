@@ -1,7 +1,9 @@
 # Private owner observation workflow
 
-Status: implementation contract for Symphony issue #55. No observation command is
-implemented by this document.
+Status: implementation contract for Symphony issue #55. No end-user observation
+command is implemented yet. The internal transport foundation is limited to a sealed,
+single-use, generation- and target-bound notification subscription; it exposes no
+route selection, value reads, vendor writes, public data output, or runtime behavior.
 
 ## Job to be done
 

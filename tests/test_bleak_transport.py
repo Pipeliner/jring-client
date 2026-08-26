@@ -6,6 +6,10 @@ from uuid import UUID
 import pytest
 
 from jring.bleak_transport import BleakTransport
+from jring.private_observation import (
+    prepare_observation_authority,
+    prepare_observation_plan,
+)
 from jring.transport import (
     GattCharacteristicTarget,
     HeartRateSubscriptionToken,
@@ -59,6 +63,69 @@ def heart_rate_service(
         characteristics=[characteristic],
     )
     return service, characteristic
+
+
+def test_private_observation_subscription_is_authorized_exact_and_no_write(
+    monkeypatch, tmp_path
+):
+    service, characteristic = heart_rate_service()
+
+    class Client:
+        def __init__(self, _address, *, disconnected_callback, timeout):
+            self.disconnected_callback = disconnected_callback
+            self.timeout = timeout
+            self.is_connected = False
+            self.services = [service]
+            self.calls = []
+            self.callback = None
+
+        async def connect(self):
+            self.is_connected = True
+
+        async def start_notify(self, target, callback):
+            assert target is characteristic
+            self.calls.append(("start_notify", target))
+            self.callback = callback
+            callback(target, b"early")
+
+        async def stop_notify(self, target):
+            assert target is characteristic
+            self.calls.append(("stop_notify", target))
+
+    monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakClient=Client))
+    tmp_path.chmod(0o700)
+
+    async def scenario():
+        transport = BleakTransport(TEST_ADDRESS, timeout=2)
+        await transport.connect()
+        target = (await transport.gatt_characteristics())[0].target
+        assert target is not None
+        plan = prepare_observation_plan(
+            address="synthetic-selected-ring",
+            allow_connect=True,
+            allow_notifications=True,
+            allow_observation=True,
+            timeout=2.0,
+            max_records=1,
+            private_output=tmp_path / "observation.json",
+        )
+        authority = prepare_observation_authority(
+            plan, connection_generation=transport.connection_generation, target=target
+        )
+        observed = []
+        token = await transport._private_observation_subscribe(
+            target, observed.append, authority, 0.2
+        )
+        assert observed == []
+        transport._client.callback(characteristic, bytearray(b"captured"))
+        assert observed == [b"captured"]
+        await transport._private_observation_unsubscribe(token)
+        assert transport._client.calls == [
+            ("start_notify", characteristic),
+            ("stop_notify", characteristic),
+        ]
+
+    asyncio.run(scenario())
 
 
 def test_bleak_one_x_none_return_is_a_successful_connection(monkeypatch):

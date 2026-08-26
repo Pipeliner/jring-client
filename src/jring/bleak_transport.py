@@ -43,6 +43,14 @@ class _OwnerEvidenceSubscription:
     accepting: bool = False
 
 
+@dataclass
+class _PrivateObservationSubscription:
+    token: object
+    target: GattCharacteristicTarget
+    backend_characteristic: object
+    accepting: bool = False
+
+
 class BleakTransport:
     def __init__(self, address: str, *, timeout: float = 10.0):
         try:
@@ -70,6 +78,10 @@ class BleakTransport:
         self._heart_rate_setup_active = False
         self._owner_evidence_subscriptions: dict[int, _OwnerEvidenceSubscription] = {}
         self._owner_evidence_setup_active = False
+        self._private_observation_subscriptions: dict[
+            int, _PrivateObservationSubscription
+        ] = {}
+        self._private_observation_setup_active = False
         self._client_factory = BleakClient
         self._address = address
         self._timeout = timeout
@@ -106,6 +118,7 @@ class BleakTransport:
         self._descriptor_targets_by_backend_id.clear()
         self._retire_heart_rate_subscriptions()
         self._retire_owner_evidence_subscriptions()
+        self._retire_private_observation_subscriptions()
         expected_generation = self._connection_generation + 1
         try:
             self._client_generation = expected_generation
@@ -124,6 +137,7 @@ class BleakTransport:
         self._closing = True
         self._retire_heart_rate_subscriptions()
         self._retire_owner_evidence_subscriptions()
+        self._retire_private_observation_subscriptions()
         self._targets.clear()
         self._targets_by_backend_id.clear()
         self._descriptor_targets.clear()
@@ -143,6 +157,7 @@ class BleakTransport:
         self._descriptor_targets_by_backend_id.clear()
         self._retire_heart_rate_subscriptions()
         self._retire_owner_evidence_subscriptions()
+        self._retire_private_observation_subscriptions()
         if generation <= 0 or self._disconnect_notified_generation == generation:
             return
         self._disconnect_notified_generation = generation
@@ -191,6 +206,11 @@ class BleakTransport:
         for subscription in self._owner_evidence_subscriptions.values():
             subscription.accepting = False
         self._owner_evidence_subscriptions.clear()
+
+    def _retire_private_observation_subscriptions(self) -> None:
+        for subscription in self._private_observation_subscriptions.values():
+            subscription.accepting = False
+        self._private_observation_subscriptions.clear()
 
     def _heart_rate_backend_target(
         self, target: GattCharacteristicTarget
@@ -726,6 +746,121 @@ class BleakTransport:
 
         _require_canary_authority(authority, "unsubscribe", None)
         subscription = self._owner_evidence_subscriptions.pop(id(token), None)
+        if subscription is None or subscription.token is not token:
+            return
+        subscription.accepting = False
+        if not self.owns_target(subscription.target):
+            return
+        self._begin_io()
+        try:
+            await self._client.stop_notify(subscription.backend_characteristic)
+        finally:
+            self._end_io()
+
+    async def _private_observation_subscribe(
+        self,
+        target: GattCharacteristicTarget,
+        callback: Callable[[bytes], None],
+        authority: object,
+        setup_cleanup_timeout: float,
+    ) -> object:
+        """Subscribe once to one owned notify target for private capture only.
+
+        This is intentionally an internal building block: it does not select a
+        target, expose a public subscription API, read a value, or send a write.
+        A future owner-observation runner must separately establish its candidate
+        target and retain received bytes only in its private recorder.
+        """
+
+        from .private_observation import require_observation_authority
+
+        require_observation_authority(
+            authority,
+            connection_generation=target.connection_generation,
+            target=target,
+        )
+        if not callable(callback):
+            raise TypeError("private-observation callback must be callable")
+        if (
+            isinstance(setup_cleanup_timeout, bool)
+            or not isinstance(setup_cleanup_timeout, (int, float))
+            or not 0 < float(setup_cleanup_timeout) <= 1
+        ):
+            raise ValueError("private-observation setup cleanup timeout is invalid")
+        self._begin_io()
+        subscription: _PrivateObservationSubscription | None = None
+        start_attempted = False
+        try:
+            if (
+                self._private_observation_setup_active
+                or self._private_observation_subscriptions
+            ):
+                raise RuntimeError("a private-observation subscription is already active")
+            self._private_observation_setup_active = True
+            record = self._targets.get(id(target))
+            if (
+                record is None
+                or record[0] is not target
+                or not self.owns_target(target)
+            ):
+                raise PermissionError("invalid private-observation target")
+            backend = record[1]
+            properties = getattr(backend, "properties", None)
+            descriptors = getattr(backend, "descriptors", None)
+            if (
+                not isinstance(properties, (list, tuple, set, frozenset))
+                or not all(isinstance(value, str) for value in properties)
+                or "notify" not in {value.casefold() for value in properties}
+                or not isinstance(descriptors, (list, tuple))
+                or sum(
+                    str(getattr(descriptor, "uuid", "")).lower()
+                    == CLIENT_CHARACTERISTIC_CONFIGURATION
+                    for descriptor in descriptors
+                )
+                != 1
+            ):
+                raise PermissionError("invalid private-observation target")
+            token = object()
+            subscription = _PrivateObservationSubscription(token, target, backend)
+
+            def receive(_sender: object, data: object) -> None:
+                if (
+                    not subscription.accepting
+                    or not self.owns_target(subscription.target)
+                ):
+                    return
+                try:
+                    callback(bytes(data))
+                except Exception:
+                    return
+
+            start_attempted = True
+            await self._client.start_notify(backend, receive)
+            if not self.owns_target(target):
+                raise ConnectionError(
+                    "private-observation target retired during subscription setup"
+                )
+            self._private_observation_subscriptions[id(token)] = subscription
+            subscription.accepting = True
+            return token
+        except BaseException:
+            if subscription is not None:
+                subscription.accepting = False
+                self._private_observation_subscriptions.pop(id(subscription.token), None)
+            if start_attempted and self._client.is_connected:
+                try:
+                    await asyncio.wait_for(
+                        self._client.stop_notify(backend), float(setup_cleanup_timeout)
+                    )
+                except BaseException:
+                    pass
+            raise
+        finally:
+            self._private_observation_setup_active = False
+            self._end_io()
+
+    async def _private_observation_unsubscribe(self, token: object) -> None:
+        subscription = self._private_observation_subscriptions.pop(id(token), None)
         if subscription is None or subscription.token is not token:
             return
         subscription.accepting = False
