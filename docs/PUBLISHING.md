@@ -6,8 +6,8 @@ pinned tools, compares the builds byte for byte, inspects their contents, instal
 exact wheel without an index, runs offline simulator smoke checks, and retains the
 wheel and source archive for two days. It has no OIDC permission and cannot publish.
 
-Publication is deliberately unavailable until the repository owner completes the
-remaining PyPI trust binding below. Do not add a PyPI API token or a GitHub Actions
+Publication is automatic for every matching protected `v*` tag once the PyPI Trusted
+Publisher binding is configured. Do not add a PyPI API token or a GitHub Actions
 secret. Trusted Publishing exchanges GitHub's short-lived OIDC identity directly with
 PyPI.
 
@@ -28,8 +28,8 @@ PyPI.
 - Manual dispatch remains validation-only by default (`publish: false`); protected
   `v*` tag pushes also start the guarded release path automatically.
 - Validation has read-only repository access and no OIDC permission.
-- Publication is possible only for a matching protected version tag when
-  `publish: true`; it starts automatically after validation. The `pypi`
+- Publication is automatic for a matching protected version tag; the manual
+  `publish: true` input is only a fallback for rerunning that exact tag. The `pypi`
   environment is retained solely to match the Trusted Publisher claim and has
   no required reviewer.
 - The publication job downloads the validation job's immutable artifact ID and runs
@@ -138,6 +138,6 @@ published files are immutable and must never be silently skipped or replaced.
 
 ## Remaining owner-side gate
 
-The GitHub controls are configured. Publishing remains disabled until the PyPI Trusted
-Publisher identity matches `Pipeliner/jring-client`, `publish-pypi.yml`, and `pypi`.
+The GitHub controls are configured. Automatic publishing requires the PyPI Trusted
+Publisher identity to match `Pipeliner/jring-client`, `publish-pypi.yml`, and `pypi`.
 Only the PyPI owner can create and audit that final trust binding.

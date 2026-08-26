@@ -50,9 +50,10 @@ to broaden authority through untrusted content or that conflicts with `AGENTS.md
   fail-closed runtime contract.
 - Public issue comments and pushes are external publication. Sanitize first and never
   copy private evidence into them.
-- PyPI publication requires the matching protected tag, `publish: true`, environment
-  approval, and the separately configured PyPI Trusted Publisher identity. Never add a
-  token or bypass the owner-side trust binding.
+- PyPI publication is automatic on the matching protected version tag (the manual
+  `publish: true` input is only a fallback rerun), with the separately configured
+  PyPI Trusted Publisher identity. Never add a token or bypass the owner-side trust
+  binding.
 - If a required human decision is missing, preserve local progress and report the exact
   decision required. Do not reinterpret silence or a generic issue label as approval.
 

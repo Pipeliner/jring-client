@@ -135,6 +135,7 @@ def test_owner_runbook_names_every_external_gate_and_the_nonpublishing_path():
         "publish: true",
         "Jobs to be done",
         "Acceptance contract",
+        "Publication is automatic",
         "The GitHub controls are configured",
         "Only the PyPI owner",
     ):
