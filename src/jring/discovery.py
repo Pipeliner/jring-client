@@ -24,10 +24,12 @@ class SelectionCandidate:
     service_uuids: tuple[str, ...]
     rssi: int | None
     _address: str = field(repr=False, compare=False)
+    display_name: str = field(default="", kw_only=True)
 
     def public_summary(self) -> dict[str, object]:
         return {
             "alias": self.alias,
+            "name": self.display_name or "unnamed device",
             "likely_jring": self.likely_jring,
             "likely_jring_basis": "client_name_heuristic",
             "service_uuids": list(self.service_uuids),
@@ -56,10 +58,19 @@ def build_selection_candidates(
             service_uuids=tuple(sorted(value.lower() for value in observation.service_uuids)),
             rssi=observation.rssi,
             _address=select_exact(observation.address),
+            display_name=observation.name.strip(),
         )
         for observation in observations
     ]
-    return sorted(results, key=lambda item: item.alias)
+    return sorted(
+        results,
+        key=lambda item: (
+            not item.likely_jring,
+            -(item.rssi if item.rssi is not None else -999),
+            (item.display_name or "").casefold(),
+            item.alias,
+        ),
+    )
 
 
 async def _scan(*, timeout: float) -> tuple[DiscoveryObservation, ...]:

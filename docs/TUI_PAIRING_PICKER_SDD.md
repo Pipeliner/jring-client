@@ -13,8 +13,10 @@ or trust a device.
 
 1. Choose **Pair** (`p`) from either TUI frontend.
 2. The client performs one explicitly initiated BLE scan and displays a numbered
-   list. Each row contains a privacy-safe alias, JRing-name heuristic, and signal
-   strength; raw addresses are never printed.
+   list. Each row contains the advertised Bluetooth name (or “unnamed device”),
+   a privacy-safe alias, JRing-name heuristic, and signal strength; raw addresses
+   are never printed. Likely JRing devices appear first, then stronger signals,
+   then stable alphabetical names.
 3. Choose a row or cancel. Invalid input does no work and returns to the menu.
 4. Choose the destination address-file path (defaulting to the current path or
    `~/.config/jring/address`). The selected address is written only to a
@@ -23,22 +25,32 @@ or trust a device.
 6. After pairing, answer a separate `y/yes` prompt to authorize `trust`; the
    default is no. Pairing and trust are never conflated.
 
+The curses frontend keeps this picker inside the TUI: it renders the numbered
+rows and accepts a number/arrow selection without dropping to a shell-style
+prompt or terminating curses. The plain fallback uses line input.
+
 ## Invariants
 
 - Scan happens only after selecting Pair; no TUI startup scan occurs.
 - Scan, selection, and file creation do not connect to the device.
 - The picker never displays or logs a raw Bluetooth address.
+- Advertised names are user-facing labels, not proof of identity; the UI says so.
+- Discovery results can be stale or incomplete. A failed subsequent connection
+  is explained as “not connected” with retry guidance, not as an unexplained
+  traceback.
 - Cancel, empty results, scan failure, invalid selection, unsafe path, or a
   non-literal pairing confirmation must perform no pairing/trust operation.
 - Existing address-file validation remains authoritative for all hardware use.
 - A scan result is ephemeral; the stored file is the explicit hand-off to later
   status/capability commands.
+- Curses mode must not exit to the terminal merely to choose a device.
 
 ## TDD matrix
 
 | Case | Expected behavior |
 | --- | --- |
 | one or more devices | numbered picker is shown; selected alias is displayed |
+| named devices | Bluetooth name is shown and likely JRing devices sort first |
 | `q` or interrupt | no file, pairing, or trust operation |
 | invalid number | explanatory cancellation; no operation |
 | empty scan | retry guidance; no operation |
@@ -47,4 +59,3 @@ or trust a device.
 | valid selection + no trust | no `trust` command |
 | valid selection + `y` trust | separate `trust` command is authorized |
 | unsafe address path | no pairing/trust command |
-

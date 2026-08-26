@@ -430,9 +430,11 @@ def _tui_pick_pair_candidate() -> SelectionCandidate | None:
         print("No nearby devices found. Wake the ring, keep it close, and try again.")
         return None
     print("Choose the device to pair:")
+    print("Names come from Bluetooth advertisements and are not identity proof; scan results can be stale.")
     for index, candidate in enumerate(candidates, start=1):
         kind = "possible JRing" if candidate.likely_jring else "other device"
-        print(f"{index}. {candidate.alias} — {kind}, signal {_signal_strength(candidate.rssi)}")
+        name = candidate.display_name or "unnamed device"
+        print(f"{index}. {name} [{candidate.alias}] — {kind}, signal {_signal_strength(candidate.rssi)}")
     try:
         answer = input("Device number (or q to cancel): ").strip().lower()
     except (EOFError, KeyboardInterrupt):
@@ -444,7 +446,8 @@ def _tui_pick_pair_candidate() -> SelectionCandidate | None:
         print("Pairing cancelled; choose one of the listed device numbers.")
         return None
     selected = candidates[int(answer) - 1]
-    print(f"Selected {selected.alias} ({'possible JRing' if selected.likely_jring else 'unidentified device'}).")
+    name = selected.display_name or "unnamed device"
+    print(f"Selected {name} ({selected.alias}; {'possible JRing' if selected.likely_jring else 'unidentified device'}).")
     return selected
 
 
@@ -478,9 +481,9 @@ def _tui_store_selected_address(path: str, address: str) -> bool:
     return True
 
 
-def _run_tui_pair_prompt(current_path: str | None = None) -> str | None:
+def _run_tui_pair_prompt(current_path: str | None = None, selected: SelectionCandidate | None = None) -> str | None:
     try:
-        selected = _tui_pick_pair_candidate()
+        selected = selected or _tui_pick_pair_candidate()
         if selected is None:
             return current_path
         path = _tui_select_address_path(current_path)
@@ -506,6 +509,39 @@ def _tui_hardware_command(command: str, current_path: str | None) -> tuple[str |
     if path is None:
         return current_path, "No ring selected. Choose an address file before continuing."
     return path, _tui_command([command, "--address-file", path])
+
+
+def _curses_pick_pair_candidate(stdscr: Any) -> SelectionCandidate | None:
+    """Render the discovery picker in curses; selection never leaves the TUI."""
+    import curses
+    try:
+        candidates = asyncio.run(discover_for_selection(timeout=5.0))
+    except Exception as exc:
+        stdscr.addstr(6, 0, f"Scan failed: {_sanitize_error(exc)}")
+        stdscr.addstr(8, 0, "Press any key to return")
+        stdscr.refresh(); stdscr.getch()
+        return None
+    if not candidates:
+        stdscr.addstr(6, 0, "No nearby devices found; wake the ring and retry.")
+        stdscr.addstr(8, 0, "Press any key to return")
+        stdscr.refresh(); stdscr.getch()
+        return None
+    stdscr.nodelay(False)
+    stdscr.erase()
+    stdscr.addstr(0, 0, " PAIR — CHOOSE DEVICE ", curses.A_REVERSE)
+    stdscr.addstr(2, 0, "Names are advertisement labels, not identity proof. Choose 1–9 or q.")
+    for index, candidate in enumerate(candidates[:9], start=1):
+        name = candidate.display_name or "unnamed device"
+        kind = "possible JRing" if candidate.likely_jring else "other device"
+        stdscr.addnstr(index + 3, 0, f"{index}. {name} [{candidate.alias}] — {kind}, {_signal_strength(candidate.rssi)}", max(1, stdscr.getmaxyx()[1] - 1))
+    stdscr.refresh()
+    key = stdscr.getch()
+    stdscr.nodelay(True)
+    if key in (ord("q"), ord("Q"), 27):
+        return None
+    if ord("1") <= key <= ord("9") and key - ord("1") < len(candidates):
+        return candidates[key - ord("1")]
+    return None
 
 
 def _run_plain_tui() -> int:
@@ -627,10 +663,15 @@ def _run_curses_tui() -> int:
                 refresh_view()
                 last_refresh = time.monotonic()
             elif key in (ord("p"), ord("P")):
+                picked = _curses_pick_pair_candidate(stdscr)
+                if picked is None:
+                    refresh_view()
+                    last_refresh = time.monotonic()
+                    continue
                 curses.nocbreak()
                 curses.echo()
                 curses.endwin()
-                state["address_file"] = _run_tui_pair_prompt(state["address_file"])
+                state["address_file"] = _run_tui_pair_prompt(state["address_file"], picked)
                 curses.def_prog_mode()
                 curses.reset_prog_mode()
                 stdscr.nodelay(True)

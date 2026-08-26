@@ -51,3 +51,13 @@ def test_aliases_change_between_process_seeds_and_hide_addresses():
     assert "AA:BB" not in str(first.public_summary())
     assert first.public_summary()["likely_jring_basis"] == "client_name_heuristic"
     assert first.connection_address() == SYNTHETIC_ADDRESS
+
+
+def test_picker_candidates_keep_names_and_put_likely_jring_first():
+    observations = (
+        DiscoveryObservation(address=":".join(("11", "22", "33", "44", "55", "66")), name="Keyboard", service_uuids=(), rssi=-30),
+        DiscoveryObservation(address=":".join(("AA", "BB", "CC", "DD", "EE", "FF")), name="SR08 JRing", service_uuids=(), rssi=-80),
+    )
+    candidates = build_selection_candidates(observations, salt=b"stable")
+    assert candidates[0].display_name == "SR08 JRing"
+    assert candidates[0].public_summary()["name"] == "SR08 JRing"
