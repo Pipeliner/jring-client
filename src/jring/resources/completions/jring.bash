@@ -75,7 +75,7 @@ _jring_completion()
         history) words='-h --help --simulate --json --output --force' ;;
         verify-device-info) words='-h --help --address-file --private-output --model-family --firmware-major --timeout --json --allow-connect --allow-notifications --allow-write --negative-control --select --active-scan' ;;
         observe) words='-h --help --address-file --private-output --service-uuid --characteristic-uuid --instance-id --max-records --timeout --json --allow-connect --allow-notifications --allow-observation' ;;
-        review-observation) words='-h --help --private-input --json' ;;
+        review-observation) words='-h --help --private-input --json --issue-draft-url' ;;
         review-owner-evidence) words='-h --help --private-input --decision --evidence-reference --review-output --allow-review-decision --json' ;;
         derive-owner-evidence) words='-h --help --private-input --public-output --review-receipt --allow-public-evidence --json' ;;
         *) return ;;

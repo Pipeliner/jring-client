@@ -1684,6 +1684,36 @@ def _capability_issue_draft_url(payload: dict[str, object]) -> str:
     )
 
 
+def _observation_issue_draft_url(payload: dict[str, object]) -> str:
+    """Render a local review URL from an already value-free observation summary."""
+
+    status = payload.get("capture_status")
+    count = payload.get("record_count")
+    if (
+        status not in {item.value for item in ObservationStatus}
+        or isinstance(count, bool)
+        or not isinstance(count, int)
+        or not 0 <= count <= 128
+        or payload.get("decoder") != "none"
+        or payload.get("runtime_authorized") is not False
+    ):
+        raise ValueError("invalid sanitized observation summary")
+    body = "\n".join((
+        "Owner-local bounded notification observation (unverified)",
+        "",
+        f"capture_status: {status}",
+        f"record_count: {count}",
+        "decoder: none",
+        "runtime_authorized: false",
+        "",
+        "No raw frames, identifiers, target metadata, private paths, or compatibility claim are included.",
+    ))
+    return "https://github.com/Pipeliner/jring-client/issues/new?" + urlencode({
+        "title": "Unverified private notification observation",
+        "body": body,
+    })
+
+
 def _print_owner_evidence_summary(
     payload: dict[str, object], *, interrupted: bool = False
 ) -> None:
@@ -1800,6 +1830,8 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
 async def _run(args: argparse.Namespace) -> int:
     if args.command == "review-observation":
         payload = load_private_observation(args.private_input)
+        if args.issue_draft_url:
+            payload["issue_draft_url"] = _observation_issue_draft_url(payload)
         if args.json:
             _print_json_success("review_private_observation", "private_local", payload)
         else:
@@ -1808,6 +1840,9 @@ async def _run(args: argparse.Namespace) -> int:
             print(f"Private records: {payload['record_count']}")
             print("Decoder: none; runtime behavior: unchanged")
             print("Values, identifiers, target identity, and private path: withheld")
+            if "issue_draft_url" in payload:
+                print("Sanitized issue draft: generated locally; review before opening.")
+                print(payload["issue_draft_url"])
         return ExitCode.OK
     if args.command == "review-owner-evidence":
         result = load_private_owner_evidence(args.private_input)
@@ -2529,6 +2564,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="mode-0600 private observation record",
     )
     _add_json_option(review_observation)
+    review_observation.add_argument(
+        "--issue-draft-url", action="store_true",
+        help="include a reviewable sanitized GitHub issue-draft URL",
+    )
     review = sub.add_parser(
         "review-owner-evidence",
         help="review one private owner-evidence record without Bluetooth I/O",

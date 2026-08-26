@@ -143,6 +143,7 @@ EXPECTED_OPTIONS = {
         ("-h", "--help"),
         ("--private-input",),
         ("--json",),
+        ("--issue-draft-url",),
     ),
     "review-owner-evidence": (
         ("-h", "--help"),

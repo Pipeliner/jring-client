@@ -2128,3 +2128,20 @@ def test_observe_is_explicit_and_value_free(monkeypatch, tmp_path, capsys):
     assert "candidate-1" not in output
     assert str(tmp_path / "private.json") not in output
     assert json.loads(output)["capture_status"] == "completed"
+def test_observation_issue_draft_url_is_value_free_and_rejects_invalid_summary():
+    url = cli._observation_issue_draft_url({
+        "capture_status": "completed",
+        "record_count": 1,
+        "decoder": "none",
+        "runtime_authorized": False,
+        "address": SYNTHETIC_ADDRESS,
+        "records": ["private-frame"],
+    })
+    assert url.startswith("https://github.com/Pipeliner/jring-client/issues/new?")
+    for forbidden in (SYNTHETIC_ADDRESS, "private-frame", "address", "records", "uuid"):
+        assert forbidden.casefold() not in url.casefold()
+    with pytest.raises(ValueError, match="invalid sanitized observation summary"):
+        cli._observation_issue_draft_url({
+            "capture_status": "completed", "record_count": 129,
+            "decoder": "none", "runtime_authorized": False,
+        })
