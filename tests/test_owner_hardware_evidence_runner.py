@@ -677,6 +677,32 @@ def test_cli_owner_evidence_human_output_has_ordered_recovery_summary(
     assert str(output) not in rendered
 
 
+@pytest.mark.parametrize(
+    ("commit_status", "expected"),
+    [("committed", "review the requested private record"),
+     ("not_committed", "no reviewable record exists")],
+)
+def test_owner_evidence_recovery_guidance_is_explicitly_non_retryable(
+    capsys, commit_status, expected
+):
+    cli._print_owner_evidence_summary({
+        "attempt_status": "uncertain",
+        "write_dispatch": "invoked",
+        "response_terminal": "not_observed",
+        "cleanup": {
+            "unsubscribe": "uncertain",
+            "close": "confirmed",
+            "overall": "uncertain",
+        },
+        "cleanup_status": "uncertain",
+        "evidence_commit_status": commit_status,
+    }, interrupted=True)
+    rendered = capsys.readouterr().out
+    assert "interrupted;" in rendered
+    assert expected in rendered
+    assert "never retry automatically" in rendered or "do not retry automatically" in rendered
+
+
 def test_cli_review_and_public_derivation_are_separate_offline_no_overwrite_steps(
     monkeypatch, tmp_path, capsys
 ):
