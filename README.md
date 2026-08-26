@@ -83,6 +83,25 @@ values, subscribes, or writes. It evaluates fixed main/raw vendor route structur
 current-snapshot target ownership without exposing target identities. Structural
 readiness grants no live eligibility, owner authorization, or hardware support.
 
+For a bounded owner investigation of one notify-capable metadata row, keep the address
+and capture outside the repository and choose the exact service, characteristic, and
+instance shown by the same local capability inventory:
+
+```sh
+jring observe --address-file ~/.config/jring/address \
+  --private-output ~/.config/jring/observation.json \
+  --service-uuid SERVICE --characteristic-uuid CHARACTERISTIC --instance-id INSTANCE \
+  --max-records 8 --allow-connect --allow-notifications --allow-observation
+jring review-observation --private-input ~/.config/jring/observation.json
+```
+
+`observe` makes one bounded connection and notification subscription, then writes only
+a new mode-0600 private record. It never reads a characteristic, writes a vendor value,
+decodes a frame, enables an input action, uploads, opens a browser, or retries.
+`review-observation` is offline-only and displays only capture state and count; it
+never renders a captured frame, address, target identity, or private path. An
+observation is not proof of protocol meaning, compatibility, or runtime authorization.
+
 To prepare a reviewable public handoff after a metadata-only probe, add
 `--issue-draft-url` to `capabilities`. The client creates a GitHub issue-draft URL
 locally; it does not open a browser or make a network request. Its prefilled text is
