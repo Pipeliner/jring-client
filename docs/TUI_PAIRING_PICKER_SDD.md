@@ -1,6 +1,6 @@
 # JRing TUI — interaction model and software design
 
-Status: proposed redesign; implementation intentionally deferred
+Status: implementation in progress; reducer/runtime slices are landed, conformance work remains
 
 ## Evidence and design choice
 
