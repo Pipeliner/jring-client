@@ -59,6 +59,18 @@ fallback for missing hardware.
 - Exceptions become sanitized result events. Raw exceptions, addresses, and
   payloads never reach the renderer.
 
+### Normative reducer vocabulary
+
+The headless model exposes a pure reducer (or equivalent) over these stable
+states: `DEVICES`, `SCANNING`, `PICKER`, `PAIR_CONFIRM`, `TRUST_CONFIRM`,
+`TASK_RUNNING`, `RESULT`, and `ERROR`. Events include `KEY`, `RESIZE`,
+`SCAN_STARTED`, `SCAN_COMPLETED`, `TASK_COMPLETED`, `TASK_FAILED`,
+`CANCELLED`, and `TICK`; implementations may add internal events but must not
+make renderer code responsible for state transitions. Each rendered model must
+contain `screen`, `title`, `purpose`, `body`, `focus_index`, `status`, and
+`keys`. This vocabulary is the contract tested by TDD and is independent of
+whether the renderer uses curses, Textual, or prompt-toolkit.
+
 ## Devices view
 
 Devices is the default screen on every launch, even when an address file exists.
@@ -122,4 +134,3 @@ not show traceback or raw BlueZ output.
 | task failure | result | remedy, retry/back action, no raw error/address |
 | resize/80×24 | redraw | no crash; title/focus/footer remain visible |
 | simulator | `v` | explicit offline provenance; no BLE call |
-
