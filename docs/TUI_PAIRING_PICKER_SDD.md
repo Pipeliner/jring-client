@@ -18,6 +18,17 @@ implementation may remain stdlib-only, but it must preserve these architectural
 properties; switching to Textual or prompt-toolkit later must not change the
 interaction contract.
 
+### Renderer decision gate
+
+The preferred renderer for the complete TUI is Textual, subject to issue #68’s
+packaging check. Its documented screen stack, focusable widgets, async app model,
+pilot key/resize testing, and worker support map directly to this contract. A
+stdlib-curses implementation is acceptable only if it provides equivalent
+screen/focus/reducer separation and headless tests; retaining the current
+blocking redraw loop is explicitly rejected. prompt-toolkit remains a viable
+alternative if its application/event-loop model and widget coverage pass the
+same acceptance matrix.
+
 ## JTBD scenarios
 
 | User job | Default path | Completion signal |
