@@ -218,3 +218,73 @@ def test_private_observation_runner_collects_one_bounded_private_record_without_
     assert "private-frame" not in repr(result)
     assert Client.instances[-1].calls == ["connect", "start_notify", "stop_notify", "disconnect"]
     assert json.loads((tmp_path / "observation.json").read_text(encoding="utf-8"))["records"] == ["707269766174652d6672616d65"]
+
+
+def test_private_observation_cancellation_is_re_raised_after_cleanup(
+    monkeypatch, tmp_path: Path
+):
+    characteristic = SimpleNamespace(
+        uuid="characteristic-candidate",
+        properties=["notify"],
+        descriptors=[SimpleNamespace(uuid=CLIENT_CHARACTERISTIC_CONFIGURATION)],
+    )
+    service = SimpleNamespace(uuid="service-candidate", characteristics=[characteristic])
+
+    class Client:
+        instances = []
+
+        def __init__(self, _address, *, disconnected_callback, timeout):
+            self.disconnected_callback = disconnected_callback
+            self.timeout = timeout
+            self.is_connected = False
+            self.services = [service]
+            self.calls = []
+            self.__class__.instances.append(self)
+
+        async def connect(self):
+            self.is_connected = True
+            self.calls.append("connect")
+
+        async def start_notify(self, target, _callback):
+            assert target is characteristic
+            self.calls.append("start_notify")
+
+        async def stop_notify(self, target):
+            assert target is characteristic
+            self.calls.append("stop_notify")
+
+        async def disconnect(self):
+            self.calls.append("disconnect")
+            self.is_connected = False
+            self.disconnected_callback(self)
+
+    monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakClient=Client))
+    tmp_path.chmod(0o700)
+    plan = prepare_observation_plan(
+        address="synthetic-selected-ring",
+        allow_connect=True,
+        allow_notifications=True,
+        allow_observation=True,
+        timeout=2.0,
+        max_records=1,
+        private_output=tmp_path / "cancelled.json",
+    )
+
+    async def scenario():
+        task = asyncio.create_task(
+            PrivateObservationRunner().run(
+                plan,
+                service_uuid="service-candidate",
+                characteristic_uuid="characteristic-candidate",
+                instance_id="service-1-characteristic-1",
+            )
+        )
+        await asyncio.sleep(0.05)
+        assert task.cancel() is True
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(scenario())
+    assert Client.instances[-1].calls == ["connect", "start_notify", "stop_notify", "disconnect"]
+    private = json.loads((tmp_path / "cancelled.json").read_text(encoding="utf-8"))
+    assert private["capture_status"] == "cancelled"
