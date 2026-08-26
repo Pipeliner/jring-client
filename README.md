@@ -1,8 +1,8 @@
 # JRing client
 
 This is an offline-first Python 3 Linux client for explicitly selected JRing BLE
-devices. It performs safe standard Bluetooth GATT reads today and provides a tested
-simulator. Vendor writes and hardware history remain disabled until packet captures
+devices. It performs safe standard Bluetooth GATT reads and one bounded standard
+heart-rate notification today, and provides a tested simulator. Vendor writes and hardware history remain disabled until packet captures
 from the owner's selected ring establish the protocol exactly.
 
 ## Install and run
