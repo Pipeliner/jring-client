@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 from pathlib import Path
+from types import SimpleNamespace
+import sys
 
 import pytest
 
 from jring.private_observation import (
     ObservationError,
+    PrivateObservationRunner,
     begin_observation,
     prepare_observation_authority,
     prepare_observation_plan,
@@ -90,7 +95,7 @@ def test_observation_recorder_writes_only_private_records(tmp_path: Path):
         private_output=tmp_path / "observation.json")
     recorder = begin_observation(plan)
     recorder.record(b"\x01")
-    assert recorder.finish() == {"capture_status": "bounded_recorded", "record_count": 1,
+    assert recorder.finish() == {"capture_status": "completed", "record_count": 1,
         "private_output": "mode_0600", "runtime_authorized": False}
     assert (tmp_path / "observation.json").stat().st_mode & 0o777 == 0o600
 
@@ -141,3 +146,75 @@ def test_observation_target_rejects_non_notify_stale_and_ambiguous_metadata(
             characteristic_uuid="characteristic-candidate",
             instance_id="candidate-1",
         )
+
+
+def test_private_observation_runner_collects_one_bounded_private_record_without_write(
+    monkeypatch, tmp_path: Path
+):
+    characteristic = SimpleNamespace(
+        uuid="characteristic-candidate",
+        properties=["notify"],
+        descriptors=[SimpleNamespace(uuid=CLIENT_CHARACTERISTIC_CONFIGURATION)],
+    )
+    service = SimpleNamespace(uuid="service-candidate", characteristics=[characteristic])
+
+    class Client:
+        instances = []
+
+        def __init__(self, _address, *, disconnected_callback, timeout):
+            self.disconnected_callback = disconnected_callback
+            self.timeout = timeout
+            self.is_connected = False
+            self.services = [service]
+            self.calls = []
+            self.__class__.instances.append(self)
+
+        async def connect(self):
+            self.is_connected = True
+            self.calls.append("connect")
+
+        async def start_notify(self, target, callback):
+            assert target is characteristic
+            self.calls.append("start_notify")
+            asyncio.get_running_loop().call_soon(callback, target, b"private-frame")
+
+        async def stop_notify(self, target):
+            assert target is characteristic
+            self.calls.append("stop_notify")
+
+        async def disconnect(self):
+            self.calls.append("disconnect")
+            self.is_connected = False
+            self.disconnected_callback(self)
+
+    monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakClient=Client))
+    tmp_path.chmod(0o700)
+    plan = prepare_observation_plan(
+        address="synthetic-selected-ring",
+        allow_connect=True,
+        allow_notifications=True,
+        allow_observation=True,
+        timeout=2.0,
+        max_records=1,
+        private_output=tmp_path / "observation.json",
+    )
+
+    result = asyncio.run(
+        PrivateObservationRunner().run(
+            plan,
+            service_uuid="service-candidate",
+            characteristic_uuid="characteristic-candidate",
+            instance_id="service-1-characteristic-1",
+        )
+    )
+
+    assert result.public_payload() == {
+        "capture_status": "completed",
+        "record_count": 1,
+        "cleanup": {"unsubscribe": "confirmed", "close": "confirmed"},
+        "runtime_authorized": False,
+        "decoder": "none",
+    }
+    assert "private-frame" not in repr(result)
+    assert Client.instances[-1].calls == ["connect", "start_notify", "stop_notify", "disconnect"]
+    assert json.loads((tmp_path / "observation.json").read_text(encoding="utf-8"))["records"] == ["707269766174652d6672616d65"]
