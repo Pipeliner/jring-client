@@ -1,0 +1,42 @@
+name: uv tool smoke
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uv-tool-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+      - uses: astral-sh/setup-uv@d08d816a1ea176d61a318eff45abd3dffef415b1 # main, resolved 2026-08-26
+        with:
+          enable-cache: false
+      - name: Build the reviewed wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -r requirements/release.txt
+          python scripts/evidence_tool.py scan .
+          python scripts/generate_cli_artifacts.py --check
+          python -m build --wheel --outdir dist
+      - name: Install the exact wheel as an isolated uv tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv tool install dist/*.whl
+          jring --version
+          jring status --simulate --json
+          jring capabilities --simulate --json
+          jring-tui </dev/null

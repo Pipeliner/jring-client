@@ -183,6 +183,19 @@ def test_release_workflow_is_pinned_and_has_no_publish_step():
     assert "python scripts/evidence_tool.py scan ." in workflow
 
 
+def test_uv_tool_smoke_workflow_installs_exact_wheel_and_runs_safe_commands():
+    workflow = (ROOT / ".github" / "workflows" / "uv-tool-smoke.yml").read_text()
+    assert "astral-sh/setup-uv@d08d816a1ea176d61a318eff45abd3dffef415b1" in workflow
+    assert "python -m build --wheel" in workflow
+    assert "uv tool install dist/*.whl" in workflow
+    assert "jring --version" in workflow
+    assert "jring status --simulate --json" in workflow
+    assert "jring-tui" in workflow
+    assert "--active-scan" not in workflow
+    assert "--allow-input" not in workflow
+    assert "id-token: write" not in workflow
+
+
 def test_install_documentation_covers_lifecycle_and_verification():
     documentation = (ROOT / "docs" / "INSTALL.md").read_text()
     for term in (

@@ -72,6 +72,12 @@ publishes the exact artifact produced by the validation job. In GitHub, verify:
 4. Keep Actions permissions at the workflow's least privilege; do not add a PyPI
    secret or `contents: write`.
 
+The separate `uv tool smoke` workflow runs on pushes, pull requests, and manual
+dispatch. It builds the wheel, installs that exact file with `uv tool install`, and
+checks `jring`, `jring status --simulate --json`, `jring capabilities --simulate
+--json`, and `jring-tui` offline. It is an installability check, not a PyPI upload or
+a hardware test.
+
 Then, on PyPI, go to **Your projects → jring-client → Publishing → Add a new
 publisher** and enter exactly `Pipeliner`, `jring-client`, `publish-pypi.yml`, and
 `pypi`. Save it, then use a validation-only dispatch before the first real release.
