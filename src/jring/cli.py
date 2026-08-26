@@ -408,61 +408,83 @@ def _tui_command(argv: list[str]) -> str:
     return output.getvalue()
 
 
-def _run_tui_pair_prompt() -> None:
-    default_path = "~/.config/jring/address"
+def _tui_select_address_path(current: str | None = None) -> str | None:
+    default_path = current or "~/.config/jring/address"
     try:
         entered = input(f"Address file [{default_path}]: ").strip()
-        path = entered or default_path
+    except (EOFError, KeyboardInterrupt):
+        print("Selection cancelled; nothing was run.")
+        return None
+    return os.path.expanduser(entered or default_path)
+
+
+def _run_tui_pair_prompt(current_path: str | None = None) -> str | None:
+    try:
+        path = _tui_select_address_path(current_path)
+        if path is None:
+            return current_path
         if input("Type PAIR to authorize one BlueZ pairing operation: ").strip() != "PAIR":
             print("Pairing cancelled; nothing was run.")
-            return
-        argv = ["pair", "--address-file", os.path.expanduser(path), "--allow-pairing"]
+            return path
+        argv = ["pair", "--address-file", path, "--allow-pairing"]
         if input("Also trust this device after pairing? [y/N]: ").strip().lower() in {"y", "yes"}:
             argv.append("--allow-trust")
         print(_tui_command(argv))
+        return path
     except (EOFError, KeyboardInterrupt):
         print("Pairing cancelled; nothing was run.")
+        return current_path
+
+
+def _tui_hardware_command(command: str, current_path: str | None) -> tuple[str | None, str]:
+    path = _tui_select_address_path(current_path)
+    if path is None:
+        return current_path, "No ring selected. Choose an address file before continuing."
+    return path, _tui_command([command, "--address-file", path])
 
 
 def _run_plain_tui() -> int:
     print("JRING — SAFE TUI")
     print("No ring selected. No Bluetooth, scan, network, or desktop-input action occurred.")
     print()
-    print("s) Simulated status")
-    print("c) Simulated capabilities (including HID metadata)")
+    print("s) Status for your selected ring")
+    print("c) Capabilities for your selected ring")
+    print("v) Offline simulator preview")
     print("d) Check this computer (doctor)")
     print("i) Explore input actions")
     print("p) Pair (and optionally trust) one selected device")
     print("h) Show command-line quickstart")
     print("r) Refresh the selected view")
     print("q) Quit")
-    last_view = ["s"]
+    selected_path: str | None = None
     while True:
         try:
-            choice = input("\nChoose an option [s/c/d/i/p/h/q]: ").strip().lower()
+            choice = input("\nChoose an option [s/c/v/d/i/p/h/q]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             print()
             return ExitCode.OK
         if choice == "q":
             print("Goodbye. No ring was contacted.")
             return ExitCode.OK
-        if choice in {"s", "c", "d", "i", "p", "h"}:
-            last_view[0] = choice
-        if choice in {"s", "r"}:
-            print(_tui_command(["status", "--simulate"]))
+        if choice == "s":
+            selected_path, output = _tui_hardware_command("status", selected_path)
+            print(output)
         elif choice == "c":
-            print(_tui_command(["capabilities", "--simulate", "--simulate-profile", "hid"]))
+            selected_path, output = _tui_hardware_command("capabilities", selected_path)
+            print(output)
+        elif choice in {"v", "r"}:
+            print(_tui_command(["status", "--simulate"]))
         elif choice == "d":
             print(_tui_command(["doctor"]))
         elif choice == "i":
             print(_tui_command(["input-actions"]))
         elif choice == "p":
-            _run_tui_pair_prompt()
+            selected_path = _run_tui_pair_prompt(selected_path)
         elif choice == "h":
             _print_terminal_home()
         else:
             if choice != "r":
-                print("Choose s, c, d, i, p, h, r, or q. Nothing was run.")
+                print("Choose s, c, v, d, i, p, h, r, or q. Nothing was run.")
 
 
 def _run_curses_tui() -> int:
@@ -470,15 +492,27 @@ def _run_curses_tui() -> int:
     import time
 
     views = {
-        "s": ("SIMULATED STATUS", ["status", "--simulate"]),
-        "c": ("SIMULATED CAPABILITIES", ["capabilities", "--simulate", "--simulate-profile", "hid"]),
-        "d": ("LOCAL READINESS", ["doctor"]),
-        "i": ("INPUT ACTIONS", ["input-actions"]),
+        "s": "RING STATUS",
+        "c": "RING CAPABILITIES",
+        "v": "OFFLINE SIMULATOR",
+        "d": "LOCAL READINESS",
+        "i": "INPUT ACTIONS",
     }
-    state = {"view": "s", "text": ""}
+    state = {"view": "s", "text": "", "address_file": None}
 
     def refresh_view() -> None:
-        state["text"] = _tui_command(views[state["view"]][1])
+        view = state["view"]
+        if view == "v":
+            state["text"] = _tui_command(["status", "--simulate"])
+        elif view == "d":
+            state["text"] = _tui_command(["doctor"])
+        elif view == "i":
+            state["text"] = _tui_command(["input-actions"])
+        elif state["address_file"] is None:
+            state["text"] = "No ring selected. Press s/c and choose your mode-0600 address file."
+        else:
+            command = "status" if view == "s" else "capabilities"
+            state["text"] = _tui_command([command, "--address-file", state["address_file"]])
 
     def draw(stdscr: Any) -> None:
         curses.curs_set(0)
@@ -492,11 +526,12 @@ def _run_curses_tui() -> int:
                 last_refresh = time.monotonic()
             height, width = stdscr.getmaxyx()
             stdscr.erase()
-            title = " JRING — SAFE TUI (simulator) "
+            title = " JRING — SAFE TUI (your ring) "
             stdscr.addnstr(0, 0, title, max(0, width - 1), curses.A_REVERSE)
-            stdscr.addnstr(1, 0, "No ring selected • no scan • no connection • no input", max(0, width - 1))
-            stdscr.addnstr(3, 0, "[s] status  [c] capabilities  [d] doctor  [i] inputs  [p] pair  [r] refresh  [q] quit", max(0, width - 1))
-            stdscr.addnstr(4, 0, f"View: {views[state['view']][0]}  (refreshes every 2s)", max(0, width - 1), curses.A_BOLD)
+            selected = state["address_file"] or "none (press s/c to choose)"
+            stdscr.addnstr(1, 0, f"Address file: {selected} • no implicit scan or connection", max(0, width - 1))
+            stdscr.addnstr(3, 0, "[s] status  [c] capabilities  [v] simulator  [d] doctor  [i] inputs  [p] pair  [r] refresh  [q] quit", max(0, width - 1))
+            stdscr.addnstr(4, 0, f"View: {views[state['view']]}  (refreshes every 2s)", max(0, width - 1), curses.A_BOLD)
             for row, line in enumerate(state["text"].splitlines(), start=6):
                 if row >= height - 1:
                     break
@@ -505,8 +540,22 @@ def _run_curses_tui() -> int:
             key = stdscr.getch()
             if key in (ord("q"), ord("Q"), 27):
                 return
-            if key in (ord("s"), ord("S"), ord("c"), ord("C"), ord("d"), ord("D"), ord("i"), ord("I")):
+            if key in (ord("d"), ord("D"), ord("i"), ord("I"), ord("v"), ord("V")):
                 state["view"] = chr(key).lower()
+                refresh_view()
+                last_refresh = time.monotonic()
+            elif key in (ord("s"), ord("S"), ord("c"), ord("C")):
+                curses.nocbreak()
+                curses.echo()
+                curses.endwin()
+                selected = _tui_select_address_path(state["address_file"])
+                if selected is not None:
+                    state["address_file"] = selected
+                    state["view"] = chr(key).lower()
+                curses.def_prog_mode()
+                curses.reset_prog_mode()
+                stdscr.nodelay(True)
+                stdscr.keypad(True)
                 refresh_view()
                 last_refresh = time.monotonic()
             elif key in (ord("r"), ord("R")):
@@ -516,7 +565,7 @@ def _run_curses_tui() -> int:
                 curses.nocbreak()
                 curses.echo()
                 curses.endwin()
-                _run_tui_pair_prompt()
+                state["address_file"] = _run_tui_pair_prompt(state["address_file"])
                 curses.def_prog_mode()
                 curses.reset_prog_mode()
                 stdscr.nodelay(True)
@@ -534,7 +583,7 @@ def _run_curses_tui() -> int:
 
 
 def _run_tui() -> int:
-    """Run a refreshable simulator-first TUI with a plain-terminal fallback."""
+    """Run a refreshable ring-first TUI with a plain-terminal fallback."""
 
     if sys.stdin.isatty() and sys.stdout.isatty() and not os.environ.get("JRING_TUI_PLAIN"):
         return _run_curses_tui()
@@ -2610,7 +2659,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_json_option(input_actions)
     sub.add_parser(
-        "tui", help="open a safe, simulator-first terminal menu (no device selected)"
+        "tui", help="open a safe, ring-first terminal menu (selection is explicit)"
     )
     completion = sub.add_parser(
         "completion", help="print an installed shell completion script"

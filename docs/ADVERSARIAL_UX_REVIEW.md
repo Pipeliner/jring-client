@@ -217,7 +217,7 @@ persona is likely to abandon the client:
 | Finding | User-visible failure | Change made | Residual boundary |
 |---|---|---|---|
 | Optional runtime extras made `uvx` look incomplete | The first hardware command failed after an apparently successful install | Bleak and evdev are now base runtime dependencies; docs and CI use one install path | BlueZ daemon, adapter permissions, and kernel uinput still need distro setup |
-| TUI was a static menu with no obvious hardware preparation | User did not know how to pair or whether the screen was alive | Added refreshable keyboard TUI with `s/c/d/i/p/r/q`, plus plain-terminal fallback | TUI never scans or connects implicitly |
+| TUI was a static menu with no obvious hardware preparation | User did not know how to pair or whether the screen was alive | Added refreshable ring-first keyboard TUI with `s/c/v/d/i/p/r/q`, plus plain-terminal fallback | TUI never scans or connects implicitly |
 | Pairing and trust are commonly conflated | User either retries blindly or trusts a device accidentally | Added guided `p` flow and explicit `PAIR`/trust confirmations; CLI exposes `--allow-pairing` and `--allow-trust` separately | Pairing/trust remain OS state, not vendor binding or compatibility |
 | Timeout recovery was ambiguous | User may immediately repeat a possibly completed operation | Pairing reports uncertainty and tells the user to inspect BlueZ state first | A human must decide whether a second attempt is appropriate |
 

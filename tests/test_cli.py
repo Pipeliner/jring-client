@@ -19,7 +19,8 @@ def test_tui_is_a_safe_menu_and_quits_without_probing(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "JRING — SAFE TUI" in output
     assert "No ring selected" in output
-    assert "s) Simulated status" in output
+    assert "s) Status for your selected ring" in output
+    assert "v) Offline simulator preview" in output
     assert "q) Quit" in output
     assert "No Bluetooth" in output
 
@@ -34,7 +35,7 @@ def test_tui_pairing_prompt_requires_literal_confirmation(monkeypatch, capsys):
 
 
 def test_tui_simulated_status_action_is_available(monkeypatch, capsys):
-    answers = iter(["s", "q"])
+    answers = iter(["v", "q"])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
     assert cli.main(["tui"]) == 0
     output = capsys.readouterr().out

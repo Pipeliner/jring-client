@@ -21,9 +21,10 @@ creating a checkout or modifying the system interpreter:
 uvx --from jring-client jring tui
 ```
 
-Choose `s` for a simulated status, `c` for simulated capabilities (including the
-metadata-only HID profile), or `q` to leave. These choices are offline and do not
-select, scan for, or connect to a ring. The equivalent one-shot command is:
+The menu is ring-first: choose `s` or `c` to supply your protected address file and
+inspect the selected ring, or `p` to pair it. Choose `v` for an offline simulator
+preview, or `q` to leave. No scan or connection starts until you explicitly select a
+hardware command. The equivalent one-shot simulator command is:
 
 ```sh
 uvx --from jring-client jring status --simulate
