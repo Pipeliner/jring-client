@@ -87,6 +87,7 @@ EXPECTED_OPTIONS = {
         ("--select",),
         ("--active-scan",),
         ("--issue-draft-url",),
+        ("--include-observation-targets",),
     ),
     "heart-rate": (
         ("-h", "--help"),
