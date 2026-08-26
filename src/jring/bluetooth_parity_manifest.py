@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from .vendor_coverage import static_vendor_callback_coverage, static_vendor_operation_coverage
+from .vendor_artifact_evidence import AndroidBluetoothInstructionCategory
 from .vendor_session_evidence import recovered_session_evidence
 
 
@@ -66,19 +67,9 @@ class BluetoothParityManifest:
         )
 
 
-_PLATFORM_ROWS = (
-    ("standard-gatt:device-information", ParitySurfaceFamily.STANDARD_GATT, "APK_TRANSPORT_SPEC.md", 50),
-    ("standard-gatt:heart-rate", ParitySurfaceFamily.STANDARD_GATT, "APK_TRANSPORT_SPEC.md", 50),
-    ("standard-gatt:cccd", ParitySurfaceFamily.STANDARD_GATT, "APK_TRANSPORT_SPEC.md", 50),
-    ("vendor-gatt:main-route", ParitySurfaceFamily.VENDOR_GATT, "APK_TRANSPORT_SPEC.md", 35),
-    ("vendor-gatt:raw-route", ParitySurfaceFamily.VENDOR_GATT, "APK_TRANSPORT_SPEC.md", 35),
-    ("vendor-gatt:secondary-route", ParitySurfaceFamily.VENDOR_GATT, "APK_TRANSPORT_SPEC.md", 50),
-    ("vendor-gatt:suota", ParitySurfaceFamily.VENDOR_GATT, "APK_OTA_SPEC.md", 47),
-    ("platform:scan-link-discovery", ParitySurfaceFamily.PLATFORM_BLUETOOTH, "APK_PLATFORM_SPEC.md", 50),
-    ("platform:dynamic-gatt", ParitySurfaceFamily.PLATFORM_BLUETOOTH, "APK_PLATFORM_SPEC.md", 50),
-    ("platform:classic-bond-rfcomm", ParitySurfaceFamily.PLATFORM_BLUETOOTH, "APK_PLATFORM_SPEC.md", 50),
-    ("ota-transfer:firmware-and-phone-transfer", ParitySurfaceFamily.OTA_TRANSFER, "APK_OTA_SPEC.md", 47),
-)
+_STANDARD_GATT = ("180a", "2a23", "2a24", "2a25", "2a26", "2a27", "2a28", "2a29", "2a2a", "2a37", "2a50", "2902", "180f", "2a19", "1805", "2a2b", "1812", "2a22", "2a32", "2a33", "2a4a", "2a4b", "2a4c", "2a4d", "2a4e", "2908")
+_VENDOR_GATT = ("56ff", "33f3", "33f4", "33f5", "33f6", "ffe5", "ffe9", "57ff", "fef5")
+_PLATFORM_ROWS = tuple((f"standard-gatt:{uuid}", ParitySurfaceFamily.STANDARD_GATT, "APK_TRANSPORT_SPEC.md", 50) for uuid in _STANDARD_GATT) + tuple((f"vendor-gatt:{uuid}", ParitySurfaceFamily.VENDOR_GATT, "APK_OTA_SPEC.md" if uuid == "fef5" else "APK_TRANSPORT_SPEC.md", 47 if uuid == "fef5" else 50) for uuid in _VENDOR_GATT) + tuple((f"platform:{category.value}", ParitySurfaceFamily.PLATFORM_BLUETOOTH, "APK_PLATFORM_SPEC.md", 50) for category in AndroidBluetoothInstructionCategory) + (("ota-transfer:firmware-and-phone-transfer", ParitySurfaceFamily.OTA_TRANSFER, "APK_OTA_SPEC.md", 47),)
 _EXCLUDED = frozenset({"getDialServerInfo", "openSDKLog", "registerCallback", "registerCallback2", "saveFileToSystemAlbum", "setOption", "setScanMode", "translateBmpToBin", "unregisterCallback"})
 
 
