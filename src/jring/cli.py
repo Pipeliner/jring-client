@@ -544,6 +544,37 @@ def _curses_pick_pair_candidate(stdscr: Any) -> SelectionCandidate | None:
     return None
 
 
+def _curses_pair_flow(stdscr: Any, current_path: str | None, selected: SelectionCandidate) -> str | None:
+    """Complete pairing from curses without invoking line-oriented input()."""
+    import curses
+    width = max(1, stdscr.getmaxyx()[1] - 1)
+    def prompt(label: str, default: str = "") -> str | None:
+        stdscr.erase(); stdscr.addnstr(0, 0, " PAIR — CONFIRMATION ", width, curses.A_REVERSE)
+        stdscr.addnstr(2, 0, label, width); stdscr.refresh()
+        try:
+            value = stdscr.getstr(3, 0, 240).decode("utf-8").strip()
+        except (KeyboardInterrupt, curses.error):
+            return None
+        return value or default
+    default = current_path or "~/.config/jring/address"
+    path = prompt(f"Address file [{default}]:", default)
+    if path is None or not _tui_store_selected_address(path, selected.connection_address()):
+        return current_path
+    if prompt("Type PAIR to authorize one BlueZ pairing operation:") != "PAIR":
+        return path
+    argv = ["pair", "--address-file", os.path.expanduser(path), "--allow-pairing"]
+    if prompt("Also trust this device? Type YES to authorize trust (default NO):", "").lower() in {"y", "yes"}:
+        argv.append("--allow-trust")
+    output = _tui_command(argv)
+    stdscr.erase(); stdscr.addnstr(0, 0, " PAIR — RESULT ", width, curses.A_REVERSE)
+    for row, line in enumerate(output.splitlines(), start=2):
+        if row >= stdscr.getmaxyx()[0] - 2: break
+        stdscr.addnstr(row, 0, line, width)
+    stdscr.addstr(max(2, stdscr.getmaxyx()[0] - 2), 0, "Press any key to return")
+    stdscr.refresh(); stdscr.getch()
+    return path
+
+
 def _run_plain_tui() -> int:
     print("JRING — SAFE TUI")
     print("No ring selected. No Bluetooth, scan, network, or desktop-input action occurred.")
@@ -593,17 +624,31 @@ def _run_curses_tui() -> int:
     import time
 
     views = {
+        "b": "DEVICES",
         "s": "RING STATUS",
         "c": "RING CAPABILITIES",
         "v": "OFFLINE SIMULATOR",
         "d": "LOCAL READINESS",
         "i": "INPUT ACTIONS",
     }
-    state = {"view": "s", "text": "", "address_file": None}
+    state = {"view": "b", "text": "", "address_file": None, "candidates": None}
 
     def refresh_view() -> None:
         view = state["view"]
-        if view == "v":
+        if view == "b":
+            candidates = state["candidates"]
+            if candidates is None:
+                state["text"] = "No scan yet. Press r to scan nearby Bluetooth devices (no connection)."
+            elif not candidates:
+                state["text"] = "No nearby devices found. Wake the ring and press r to try again."
+            else:
+                lines = ["Names are advertisement labels, not identity proof; results can be stale.", ""]
+                for index, candidate in enumerate(candidates, start=1):
+                    name = candidate.display_name or "unnamed device"
+                    kind = "possible JRing" if candidate.likely_jring else "other device"
+                    lines.append(f"{index}. {name} [{candidate.alias}] — {kind}, {_signal_strength(candidate.rssi)}")
+                state["text"] = "\n".join(lines)
+        elif view == "v":
             state["text"] = _tui_command(["status", "--simulate"])
         elif view == "d":
             state["text"] = _tui_command(["doctor"])
@@ -631,7 +676,7 @@ def _run_curses_tui() -> int:
             stdscr.addnstr(0, 0, title, max(0, width - 1), curses.A_REVERSE)
             selected = state["address_file"] or "none (press s/c to choose)"
             stdscr.addnstr(1, 0, f"Address file: {selected} • no implicit scan or connection", max(0, width - 1))
-            stdscr.addnstr(3, 0, "[s] status  [c] capabilities  [v] simulator  [d] doctor  [i] inputs  [p] pair  [r] refresh  [q] quit", max(0, width - 1))
+            stdscr.addnstr(3, 0, "[b] devices  [s] status  [c] capabilities  [v] simulator  [d] doctor  [i] inputs  [p] pair  [r] refresh/scan  [q] quit", max(0, width - 1))
             stdscr.addnstr(4, 0, f"View: {views[state['view']]}  (refreshes every 2s)", max(0, width - 1), curses.A_BOLD)
             for row, line in enumerate(state["text"].splitlines(), start=6):
                 if row >= height - 1:
@@ -639,9 +684,9 @@ def _run_curses_tui() -> int:
                 stdscr.addnstr(row, 0, line, max(0, width - 1))
             stdscr.refresh()
             key = stdscr.getch()
-            if key in (ord("q"), ord("Q"), 27):
+            if key in (ord("q"), ord("Q"), 27, 3):
                 return
-            if key in (ord("d"), ord("D"), ord("i"), ord("I"), ord("v"), ord("V")):
+            if key in (ord("b"), ord("B"), ord("d"), ord("D"), ord("i"), ord("I"), ord("v"), ord("V")):
                 state["view"] = chr(key).lower()
                 refresh_view()
                 last_refresh = time.monotonic()
@@ -660,6 +705,12 @@ def _run_curses_tui() -> int:
                 refresh_view()
                 last_refresh = time.monotonic()
             elif key in (ord("r"), ord("R")):
+                if state["view"] == "b":
+                    try:
+                        state["candidates"] = asyncio.run(discover_for_selection(timeout=5.0))
+                    except Exception as exc:
+                        state["candidates"] = []
+                        state["text"] = f"Scan failed: {_sanitize_error(exc)}"
                 refresh_view()
                 last_refresh = time.monotonic()
             elif key in (ord("p"), ord("P")):
@@ -668,21 +719,14 @@ def _run_curses_tui() -> int:
                     refresh_view()
                     last_refresh = time.monotonic()
                     continue
-                curses.nocbreak()
-                curses.echo()
-                curses.endwin()
-                state["address_file"] = _run_tui_pair_prompt(state["address_file"], picked)
-                curses.def_prog_mode()
-                curses.reset_prog_mode()
-                stdscr.nodelay(True)
-                stdscr.keypad(True)
+                state["address_file"] = _curses_pair_flow(stdscr, state["address_file"], picked)
                 refresh_view()
                 last_refresh = time.monotonic()
             time.sleep(0.05)
 
     try:
         curses.wrapper(draw)
-    except (curses.error, OSError):
+    except (curses.error, OSError, KeyboardInterrupt):
         return _run_plain_tui()
     print("Goodbye. No ring was contacted.")
     return ExitCode.OK

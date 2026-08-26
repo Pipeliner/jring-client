@@ -29,6 +29,18 @@ The curses frontend keeps this picker inside the TUI: it renders the numbered
 rows and accepts a number/arrow selection without dropping to a shell-style
 prompt or terminating curses. The plain fallback uses line input.
 
+## Curses interaction contract
+
+- The default curses view is **Devices**, whether or not an address file is
+  already configured. It explains how to scan and never shows a simulator as
+  the first view.
+- All scan, selection, path, pairing, and trust prompts are rendered inside
+  curses; curses is not ended for `input()` or a shell-style prompt.
+- Ctrl-C, Escape, and `q` cancel the current picker/prompt or quit safely. They
+  never leave a half-authorized pairing operation running.
+- Opening the TUI does not perform a radio scan. The user presses `r` (refresh)
+  from Devices to initiate one, so “no implicit scan” remains true.
+
 ## Invariants
 
 - Scan happens only after selecting Pair; no TUI startup scan occurs.
