@@ -89,6 +89,9 @@ instance from the explicitly opted-in, metadata-only selector manifest
 (`jring capabilities ... --include-observation-targets --json`):
 
 ```sh
+jring capabilities --address-file ~/.config/jring/address \
+  --include-observation-targets --json \
+  | jq -r '.observation_targets[] | [.service_uuid, .characteristic_uuid, .instance_id] | @tsv'
 jring observe --address-file ~/.config/jring/address \
   --private-output ~/.config/jring/observation.json \
   --service-uuid SERVICE --characteristic-uuid CHARACTERISTIC --instance-id INSTANCE \
