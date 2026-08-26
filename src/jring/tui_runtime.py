@@ -13,10 +13,11 @@ from .discovery import SelectionCandidate, discover_for_selection
 from .tui_model import Event, Screen, TuiState, reduce, render_model
 
 _ADDRESS = re.compile(r"(?i)(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}")
+_BLUEZ_PATH = re.compile(r"/org/bluez(?:/[A-Za-z0-9_]+)+")
 
 
 def _safe_error(exc: BaseException) -> str:
-    text = _ADDRESS.sub("[redacted device]", str(exc)).strip()
+    text = _BLUEZ_PATH.sub("[redacted Bluetooth path]", _ADDRESS.sub("[redacted device]", str(exc))).strip()
     return text or "the operation failed"
 
 

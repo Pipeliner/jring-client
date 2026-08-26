@@ -1,6 +1,6 @@
 import curses
 
-from jring.tui_runtime import TuiRuntime
+from jring.tui_runtime import TuiRuntime, _safe_error
 from jring.tui_model import Event, Screen
 
 
@@ -61,3 +61,10 @@ def test_runtime_pair_key_starts_in_tui_picker_without_printing(monkeypatch, cap
     finally:
         app.close()
 
+
+def test_runtime_errors_redact_addresses_and_bluez_paths():
+    address = ":".join(("AA", "BB", "CC", "DD", "EE", "FF"))
+    bluez_path = "/org/" + "bluez/hci0/dev_AA_BB"
+    message = _safe_error(RuntimeError(f"failed {address} at {bluez_path}"))
+    assert "AA:BB" not in message
+    assert "/org/bluez" not in message
