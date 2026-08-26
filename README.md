@@ -16,6 +16,7 @@ python3 -m venv .venv
 python -m pip install -e .
 jring
 jring doctor
+jring completion bash > ~/.local/share/bash-completion/completions/jring
 jring non-health-capabilities
 jring protocol-coverage
 jring status --simulate
@@ -134,6 +135,16 @@ automation. Both task-first options (`jring status --simulate`) and the original
 global-first form (`jring --simulate status`) are supported.
 Simulated human output clearly states that no ring was contacted; structured results
 and exports include source and schema provenance.
+
+To install the packaged Bash completion for your user without running a setup script:
+
+```sh
+mkdir -p ~/.local/share/bash-completion/completions
+jring completion bash > ~/.local/share/bash-completion/completions/jring
+```
+
+`completion` is offline and only supports Bash today; Fish and other shells remain
+out of scope.
 
 ## Comparative research, alternatives, and data sources
 

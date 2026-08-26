@@ -4,6 +4,7 @@ import argparse
 import asyncio
 from collections import Counter
 from contextlib import redirect_stderr
+import importlib.resources
 import json
 import math
 import os
@@ -393,6 +394,15 @@ def _print_terminal_home() -> None:
     print("and host input from ring events.")
     print()
     print("More commands: jring --help")
+
+
+def _print_completion(shell: str) -> None:
+    if shell != "bash":
+        raise ValueError("unsupported completion shell")
+    resource = importlib.resources.files("jring").joinpath(
+        "resources", "completions", "jring.bash"
+    )
+    sys.stdout.write(resource.read_text(encoding="utf-8"))
 
 
 def _print_input_actions(inventory: dict[str, list[dict[str, object]]]) -> None:
@@ -1841,6 +1851,9 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
 
 
 async def _run(args: argparse.Namespace) -> int:
+    if args.command == "completion":
+        _print_completion(args.shell)
+        return ExitCode.OK
     if args.command == "review-observation":
         payload = load_private_observation(args.private_input)
         if args.issue_draft_url:
@@ -2402,6 +2415,12 @@ def build_parser() -> argparse.ArgumentParser:
         "input-actions", help="list local simulator events and allowlisted input actions"
     )
     _add_json_option(input_actions)
+    completion = sub.add_parser(
+        "completion", help="print an installed shell completion script"
+    )
+    completion.add_argument(
+        "shell", choices=("bash",), help=argparse.SUPPRESS
+    )
     protocol_coverage = sub.add_parser(
         "protocol-coverage",
         help="inspect offline APK-to-Python parity without Bluetooth",
@@ -2719,6 +2738,7 @@ _OPERATIONS = {
     "protocol-coverage": "protocol_coverage",
     "non-health-capabilities": "non_health_capabilities",
     "input-actions": "input_actions",
+    "completion": "completion",
     "input": "input",
     "capabilities": "capabilities",
     "heart-rate": "heart_rate",
@@ -2902,6 +2922,11 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         if ignored:
             option = sorted(ignored)[0].replace("_", "-")
             parser.error(f"--{option} is not supported by input-actions")
+    if args.command == "completion":
+        ignored = provided & {"address", "address_file", "simulate", "timeout", "json"}
+        if ignored:
+            option = sorted(ignored)[0].replace("_", "-")
+            parser.error(f"--{option} is not supported by completion")
     if args.command == "protocol-coverage":
         ignored = provided & {"address", "address_file", "simulate", "timeout"}
         if ignored:
@@ -2931,7 +2956,7 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         parser.error("history is simulator-only and does not accept hardware selection or --timeout")
     if (
         args.command not in {
-            "discover", "doctor", "input", "input-actions", "protocol-coverage",
+            "discover", "doctor", "input", "input-actions", "completion", "protocol-coverage",
             "non-health-capabilities", "review-owner-evidence", "derive-owner-evidence", "review-observation",
         }
         and not simulate
