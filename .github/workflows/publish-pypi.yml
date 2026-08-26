@@ -8,6 +8,8 @@ on:
         required: true
         type: boolean
         default: false
+  push:
+    tags: ["v*"]
 
 permissions: {}
 
@@ -35,7 +37,7 @@ jobs:
       - name: Validate source and publishing intent
         shell: bash
         env:
-          PUBLISH_REQUESTED: ${{ inputs.publish }}
+          PUBLISH_REQUESTED: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || inputs.publish }}
         run: |
           set -euo pipefail
           git diff --exit-code
@@ -88,10 +90,17 @@ jobs:
   publish-pypi:
     needs: build-and-validate
     if: >-
-      inputs.publish == true &&
-      github.ref_type == 'tag' &&
-      github.ref_protected == true &&
-      startsWith(github.ref_name, 'v')
+      (
+        github.event_name == 'push' &&
+        github.ref_type == 'tag' &&
+        github.ref_protected == true &&
+        startsWith(github.ref_name, 'v')
+      ) || (
+        inputs.publish == true &&
+        github.ref_type == 'tag' &&
+        github.ref_protected == true &&
+        startsWith(github.ref_name, 'v')
+      )
     runs-on: ubuntu-latest
     environment:
       name: pypi

@@ -20,13 +20,12 @@ def validation_job(text: str) -> str:
     return text.split("  build-and-validate:", 1)[1].split("  publish-pypi:", 1)[0]
 
 
-def test_manual_validation_is_the_only_trigger_and_cannot_publish_by_default():
+def test_manual_validation_and_protected_version_tags_trigger_publishing():
     workflow = workflow_text()
 
     assert "workflow_dispatch:" in workflow
-    assert "pull_request:" not in workflow
-    assert "workflow_run:" not in workflow
-    assert re.search(r"\n  push:\s*(?:\n|$)", workflow) is None
+    assert "push:" in workflow
+    assert 'tags: ["v*"]' in workflow
     assert re.search(
         r"publish:\s*\n\s+description:.*\n\s+required: true\s*\n"
         r"\s+type: boolean\s*\n\s+default: false",
@@ -56,6 +55,7 @@ def test_publish_job_is_tag_environment_and_protected_ref_gated():
 
     for gate in (
         "inputs.publish == true",
+        "github.event_name == 'push'",
         "github.ref_type == 'tag'",
         "github.ref_protected == true",
         "startsWith(github.ref_name, 'v')",
@@ -65,6 +65,17 @@ def test_publish_job_is_tag_environment_and_protected_ref_gated():
     assert "name: pypi" in publish
     assert "id-token: write" in publish
     assert "contents: write" not in publish
+
+
+def test_automatic_tag_path_keeps_protection_and_manual_fallback():
+    workflow = workflow_text()
+    validation = validation_job(workflow)
+    publish = publish_job(workflow)
+    assert "github.event_name == 'push' && github.ref_type == 'tag'" in validation
+    assert "PUBLISH_REQUESTED" in validation
+    assert "github.event_name == 'push'" in publish
+    assert "inputs.publish == true" in publish
+    assert "GITHUB_REF_PROTECTED" in validation
 
 
 def test_publish_job_downloads_the_exact_validated_artifact_and_only_publishes_it():

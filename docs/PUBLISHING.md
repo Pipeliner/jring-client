@@ -25,14 +25,16 @@ PyPI.
 
 ## Acceptance contract
 
-- Manual dispatch is the only trigger and `publish: false` is the default.
+- Manual dispatch remains validation-only by default (`publish: false`); protected
+  `v*` tag pushes also start the guarded release path automatically.
 - Validation has read-only repository access and no OIDC permission.
 - Publication is possible only for a matching protected version tag when
   `publish: true`; the `pypi` environment must approve the deployment.
 - The publication job downloads the validation job's immutable artifact ID and runs
   the PyPA publisher once. It does not check out or execute repository code.
 - Every external action is pinned to a full commit SHA. No password, API token,
-  repository write permission, PR path, or automatic tag path exists.
+  repository write permission, or pull-request publication path exists. An automatic
+  tag run still requires a protected `v*` ref and the `pypi` environment approval.
 
 ## Configured GitHub controls
 
@@ -62,8 +64,9 @@ cannot be performed by the repository workflow and must be reviewed in PyPI.
 
 The repository side is already wired in `.github/workflows/publish-pypi.yml`: the
 publishing job requests only `id-token: write`, uses the `pypi` environment, accepts
-only a protected `v*` tag with an explicit `publish: true` dispatch input, and
-publishes the exact artifact produced by the validation job. In GitHub, verify:
+only a protected `v*` tag (automatically, or via an explicit `publish: true` dispatch
+input), and publishes the exact artifact produced by the validation job. In GitHub,
+verify:
 
 1. **Settings → Environments → `pypi`** has the required reviewer `Pipeliner`.
 2. The environment deployment branch/tag rule permits only `v*` tags.
@@ -97,7 +100,8 @@ and [GitHub environment protection](https://docs.github.com/en/actions/how-tos/d
    no OIDC token can be minted, and nothing is uploaded to PyPI.
 
 This path is appropriate while configuring PyPI or reviewing a candidate. It never
-runs for a pull request, fork, push, release, or tag automatically.
+publishes from a pull request or fork. A protected `v*` tag push starts the same
+validated artifact path automatically.
 
 Offline source-tree tests always validate the declared project keywords and URLs. The
 fresh wheel-and-sdist metadata test additionally requires the exact setuptools version
@@ -114,7 +118,8 @@ the release workflow builds twice from the selected commit and compares fresh ou
 2. Create the matching protected tag, for example `v0.5.0` for project version
    `0.5.0`. Tag creation and release notes remain manual owner actions outside this
    workflow.
-3. Dispatch `publish-pypi` at that exact tag with `publish: true`.
+3. The protected tag push starts `publish-pypi` automatically. For a manual fallback,
+   dispatch it at that exact tag with `publish: true`.
 4. Wait for `build-and-validate` to finish. Inspect that job and its immutable
    artifact before approving the pending `pypi` environment deployment.
 5. The publishing job downloads that artifact by GitHub artifact ID. It does not
