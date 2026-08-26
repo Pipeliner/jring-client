@@ -12,7 +12,38 @@ from jring.private_observation import (
     prepare_observation_authority,
     prepare_observation_plan,
     require_observation_authority,
+    select_observation_target,
 )
+from jring.transport import (
+    GattCharacteristicMetadata,
+    GattCharacteristicTarget,
+    GattDescriptorTarget,
+)
+from jring.uuids import CLIENT_CHARACTERISTIC_CONFIGURATION
+
+
+def _metadata(*, properties=("notify",), generation=1, instance_id="candidate-1"):
+    target = GattCharacteristicTarget(
+        generation, "service-candidate", "characteristic-candidate", instance_id
+    )
+    descriptor = GattDescriptorTarget(
+        generation,
+        "service-candidate",
+        "characteristic-candidate",
+        instance_id,
+        CLIENT_CHARACTERISTIC_CONFIGURATION,
+        f"{instance_id}-cccd",
+    )
+    return GattCharacteristicMetadata(
+        "service-candidate",
+        "characteristic-candidate",
+        properties,
+        (CLIENT_CHARACTERISTIC_CONFIGURATION,),
+        instance_id,
+        (f"{instance_id}-cccd",),
+        target,
+        (descriptor,),
+    )
 
 
 def test_observation_plan_requires_all_explicit_consents_before_io(tmp_path: Path):
@@ -78,3 +109,35 @@ def test_observation_authority_is_exact_generation_target_and_single_use(tmp_pat
     require_observation_authority(authority, connection_generation=1, target=target)
     with pytest.raises(ObservationError, match="stale_observation_authority"):
         require_observation_authority(authority, connection_generation=1, target=target)
+
+
+def test_observation_target_is_exact_current_metadata_notify_endpoint():
+    candidate = _metadata()
+    assert select_observation_target(
+        (candidate,),
+        connection_generation=1,
+        service_uuid="service-candidate",
+        characteristic_uuid="characteristic-candidate",
+        instance_id="candidate-1",
+    ) is candidate.target
+
+
+@pytest.mark.parametrize(
+    "metadata,generation,code",
+    [
+        ((_metadata(properties=("read",)),), 1, "unsupported_observation_target"),
+        ((_metadata(generation=2),), 1, "unsupported_observation_target"),
+        ((_metadata(), _metadata()), 1, "ambiguous_observation_target"),
+    ],
+)
+def test_observation_target_rejects_non_notify_stale_and_ambiguous_metadata(
+    metadata, generation, code
+):
+    with pytest.raises(ObservationError, match=code):
+        select_observation_target(
+            metadata,
+            connection_generation=generation,
+            service_uuid="service-candidate",
+            characteristic_uuid="characteristic-candidate",
+            instance_id="candidate-1",
+        )

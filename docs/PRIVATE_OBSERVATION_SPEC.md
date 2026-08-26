@@ -26,6 +26,11 @@ characteristic value, retries, uploads, opens a browser, or enables runtime beha
 Timeout, cancellation, disconnect, overflow, malformed traffic, uncertain cleanup, or
 private-file failure must produce a closed result that does not invite automatic retry.
 
+Target selection must name one exact service, characteristic, and locally enumerated
+instance from this connection's metadata. The selected endpoint must be unique,
+notify-capable, and have exactly one standard CCCD. A current internal selector enforces
+only those structural checks; it does not add a command or assign an event meaning.
+
 ## Private record and review
 
 Raw observations, if any, exist only in the new private mode-0600 file outside the

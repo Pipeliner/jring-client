@@ -10,6 +10,12 @@ import stat
 from weakref import WeakKeyDictionary
 
 from .owner_hardware_evidence import OwnerEvidenceError, _write_exclusive_json
+from .transport import (
+    GattCharacteristicMetadata,
+    GattCharacteristicTarget,
+    GattDescriptorTarget,
+)
+from .uuids import CLIENT_CHARACTERISTIC_CONFIGURATION
 
 
 class ObservationError(ValueError):
@@ -127,6 +133,68 @@ def require_observation_authority(
     if connection_generation != expected_generation or target is not expected_target:
         raise ObservationError("observation_authority_mismatch")
     _AUTHORITIES[authority] = (plan, expected_generation, expected_target, True)
+
+
+def select_observation_target(
+    metadata: tuple[GattCharacteristicMetadata, ...],
+    *,
+    connection_generation: int,
+    service_uuid: str,
+    characteristic_uuid: str,
+    instance_id: str,
+) -> GattCharacteristicTarget:
+    """Select one locally enumerated current-generation notify endpoint.
+
+    This is deliberately metadata-only. It has no knowledge of prior art, field
+    semantics, frame decoders, or runtime eligibility; the production transport
+    still validates object identity before it can subscribe.
+    """
+
+    if (
+        isinstance(connection_generation, bool)
+        or not isinstance(connection_generation, int)
+        or connection_generation <= 0
+    ):
+        raise ObservationError("invalid_connection_generation")
+    if not all(
+        isinstance(value, str) and value
+        for value in (service_uuid, characteristic_uuid, instance_id)
+    ):
+        raise ObservationError("invalid_observation_selector")
+    if not isinstance(metadata, tuple) or not all(
+        type(item) is GattCharacteristicMetadata for item in metadata
+    ):
+        raise ObservationError("invalid_observation_metadata")
+    matches = [
+        item
+        for item in metadata
+        if (
+            item.service_uuid == service_uuid
+            and item.uuid == characteristic_uuid
+            and item.instance_id == instance_id
+        )
+    ]
+    if len(matches) != 1:
+        raise ObservationError("ambiguous_observation_target")
+    candidate = matches[0]
+    if (
+        type(candidate.target) is not GattCharacteristicTarget
+        or candidate.target.connection_generation != connection_generation
+        or candidate.target.service_uuid != service_uuid
+        or candidate.target.uuid != characteristic_uuid
+        or candidate.target.instance_id != instance_id
+        or "notify" not in candidate.properties
+        or candidate.descriptor_uuids.count(CLIENT_CHARACTERISTIC_CONFIGURATION) != 1
+        or len(candidate.descriptor_targets) != 1
+        or type(candidate.descriptor_targets[0]) is not GattDescriptorTarget
+        or candidate.descriptor_targets[0].connection_generation
+        != connection_generation
+        or candidate.descriptor_targets[0].uuid
+        != CLIENT_CHARACTERISTIC_CONFIGURATION
+        or candidate.descriptor_targets[0].characteristic_instance_id != instance_id
+    ):
+        raise ObservationError("unsupported_observation_target")
+    return candidate.target
 
 
 def begin_observation(plan: ObservationPlan) -> ObservationRecorder:
