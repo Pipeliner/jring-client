@@ -809,6 +809,13 @@ Options that do not apply to a subcommand fail during parsing. Timeouts are fini
 between zero and 30 seconds. Any accepted `--json` success writes only valid JSON to
 stdout; commands without a JSON contract reject the option.
 
+When a hardware-capable command has no device source, its error is a recovery path,
+not merely a list of flags: it names the preferred private `--address-file` selector,
+points every first-time user to `jring status --simulate`, and recommends `jring doctor`
+before hardware. The simulator suggestion is intentionally the safe status preview,
+rather than a claim that every command has a simulator mode or that the selected ring
+is compatible.
+
 ### Private and sanitized selection
 
 A person may put an exact address in a mode-0600 file and pass `--address-file` so the

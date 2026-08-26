@@ -2306,8 +2306,8 @@ def build_parser() -> argparse.ArgumentParser:
     sync = sub.add_parser("time-sync", help="write standard Bluetooth Current Time")
     _add_runtime_options(sync, suppress=True)
     sync.add_argument(
-        "--allow-write", "--yes", dest="allow_write", action="store_true", required=True,
-        help="confirm this one standard Bluetooth time write",
+        "--allow-write", "--yes", dest="allow_write", action="store_true",
+        help="required for time sync: confirm this one standard Bluetooth time write",
     )
     history = sub.add_parser("history", help="export history (simulator only until verified)")
     history.add_argument("--simulate", action="store_true", default=argparse.SUPPRESS,
@@ -2654,17 +2654,6 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         parser.error("--simulate and hardware selection are mutually exclusive")
     if address and address_file:
         parser.error("--address and --address-file are mutually exclusive")
-    if args.command == "heart-rate":
-        allow_notifications = getattr(args, "allow_notifications", False)
-        if simulate and allow_notifications:
-            parser.error(
-                "--allow-notifications is hardware-only; simulation uses no Bluetooth"
-            )
-        if not simulate and not allow_notifications:
-            parser.error(
-                "hardware heart-rate requires --allow-notifications because BlueZ "
-                "may perform standard CCCD control traffic"
-            )
     if args.command == "doctor":
         ignored = provided & {"address", "address_file", "simulate", "timeout"}
         if ignored:
@@ -2709,9 +2698,26 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
         and not has_hardware
         and not guided_selection
     ):
-        parser.error("choose --simulate, --address-file, or --address for this command")
+        parser.error(
+            "this command needs one selected device: use --address-file (preferred) "
+            "or --address; for a safe first run, use `jring status --simulate`; "
+            "run `jring doctor` before hardware"
+        )
     if args.command == "history" and not simulate:
         parser.error("hardware history is not verified; use --simulate")
+    if args.command == "heart-rate":
+        allow_notifications = getattr(args, "allow_notifications", False)
+        if simulate and allow_notifications:
+            parser.error(
+                "--allow-notifications is hardware-only; simulation uses no Bluetooth"
+            )
+        if not simulate and not allow_notifications:
+            parser.error(
+                "hardware heart-rate requires --allow-notifications because BlueZ "
+                "may perform standard CCCD control traffic"
+            )
+    if args.command == "time-sync" and not getattr(args, "allow_write", False):
+        parser.error("time-sync requires --allow-write/--yes")
     for name, value in {
         "address": address,
         "address_file": address_file,

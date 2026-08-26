@@ -1509,6 +1509,18 @@ def test_discovery_requires_explicit_active_scan(capsys):
     assert "--active-scan" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("command", ["status", "capabilities", "heart-rate", "time-sync"])
+def test_hardware_commands_without_a_selector_offer_a_safe_recovery_path(command, capsys):
+    with pytest.raises(SystemExit) as raised:
+        cli.main([command])
+
+    assert raised.value.code == 2
+    error = capsys.readouterr().err
+    assert "--address-file (preferred)" in error
+    assert "jring status --simulate" in error
+    assert "jring doctor" in error
+
+
 def test_simulated_discovery_never_scans(monkeypatch, capsys):
     touched_radio = False
 
