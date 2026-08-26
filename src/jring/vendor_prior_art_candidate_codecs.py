@@ -2,10 +2,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 
 class PriorArtCandidateError(ValueError):
     pass
+
+
+class SpeculativeHistoryFragmentKind(str, Enum):
+    HEADER = "header"
+    INDEX = "index"
+    DATA = "data"
+    COMPLETE_MARKER = "complete_marker"
+
+
+@dataclass(frozen=True, init=False, repr=False)
+class SpeculativeHistoryFragment:
+    kind: SpeculativeHistoryFragmentKind
+    provenance: str
+    runtime_authority: bool
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("speculative history fragments are codec-owned")
 
 
 @dataclass(frozen=True, init=False, repr=False)
@@ -37,3 +55,17 @@ def parse_speculative_combined_measurement(payload: bytes) -> SpeculativeCombine
         "provenance": "external_prior_art_unverified", "runtime_authority": False,
     }.items(): object.__setattr__(value, name, item)
     return value
+
+
+def classify_speculative_heart_rate_history_fragment(payload: bytes) -> SpeculativeHistoryFragment:
+    """Classify only public 0x16 marker claims; do not decode or reassemble data."""
+    if type(payload) is not bytes or len(payload) < 2 or payload[0] != 0x16:
+        raise PriorArtCandidateError("invalid_speculative_history_fragment")
+    kinds = {0xF0: SpeculativeHistoryFragmentKind.HEADER, 0xAA: SpeculativeHistoryFragmentKind.INDEX, 0xA0: SpeculativeHistoryFragmentKind.DATA, 0xFF: SpeculativeHistoryFragmentKind.COMPLETE_MARKER}
+    try: kind = kinds[payload[1]]
+    except KeyError as exc: raise PriorArtCandidateError("unknown_speculative_history_marker") from exc
+    result = object.__new__(SpeculativeHistoryFragment)
+    object.__setattr__(result, "kind", kind)
+    object.__setattr__(result, "provenance", "external_prior_art_unverified")
+    object.__setattr__(result, "runtime_authority", False)
+    return result
