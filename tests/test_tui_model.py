@@ -36,6 +36,7 @@ def test_pair_from_empty_devices_opens_picker_and_accepts_scan_result_in_place()
     state = reduce(state, Event.scan_completed(1, (candidate("SR08", likely=True),)))
     assert state.screen is Screen.PICKER
     assert state.candidates[0].display_name == "SR08"
+    assert reduce(state, Event.key("r")).scan_generation == 2
 
 
 def test_stale_scan_result_cannot_replace_current_results():

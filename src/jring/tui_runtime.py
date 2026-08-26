@@ -5,11 +5,19 @@ import asyncio
 from concurrent.futures import Future, ThreadPoolExecutor
 import curses
 import os
+import re
 import time
 from typing import Any, Callable
 
 from .discovery import SelectionCandidate, discover_for_selection
 from .tui_model import Event, Screen, TuiState, reduce, render_model
+
+_ADDRESS = re.compile(r"(?i)(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}")
+
+
+def _safe_error(exc: BaseException) -> str:
+    text = _ADDRESS.sub("[redacted device]", str(exc)).strip()
+    return text or "the operation failed"
 
 
 class TuiRuntime:
@@ -81,7 +89,7 @@ class TuiRuntime:
                 else:
                     self.state = self.state.__class__(**{**self.state.__dict__, "screen": Screen.RESULT, "status": "Task complete.", "body": str(value)})
         except Exception as exc:
-            self.state = self.state.__class__(**{**self.state.__dict__, "screen": Screen.ERROR, "status": "Task failed; no automatic retry.", "body": str(exc)})
+            self.state = self.state.__class__(**{**self.state.__dict__, "screen": Screen.ERROR, "status": "Task failed; no automatic retry.", "body": _safe_error(exc)})
 
     @staticmethod
     def _draw_lines(stdscr: Any, lines: list[str], start: int, height: int, width: int) -> None:
@@ -123,6 +131,8 @@ class TuiRuntime:
             return self.state.quit_requested
         if key in (ord("r"), ord("R")) and self.state.screen is Screen.DEVICES:
             self.dispatch(Event.key("r")); self._scan(); return False
+        if key in (ord("r"), ord("R")) and self.state.screen is Screen.PICKER:
+            self.dispatch(Event.key("p")); self._scan(); return False
         if key in (ord("p"), ord("P")) and self.state.screen is Screen.DEVICES:
             self.dispatch(Event.key("p")); self._scan(); return False
         if self.state.screen is Screen.DEVICES and key in (ord("v"), ord("V")):
