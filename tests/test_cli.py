@@ -2085,3 +2085,46 @@ def test_json_interruption_is_structured(monkeypatch, capsys):
     assert result["error"]["code"] == "interrupted"
     assert result["error"]["retryable"] is True
     assert captured.err == ""
+def test_observe_is_explicit_and_value_free(monkeypatch, tmp_path, capsys):
+    address_file = tmp_path / "selected-address"
+    address_file.write_text(SYNTHETIC_ADDRESS + "\n", encoding="utf-8")
+    address_file.chmod(0o600)
+
+    class Result:
+        def public_payload(self):
+            return {
+                "capture_status": "completed",
+                "record_count": 1,
+                "cleanup": {"unsubscribe": "confirmed", "close": "confirmed"},
+                "runtime_authorized": False,
+                "decoder": "none",
+            }
+
+    class Runner:
+        def __init__(self, *, transport_factory):
+            assert transport_factory is cli.BleakTransport
+
+        async def run(self, plan, **selector):
+            assert plan.public_payload()["consent"] == ["connect", "observe", "subscribe"]
+            assert selector == {
+                "service_uuid": "service-candidate",
+                "characteristic_uuid": "characteristic-candidate",
+                "instance_id": "candidate-1",
+            }
+            return Result()
+
+    monkeypatch.setattr(cli, "PrivateObservationRunner", Runner)
+    assert cli.main([
+        "observe", "--address-file", str(address_file),
+        "--private-output", str(tmp_path / "private.json"),
+        "--service-uuid", "service-candidate",
+        "--characteristic-uuid", "characteristic-candidate",
+        "--instance-id", "candidate-1",
+        "--max-records", "1", "--allow-connect", "--allow-notifications",
+        "--allow-observation", "--json",
+    ]) == 0
+    output = capsys.readouterr().out
+    assert SYNTHETIC_ADDRESS not in output
+    assert "candidate-1" not in output
+    assert str(tmp_path / "private.json") not in output
+    assert json.loads(output)["capture_status"] == "completed"
