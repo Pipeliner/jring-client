@@ -1823,6 +1823,10 @@ def _print_capability_inventory(payload: dict[str, object], source: str) -> None
         "Route readiness grants no live eligibility, owner authorization, or "
         "hardware eligibility"
     )
+    print(
+        "For private observation selectors, rerun with --json; UUIDs and "
+        "instance IDs are metadata only and are not shown in this human view"
+    )
     print("Vendor meanings: unknown; values not read; writes disabled")
     if "issue_draft_url" in payload:
         print("Sanitized issue draft: generated locally; review before opening.")

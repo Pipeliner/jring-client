@@ -239,6 +239,13 @@ def test_capabilities_human_issue_draft_is_reviewable_and_local(capsys):
     assert "https://github.com/Pipeliner/jring-client/issues/new?" in output
 
 
+def test_capabilities_human_guides_private_observation_selector_source(capsys):
+    assert cli.main(["capabilities", "--simulate"]) == 0
+    output = capsys.readouterr().out
+    assert "For private observation selectors, rerun with --json" in output
+    assert "UUIDs and instance IDs are metadata only" in output
+
+
 @pytest.mark.parametrize(
     "argv, operation, source",
     [
