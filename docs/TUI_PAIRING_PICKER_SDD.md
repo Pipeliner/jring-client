@@ -1,73 +1,125 @@
-# TUI pairing picker — SDD
+# JRing TUI — interaction model and software design
 
-Status: proposed implementation contract (2026-08-26)
+Status: proposed redesign; implementation intentionally deferred
 
-## Job to be done
+## Evidence and design choice
 
-When a person wants to pair a nearby ring, they should be able to identify it
-from the TUI without first finding a Bluetooth address or writing shell commands.
-The flow must remain understandable to a hurried user and must not silently pair
-or trust a device.
+The current curses loop mixes rendering, blocking BLE work, and line prompts.
+That is the source of progress text leaking outside the TUI, awkward cancellation,
+and focus loss. Python’s curses guide describes a non-blocking `getch` loop and
+explicit resize handling; mature TUI frameworks model screens/widgets, focus,
+and events rather than shell prompts. See the [Python curses guide](https://docs.python.org/3/howto/curses.html),
+[Textual screens](https://textual.textualize.io/guide/screens/),
+[Textual focus/key bindings](https://github.com/Textualize/textual/blob/main/docs/guide/widgets.md),
+and [prompt-toolkit Application/event-loop reference](https://python-prompt-toolkit.readthedocs.io/en/stable/pages/reference.html).
 
-## User flow
+We will use an event-driven state machine behind a renderer boundary. The first
+implementation may remain stdlib-only, but it must preserve these architectural
+properties; switching to Textual or prompt-toolkit later must not change the
+interaction contract.
 
-1. Choose **Pair** (`p`) from either TUI frontend.
-2. The client performs one explicitly initiated BLE scan and displays a numbered
-   list. Each row contains the advertised Bluetooth name (or “unnamed device”),
-   a privacy-safe alias, JRing-name heuristic, and signal strength; raw addresses
-   are never printed. Likely JRing devices appear first, then stronger signals,
-   then stable alphabetical names.
-3. Choose a row or cancel. Invalid input does no work and returns to the menu.
-4. Choose the destination address-file path (defaulting to the current path or
-   `~/.config/jring/address`). The selected address is written only to a
-   user-owned mode-0600 regular file.
-5. Type `PAIR` to authorize exactly one BlueZ pairing operation.
-6. After pairing, answer a separate `y/yes` prompt to authorize `trust`; the
-   default is no. Pairing and trust are never conflated.
+## JTBD scenarios
 
-The curses frontend keeps this picker inside the TUI: it renders the numbered
-rows and accepts a number/arrow selection without dropping to a shell-style
-prompt or terminating curses. The plain fallback uses line input.
+| User job | Default path | Completion signal |
+| --- | --- | --- |
+| “Show me what is nearby” | Open TUI → Devices → `r` | Named, sorted rows or actionable empty/error state |
+| “Pair my ring quickly” | Devices → `p` → scan → select → Pair → optional Trust | Result screen states outcome and next action |
+| “Use my configured ring” | Devices → select saved device → Status/Capabilities | Current device and operation state are visible |
+| “I have no hardware” | Devices → `v` Simulator | Offline provenance is prominent; no radio call |
+| “Something failed” | Result panel → `r` retry or `Esc` back | Cause, remedy, and side-effect status are explicit |
+| “I pressed Ctrl-C” | Any screen/modal | Modal cancels or root exits cleanly; no traceback |
 
-## Curses interaction contract
+## Screen/state model
 
-- The default curses view is **Devices**, whether or not an address file is
-  already configured. It explains how to scan and never shows a simulator as
-  the first view.
-- All scan, selection, path, pairing, and trust prompts are rendered inside
-  curses; curses is not ended for `input()` or a shell-style prompt.
-- Ctrl-C, Escape, and `q` cancel the current picker/prompt or quit safely. They
-  never leave a half-authorized pairing operation running.
-- Opening the TUI does not perform a radio scan. The user presses `r` (refresh)
-  from Devices to initiate one, so “no implicit scan” remains true.
+```
+DEVICES ──r──> SCANNING ──> DEVICES(results)
+   │              └──────> ERROR(retry/back)
+   p
+   └──────> PICKER ──> PAIR_CONFIRM ──> TRUST_CONFIRM ──> RESULT
+   s/c/d/i/v ──> TASK_RUNNING ──> RESULT ──> DEVICES
+```
 
-## Invariants
+Each screen owns a title, purpose line, content region, status line, and key
+legend. Focus is visible without color. Long content scrolls. Resize events
+recompute layout and never crash. Simulator is a sibling task, never an error
+fallback for missing hardware.
 
-- Scan happens only after selecting Pair; no TUI startup scan occurs.
-- Scan, selection, and file creation do not connect to the device.
-- The picker never displays or logs a raw Bluetooth address.
-- Advertised names are user-facing labels, not proof of identity; the UI says so.
-- Discovery results can be stale or incomplete. A failed subsequent connection
-  is explained as “not connected” with retry guidance, not as an unexplained
-  traceback.
-- Cancel, empty results, scan failure, invalid selection, unsafe path, or a
-  non-literal pairing confirmation must perform no pairing/trust operation.
-- Existing address-file validation remains authoritative for all hardware use.
-- A scan result is ephemeral; the stored file is the explicit hand-off to later
-  status/capability commands.
-- Curses mode must not exit to the terminal merely to choose a device.
+## Event and task model
 
-## TDD matrix
+- A single UI event loop receives key, resize, timer, scan-result, task-result,
+  and cancellation events.
+- BLE and subprocess work runs in bounded background tasks; render never waits
+  synchronously on them. Progress is state, not `print()`.
+- `r` starts one bounded scan and immediately renders `SCANNING`.
+- `p` uses fresh device results or starts a scan within the picker.
+- Every task carries a generation/token; stale results cannot overwrite the
+  current screen.
+- Ctrl-C, Escape, and `q` are first-class events. Cancellation is idempotent;
+  cleanup is bounded; no automatic retry occurs.
+- Exceptions become sanitized result events. Raw exceptions, addresses, and
+  payloads never reach the renderer.
 
-| Case | Expected behavior |
-| --- | --- |
-| one or more devices | numbered picker is shown; selected alias is displayed |
-| named devices | Bluetooth name is shown and likely JRing devices sort first |
-| `q` or interrupt | no file, pairing, or trust operation |
-| invalid number | explanatory cancellation; no operation |
-| empty scan | retry guidance; no operation |
-| scan exception | sanitized error; no operation |
-| valid selection + `PAIR` | one `pair` command receives the selected address-file |
-| valid selection + no trust | no `trust` command |
-| valid selection + `y` trust | separate `trust` command is authorized |
-| unsafe address path | no pairing/trust command |
+## Devices view
+
+Devices is the default screen on every launch, even when an address file exists.
+Opening the TUI performs no radio operation. The initial empty state explains
+`r` scan, `p` pair, and `v` simulator. A configured device is labelled configured
+but does not replace the nearby-device view.
+
+Rows show advertised Bluetooth name (or “unnamed device”), privacy-safe alias,
+JRing-name heuristic, signal strength, and freshness. Names are labels, not
+identity proof; stale/incomplete results are disclosed. Sort by likely JRing,
+RSSI descending, case-folded name, then alias. Raw addresses are never rendered.
+
+## Pairing/trust modal
+
+1. `p` enters an in-TUI scanning/picker screen; no stdout progress or terminal
+   mode switch occurs.
+2. Up/down and `j`/`k` move focus; Enter selects; number keys 1–9 are shortcuts;
+   Escape/Ctrl-C cancel.
+3. Pair confirmation names the selected label and warns that advertisements can
+   be stale. The default is cancel; explicit `PAIR` text or a clearly labelled
+   confirm key is required.
+4. Address-file path is an in-TUI editable field. Atomic creation requires a
+   user-owned regular mode-0600 file and refuses symlinks/unsafe existing files.
+5. Trust is a separate modal, default No, shown only after pair success or
+   already-paired. Pair and trust have separate tokens/results.
+6. Result screen reports paired/trusted/cancelled/uncertain, file-write status,
+   remedy, and next key.
+
+## Other tasks
+
+Status/Capabilities use an in-TUI configured-file field and never silently scan.
+Doctor/Input Actions are local bounded tasks with scrollable output. Simulator is
+explicit (`v`) and labelled “offline simulator — no ring contacted”. Hardware
+connection failures say “could not connect”, explain stale results/retry, and do
+not show traceback or raw BlueZ output.
+
+## Accessibility and terminal behavior
+
+- Reading order is task-first; no color-only meaning, spinner, or hidden hotkey.
+- Minimum supported terminal is 80×24; clipping/wrapping is safe and announced.
+- Unicode advertisement names are sanitized to one line.
+- Ctrl-C works at root, during scan, in picker, in editable fields, and on result.
+- Plain fallback exists only when curses cannot initialize and preserves labels,
+  ordering, and safety language.
+
+## Acceptance/TDD matrix
+
+| Given | Event | Must observe |
+| --- | --- | --- |
+| fresh launch | none | Devices screen; no BLE call; no simulator |
+| Devices | `r` | in-TUI SCANNING, then sorted names or actionable error |
+| any screen | Ctrl-C | clean cancel/quit; no traceback |
+| Devices | `p` | in-TUI picker; no stdout leakage or terminal mode switch |
+| picker | arrows/Enter | visible focus and selection; no connection yet |
+| picker | Escape/Ctrl-C | modal closes; no file/pair/trust |
+| selected row | cancel confirmation | no pair call |
+| selected row | confirm | exactly one pair call |
+| pair success | default Trust | no trust call |
+| pair success | explicit Trust | exactly one separate trust call |
+| scan results | sort/render | JRing-first, RSSI/name ordering; names visible |
+| task failure | result | remedy, retry/back action, no raw error/address |
+| resize/80×24 | redraw | no crash; title/focus/footer remain visible |
+| simulator | `v` | explicit offline provenance; no BLE call |
+
