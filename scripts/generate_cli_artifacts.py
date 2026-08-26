@@ -415,6 +415,12 @@ def render_man(surface: CliSurface) -> str:
         lines.extend(_man_option(option))
     for command in surface.commands:
         lines.append(f'.SS "jring {command.name}"')
+        if command.positional_choices:
+            lines.extend([
+                ".TP",
+                ".B Positional choices",
+                _roff(", ".join(command.positional_choices) + "."),
+            ])
         for option in command.options:
             lines.extend(_man_option(option))
     lines.extend([

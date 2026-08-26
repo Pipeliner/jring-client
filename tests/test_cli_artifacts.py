@@ -283,6 +283,8 @@ def test_manual_leads_with_safety_and_covers_every_parser_item_once():
         assert manual.count(f'.SS "jring {command.name}"') == 1
     assert r"\-\-allow\-write, \-\-yes" in manual
     assert "basic, hid" in manual
+    assert 'Positional choices' in manual
+    assert re.search(r'\.SS "jring completion".*?bash\.', manual, re.DOTALL)
     assert "130 interruption" in manual
     assert "non-retryable" in manual
     assert "setup, response, and cleanup" in manual
