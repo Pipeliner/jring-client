@@ -114,7 +114,7 @@ def reduce(state: TuiState, event: Event) -> TuiState:
             if key in {"enter", "return"} and state.candidates:
                 selected = state.candidates[state.focus_index]
                 return replace(state, screen=Screen.PAIR_CONFIRM, selected_candidate=selected,
-                               status="Confirm pairing for the selected device.", body=f"Selected: {selected.display_name or 'unnamed device'} [{selected.alias}]\nType PAIR to authorize one pairing operation.")
+                               status="Confirm pairing for the selected device.", body=f"Selected: {selected.display_name or 'unnamed device'} [{selected.alias}]\nAdvertisements can be stale. Pairing will perform one Bluetooth operation.")
         if state.screen is Screen.PAIR_CONFIRM and key in {"confirm-pair", "pair"}:
             return replace(state, screen=Screen.TASK_RUNNING, operation_kind="pair",
                            side_effect_possible=True, status="Pairing…", body="One BlueZ pairing operation is running.")
@@ -149,6 +149,14 @@ def render_model(state: TuiState) -> dict[str, object]:
             marker = ">" if index - 1 == state.focus_index else " "
             rows.append(f"{marker} {index}. {item.display_name or 'unnamed device'} [{item.alias}]")
         body = "Names are advertisement labels, not identity proof; results can be stale.\n\n" + "\n".join(rows)
+    if state.screen is Screen.PAIR_CONFIRM:
+        keys = "Enter/y pair  Esc cancel"
+    elif state.screen is Screen.TRUST_CONFIRM:
+        keys = "t trust  n skip  Esc cancel"
+    elif state.screen is Screen.PICKER:
+        keys = "↑/↓ or j/k move  Enter select  r rescan  Esc cancel"
+    else:
+        keys = "r scan  p pair  s status  c capabilities  d doctor  i inputs  v simulator  q quit  Ctrl-C cancel"
     return {
         "screen": state.screen.value,
         "title": "JRING — DEVICES" if state.screen is Screen.DEVICES else f"JRING — {state.screen.value.upper()}",
@@ -156,5 +164,5 @@ def render_model(state: TuiState) -> dict[str, object]:
         "body": body,
         "focus_index": state.focus_index,
         "status": state.status,
-        "keys": "r scan  p pair  s status  c capabilities  d doctor  i inputs  v simulator  q quit  Ctrl-C cancel",
+        "keys": keys,
     }

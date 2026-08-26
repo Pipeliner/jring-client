@@ -162,7 +162,7 @@ class TuiRuntime:
                 self.state = self.state.__class__(**{**self.state.__dict__, "focus_index": index})
                 self.dispatch(Event.key("enter"))
             return False
-        if self.state.screen is Screen.PAIR_CONFIRM and key in (ord("y"), ord("Y")) and self.state.selected_candidate:
+        if self.state.screen is Screen.PAIR_CONFIRM and key in (ord("y"), ord("Y"), 10, 13) and self.state.selected_candidate:
             selected = self.state.selected_candidate
             path = self._prompt_path(stdscr, self.state.address_file)
             if not path:

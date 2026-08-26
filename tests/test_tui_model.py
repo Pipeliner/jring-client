@@ -67,6 +67,8 @@ def test_pair_result_opens_trust_only_after_success():
     state = reduce(state, Event.scan_completed(1, (selected,)))
     state = reduce(state, Event.key("enter"))
     assert state.screen is Screen.PAIR_CONFIRM
+    assert "Type PAIR" not in state.body
+    assert "pair" in render_model(state)["keys"]
     state = reduce(state, Event.key("confirm-pair"))
     assert state.screen is Screen.TASK_RUNNING
     state = reduce(state, Event.task_completed(state.scan_generation, "pair", "paired"))

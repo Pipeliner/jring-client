@@ -25,7 +25,7 @@ def test_tui_is_a_safe_menu_and_quits_without_probing(monkeypatch, capsys):
     assert "No Bluetooth" in output
 
 
-def test_tui_pairing_prompt_requires_literal_confirmation(monkeypatch, capsys):
+def test_plain_tui_pairing_prompt_uses_clear_confirmation(monkeypatch, capsys):
     candidate = cli.SelectionCandidate(
         alias="ring-1", likely_jring=True, service_uuids=(), rssi=-48,
         _address=":".join(("AA", "BB", "CC", "DD", "EE", "FF")),
@@ -54,7 +54,7 @@ def test_tui_pairing_picker_runs_scan_then_pair_and_trust(monkeypatch, capsys, t
     monkeypatch.setattr(cli, "_tui_store_selected_address", lambda path, address: saved.update(path=path, address=address) or True)
     commands = []
     monkeypatch.setattr(cli, "_tui_command", lambda argv: commands.append(argv) or "paired")
-    answers = iter(["p", "1", str(tmp_path / "address"), "PAIR", "y", "q"])
+    answers = iter(["p", "1", str(tmp_path / "address"), "y", "y", "q"])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
     assert cli.main(["tui"]) == 0
     assert saved["address"] == ":".join(("AA", "BB", "CC", "DD", "EE", "FF"))

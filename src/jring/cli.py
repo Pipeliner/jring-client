@@ -491,7 +491,7 @@ def _run_tui_pair_prompt(current_path: str | None = None, selected: SelectionCan
             return current_path
         if not _tui_store_selected_address(path, selected.connection_address()):
             return current_path
-        if input("Type PAIR to authorize one BlueZ pairing operation: ").strip() != "PAIR":
+        if input("Authorize one pairing operation? [y/N]: ").strip().lower() not in {"y", "yes"}:
             print("Pairing cancelled; nothing was run.")
             return path
         argv = ["pair", "--address-file", path, "--allow-pairing"]
@@ -560,7 +560,7 @@ def _curses_pair_flow(stdscr: Any, current_path: str | None, selected: Selection
     path = prompt(f"Address file [{default}]:", default)
     if path is None or not _tui_store_selected_address(path, selected.connection_address()):
         return current_path
-    if prompt("Type PAIR to authorize one BlueZ pairing operation:") != "PAIR":
+    if prompt("Authorize one pairing operation? [y/N]:", "").lower() not in {"y", "yes"}:
         return path
     argv = ["pair", "--address-file", os.path.expanduser(path), "--allow-pairing"]
     if prompt("Also trust this device? Type YES to authorize trust (default NO):", "").lower() in {"y", "yes"}:

@@ -117,8 +117,9 @@ RSSI descending, case-folded name, then alias. Raw addresses are never rendered.
 2. Up/down and `j`/`k` move focus; Enter selects; number keys 1–9 are shortcuts;
    Escape/Ctrl-C cancel.
 3. Pair confirmation names the selected label and warns that advertisements can
-   be stale. The default is cancel; explicit `PAIR` text or a clearly labelled
-   confirm key is required.
+   be stale. The default is cancel; a clearly labelled in-curses `Pair` action
+   (Enter or `y`) authorizes one operation. No `input()` prompt or typed sentinel
+   such as `PAIR` is ever shown.
 4. Address-file path is an in-TUI editable field. Atomic creation requires a
    user-owned regular mode-0600 file and refuses symlinks/unsafe existing files.
 5. Trust is a separate modal, default No, shown only after pair success or
