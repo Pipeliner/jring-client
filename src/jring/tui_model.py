@@ -108,5 +108,5 @@ def render_model(state: TuiState) -> dict[str, object]:
         "body": state.body,
         "focus_index": state.focus_index,
         "status": state.status,
-        "keys": "r scan  p pair  v simulator  q quit  Ctrl-C cancel",
+        "keys": "r scan  p pair  s status  c capabilities  d doctor  i inputs  v simulator  q quit  Ctrl-C cancel",
     }

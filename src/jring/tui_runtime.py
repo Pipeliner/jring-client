@@ -37,6 +37,12 @@ class TuiRuntime:
     def _start_task(self, argv: list[str]) -> None:
         self.future = self.executor.submit(self.command, argv)
 
+    def _set_task_state(self, label: str, argv: list[str]) -> None:
+        self.state = self.state.__class__(**{**self.state.__dict__, "screen": Screen.TASK_RUNNING,
+                                             "status": f"Running {label}…",
+                                             "body": "The task is running; Ctrl-C cancels waiting."})
+        self._start_task(argv)
+
     def _poll(self) -> None:
         if not self.future or not self.future.done():
             return
@@ -96,6 +102,16 @@ class TuiRuntime:
             self.dispatch(Event.key("r")); self._scan(); return False
         if key in (ord("p"), ord("P")) and self.state.screen is Screen.DEVICES:
             self.dispatch(Event.key("p")); self._scan(); return False
+        if self.state.screen is Screen.DEVICES and key in (ord("v"), ord("V")):
+            self._set_task_state("offline simulator", ["status", "--simulate"]); return False
+        if self.state.screen is Screen.DEVICES and key in (ord("d"), ord("D")):
+            self._set_task_state("local readiness check", ["doctor"]); return False
+        if self.state.screen is Screen.DEVICES and key in (ord("i"), ord("I")):
+            self._set_task_state("input action inventory", ["input-actions"]); return False
+        if self.state.screen is Screen.DEVICES and key in (ord("s"), ord("S"), ord("c"), ord("C")):
+            command = "status" if key in (ord("s"), ord("S")) else "capabilities"
+            path = os.path.expanduser("~/.config/jring/address")
+            self._set_task_state(command, [command, "--address-file", path]); return False
         if self.state.screen is Screen.PICKER and key in (curses.KEY_DOWN, curses.KEY_UP, ord("j"), ord("k"), 10, 13):
             self.dispatch(Event.key({curses.KEY_DOWN: "down", curses.KEY_UP: "up", ord("j"): "j", ord("k"): "k"}.get(key, "enter")))
             return False
@@ -120,4 +136,3 @@ class TuiRuntime:
         finally:
             self.close()
         return 0
-
