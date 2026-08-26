@@ -43,6 +43,12 @@ from .owner_hardware_evidence import (
     write_owner_evidence_review,
     write_reviewed_compatibility_row,
 )
+from .private_observation import (
+    ObservationError,
+    ObservationStatus,
+    PrivateObservationRunner,
+    prepare_observation_plan,
+)
 from .protocol import HeartRate, ProtocolError
 from .readiness import ReadinessReport, diagnose
 from .transport import SIMULATOR_PROFILES, FakeTransport
@@ -2031,6 +2037,65 @@ async def _run(args: argparse.Namespace) -> int:
         if result.status is OwnerEvidenceStatus.PRIVATE_OUTPUT_FAILED:
             return ExitCode.PERMISSION_DENIED
         return ExitCode.UNAVAILABLE
+    if args.command == "observe":
+        address = _selected_address(args)
+        plan = prepare_observation_plan(
+            address=address,
+            allow_connect=args.allow_connect,
+            allow_notifications=args.allow_notifications,
+            allow_observation=args.allow_observation,
+            timeout=args.timeout,
+            max_records=args.max_records,
+            private_output=args.private_output,
+        )
+        if not args.json:
+            print("PRIVATE OBSERVATION — no connection has started")
+            print(
+                f"Will perform: one connection, one metadata-selected notification subscription, "
+                f"up to {args.max_records} private record(s), within {args.timeout:g} seconds"
+            )
+            print("Will not perform: characteristic reads, vendor writes, decoding, input actions, uploads, or retries")
+            print("Private record: one new mode-0600 file; path and captured values withheld")
+        result = await PrivateObservationRunner(transport_factory=BleakTransport).run(
+            plan,
+            service_uuid=args.service_uuid,
+            characteristic_uuid=args.characteristic_uuid,
+            instance_id=args.instance_id,
+        )
+        payload = result.public_payload()
+        if args.json:
+            if payload["capture_status"] == ObservationStatus.COMPLETED.value:
+                _print_json_success("private_observation", "hardware", payload)
+            else:
+                _print_json_error(
+                    RuntimeError("private observation did not complete"),
+                    operation="private_observation",
+                    source="hardware",
+                    contract=ErrorContract(
+                        f"private_observation_{payload['capture_status']}",
+                        ExitCode.TIMEOUT if payload["capture_status"] == "timed_out" else ExitCode.UNAVAILABLE,
+                        False,
+                    ),
+                    payload=payload,
+                )
+        else:
+            print("RESULT — private observation")
+            print(f"Capture: {payload['capture_status'].replace('_', ' ')}")
+            print(f"Private records: {payload['record_count']}")
+            print(
+                "Cleanup: "
+                f"unsubscribe {payload['cleanup']['unsubscribe']}; "
+                f"close {payload['cleanup']['close']}"
+            )
+            print("Values, target identity, and private path: withheld")
+            print("Runtime behavior: unchanged")
+        return (
+            ExitCode.OK
+            if payload["capture_status"] == ObservationStatus.COMPLETED.value
+            else ExitCode.TIMEOUT
+            if payload["capture_status"] == ObservationStatus.TIMED_OUT.value
+            else ExitCode.UNAVAILABLE
+        )
     if args.command == "input":
         binding = parse_binding(args.mapping)
         if not args.simulate:
@@ -2423,6 +2488,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--active-scan", action="store_true",
         help="authorize the BLE scan required by --select",
     )
+    observe = sub.add_parser(
+        "observe",
+        help="privately collect bounded unknown notifications from one explicit metadata target",
+    )
+    observe.add_argument(
+        "--address-file", type=Path, required=True,
+        help="mode-0600 file containing the one explicitly selected ring address",
+    )
+    observe.add_argument(
+        "--private-output", type=Path, required=True,
+        help="new destination for the exclusively created mode-0600 private record",
+    )
+    observe.add_argument("--service-uuid", required=True, help="exact locally enumerated service UUID")
+    observe.add_argument("--characteristic-uuid", required=True, help="exact locally enumerated notify characteristic UUID")
+    observe.add_argument("--instance-id", required=True, help="exact locally enumerated characteristic instance ID")
+    observe.add_argument("--max-records", type=int, default=8, help="private record cap, 1 through 128 (default: 8)")
+    observe.add_argument("--timeout", type=_timeout, default=8.0, help="one overall observation deadline in seconds (default: 8)")
+    _add_json_option(observe)
+    observe.add_argument("--allow-connect", action="store_true", required=True, help="authorize one connection to the selected ring")
+    observe.add_argument("--allow-notifications", action="store_true", required=True, help="authorize one metadata-selected notification subscription")
+    observe.add_argument("--allow-observation", action="store_true", required=True, help="confirm private capture of unknown notification bytes")
     review = sub.add_parser(
         "review-owner-evidence",
         help="review one private owner-evidence record without Bluetooth I/O",
@@ -2556,6 +2642,7 @@ _OPERATIONS = {
     "time-sync": "time_sync",
     "history": "history",
     "verify-device-info": "owner_hardware_evidence",
+    "observe": "private_observation",
     "review-owner-evidence": "review_owner_evidence",
     "derive-owner-evidence": "derive_owner_evidence",
 }
@@ -2674,6 +2761,11 @@ def _parse_cli_args(argv: list[str]) -> argparse.Namespace:
             parser.error("verify-device-info does not support simulation")
         if not address_file and not guided_selection:
             parser.error("verify-device-info requires --address-file or --select --active-scan")
+    if args.command == "observe":
+        if address:
+            parser.error("observe requires --address-file; direct addresses are not accepted")
+        if simulate or guided_selection or active_scan:
+            parser.error("observe requires one mode-0600 --address-file and does not scan or simulate")
     if args.command in {"review-owner-evidence", "derive-owner-evidence"}:
         if simulate or has_hardware or guided_selection or active_scan:
             parser.error(f"{args.command} is offline and does not accept device selection")

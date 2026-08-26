@@ -18,6 +18,17 @@ into guesswork.
 4. Discovery never selects a device and never prints a Bluetooth address.
 5. A hardware write requires an explicit confirmation on the same command.
 6. Output never includes an address, raw health payload, or hidden telemetry.
+
+## Private observation
+
+`jring observe` is a deliberate owner-investigation command, not a feature-enablement
+command. It requires a mode-0600 selected-address file, a new mode-0600 private output,
+one exact locally enumerated service/characteristic/instance target, a bounded deadline
+and record limit, and explicit connect, notification, and observation acknowledgements.
+Before connecting it states that it will not read a characteristic, write to the ring,
+decode a value, emit input, upload data, open a browser, or retry. Human and JSON output
+withhold raw bytes, address, target identity, and private path; completion never changes
+runtime eligibility.
 7. Readiness checks are passive and distinguish optional hardware setup from the
    always-available simulator path.
 8. General-purpose input mappings preview by default, use a closed action vocabulary,

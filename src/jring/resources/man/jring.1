@@ -45,6 +45,9 @@ export history (simulator only until verified)
 .B verify\-device\-info
 run one owner\-hardware device\-info transport canary
 .TP
+.B observe
+privately collect bounded unknown notifications from one explicit metadata target
+.TP
 .B review\-owner\-evidence
 review one private owner\-evidence record without Bluetooth I/O
 .TP
@@ -312,6 +315,43 @@ interactively select an ephemeral discovery alias in this process
 .TP
 .B \-\-active\-scan
 authorize the BLE scan required by \-\-select
+.SS "jring observe"
+.TP
+.B \-h, \-\-help
+show this help message and exit
+.TP
+.B \-\-address\-file \fIADDRESS\-FILE\fR
+mode\-0600 file containing the one explicitly selected ring address Required.
+.TP
+.B \-\-private\-output \fIPRIVATE\-OUTPUT\fR
+new destination for the exclusively created mode\-0600 private record Required.
+.TP
+.B \-\-service\-uuid \fISERVICE\-UUID\fR
+exact locally enumerated service UUID Required.
+.TP
+.B \-\-characteristic\-uuid \fICHARACTERISTIC\-UUID\fR
+exact locally enumerated notify characteristic UUID Required.
+.TP
+.B \-\-instance\-id \fIINSTANCE\-ID\fR
+exact locally enumerated characteristic instance ID Required.
+.TP
+.B \-\-max\-records \fIMAX\-RECORDS\fR
+private record cap, 1 through 128 (default: 8)
+.TP
+.B \-\-timeout \fITIMEOUT\fR
+one overall observation deadline in seconds (default: 8)
+.TP
+.B \-\-json
+print structured JSON
+.TP
+.B \-\-allow\-connect
+authorize one connection to the selected ring Required.
+.TP
+.B \-\-allow\-notifications
+authorize one metadata\-selected notification subscription Required.
+.TP
+.B \-\-allow\-observation
+confirm private capture of unknown notification bytes Required.
 .SS "jring review-owner-evidence"
 .TP
 .B \-h, \-\-help

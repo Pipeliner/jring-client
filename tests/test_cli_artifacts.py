@@ -36,6 +36,7 @@ EXPECTED_COMMANDS = (
     "time-sync",
     "history",
     "verify-device-info",
+    "observe",
     "review-owner-evidence",
     "derive-owner-evidence",
 )
@@ -122,6 +123,20 @@ EXPECTED_OPTIONS = {
         ("--negative-control",),
         ("--select",),
         ("--active-scan",),
+    ),
+    "observe": (
+        ("-h", "--help"),
+        ("--address-file",),
+        ("--private-output",),
+        ("--service-uuid",),
+        ("--characteristic-uuid",),
+        ("--instance-id",),
+        ("--max-records",),
+        ("--timeout",),
+        ("--json",),
+        ("--allow-connect",),
+        ("--allow-notifications",),
+        ("--allow-observation",),
     ),
     "review-owner-evidence": (
         ("-h", "--help"),
@@ -211,7 +226,7 @@ def test_bash_completion_preserves_per_command_option_scope():
     assert "input:--map)" in bash
     for command in ("status", "capabilities", "heart-rate", "time-sync"):
         assert f"{command}:--address-file)" in bash
-    assert bash.count("compopt -o filenames 2>/dev/null || true") == 18
+    assert bash.count("compopt -o filenames 2>/dev/null || true") == 20
 
 
 def test_generation_is_reproducible_private_and_host_independent(monkeypatch):
