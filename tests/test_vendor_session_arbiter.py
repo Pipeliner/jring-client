@@ -15,6 +15,9 @@ def test_one_generation_owns_each_subscription_and_transaction_callback_once():
     assert arbiter.route_callback(token, callback_id="onReceiveSensorData") is ArbiterRoute.NEUTRAL_EVENT
     assert arbiter.route_callback(token, callback_id="onReceiveSensorData") is ArbiterRoute.NEUTRAL_EVENT
     assert arbiter.route_callback(token, callback_id="onReceiveSensorData") is ArbiterRoute.OVERFLOW
+    assert arbiter.route_callback(token, callback_id="made-up-callback") is ArbiterRoute.UNKNOWN
+    with pytest.raises(ValueError, match="invalid_transaction_callback"):
+        arbiter.claim_transaction_callback(token, callback_id="made-up-callback")
 
 
 def test_stale_forged_and_closed_tokens_cannot_route_or_reopen_connection():

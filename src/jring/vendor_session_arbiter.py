@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from .vendor_callback_event_registry import recovered_callback_event_registry
+
 
 class ArbiterRoute(str, Enum):
     TRANSACTION = "transaction"
@@ -11,6 +13,7 @@ class ArbiterRoute(str, Enum):
     STALE = "stale"
     OVERFLOW = "overflow"
     CLOSED = "closed"
+    UNKNOWN = "unknown"
 
 
 @dataclass(frozen=True, init=False, repr=False)
@@ -35,6 +38,9 @@ class VendorSessionArbiter:
         self._transaction_callback: str | None = None
         self._neutral_count = 0
         self._limit = maximum_neutral_events
+        self._known_callbacks = frozenset(
+            row.callback_id for row in recovered_callback_event_registry()
+        )
 
     def begin(self) -> ArbiterToken:
         if not self._closed:
@@ -56,7 +62,11 @@ class VendorSessionArbiter:
 
     def claim_transaction_callback(self, token: ArbiterToken, *, callback_id: str) -> None:
         self._require(token)
-        if not self._subscriptions or type(callback_id) is not str or not callback_id:
+        if (
+            not self._subscriptions
+            or type(callback_id) is not str
+            or callback_id not in self._known_callbacks
+        ):
             raise ValueError("invalid_transaction_callback")
         if self._transaction_callback is not None:
             raise RuntimeError("transaction_already_claimed")
@@ -67,8 +77,8 @@ class VendorSessionArbiter:
             return ArbiterRoute.STALE
         if self._closed:
             return ArbiterRoute.CLOSED
-        if type(callback_id) is not str:
-            return ArbiterRoute.NEUTRAL_EVENT
+        if type(callback_id) is not str or callback_id not in self._known_callbacks:
+            return ArbiterRoute.UNKNOWN
         if callback_id == self._transaction_callback:
             return ArbiterRoute.TRANSACTION
         self._neutral_count += 1
