@@ -26,6 +26,7 @@ SYNTHETIC_BLUEZ_PATH = "/org/" + "bluez/hci0/dev_AA_BB_CC_DD_EE_FF"
 EXPECTED_COMMANDS = (
     "doctor",
     "input-actions",
+    "tui",
     "completion",
     "protocol-coverage",
     "non-health-capabilities",
@@ -55,6 +56,7 @@ EXPECTED_OPTIONS = {
     ),
     "doctor": (("-h", "--help"), ("--json",), ("--require-hardware",), ("--require-input",)),
     "input-actions": (("-h", "--help"), ("--json",)),
+    "tui": (("-h", "--help"),),
     "completion": (("-h", "--help"),),
     "protocol-coverage": (("-h", "--help"), ("--json",)),
     "non-health-capabilities": (("-h", "--help"), ("--json",)),

@@ -12,6 +12,27 @@ contract is:
 - never solve an input permission problem by running JRing as root or making
   `/dev/uinput` world-writable.
 
+## Fastest first run with uvx
+
+If [uv](https://docs.astral.sh/uv/) is available, try the packaged client without
+creating a checkout or modifying the system interpreter:
+
+```sh
+uvx --from jring-client jring tui
+```
+
+Choose `s` for a simulated status, `c` for simulated capabilities (including the
+metadata-only HID profile), or `q` to leave. These choices are offline and do not
+select, scan for, or connect to a ring. The equivalent one-shot command is:
+
+```sh
+uvx --from jring-client jring status --simulate
+```
+
+`uvx` installs the package in a temporary isolated environment. For optional
+Bluetooth support, add it explicitly to that environment, for example:
+`uvx --from jring-client --with bleak jring doctor`.
+
 The package metadata accepts CPython 3.10 and newer. The repository's regular CI
 currently exercises Python 3.10 and 3.13 on a GitHub-hosted Ubuntu runner. Other
 versions and the distro recipes below are documented installation paths, not claims

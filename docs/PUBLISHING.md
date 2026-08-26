@@ -58,6 +58,24 @@ If the PyPI project does not exist yet, create a pending publisher with the same
 identity. Do not configure a password or API token. This account-level trust change
 cannot be performed by the repository workflow and must be reviewed in PyPI.
 
+### Owner checklist on GitHub
+
+The repository side is already wired in `.github/workflows/publish-pypi.yml`: the
+publishing job requests only `id-token: write`, uses the `pypi` environment, accepts
+only a protected `v*` tag with an explicit `publish: true` dispatch input, and
+publishes the exact artifact produced by the validation job. In GitHub, verify:
+
+1. **Settings → Environments → `pypi`** has the required reviewer `Pipeliner`.
+2. The environment deployment branch/tag rule permits only `v*` tags.
+3. **Settings → Rules → Rulesets** keeps matching version tags protected and limits
+   tag creation/update/deletion to `Pipeliner`.
+4. Keep Actions permissions at the workflow's least privilege; do not add a PyPI
+   secret or `contents: write`.
+
+Then, on PyPI, go to **Your projects → jring-client → Publishing → Add a new
+publisher** and enter exactly `Pipeliner`, `jring-client`, `publish-pypi.yml`, and
+`pypi`. Save it, then use a validation-only dispatch before the first real release.
+
 The official setup references are the
 [PyPI Trusted Publisher guide](https://docs.pypi.org/trusted-publishers/adding-a-publisher/),
 the [PyPI security model](https://docs.pypi.org/trusted-publishers/security-model/),

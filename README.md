@@ -7,6 +7,18 @@ from the owner's selected ring establish the protocol exactly.
 
 ## Install and run
 
+For the quickest try (no checkout and no system install), use `uvx`. The first
+screen is safe and simulator-first:
+
+```sh
+uvx --from jring-client jring tui
+```
+
+The menu's `s` and `c` choices only run offline simulator commands. For a one-shot
+check, use `uvx --from jring-client jring status --simulate`; `uvx` creates and
+discards an isolated environment automatically. Add `--with bleak` only when a
+command explicitly needs the optional Bluetooth dependency.
+
 From a clone, create an isolated environment. `python3` is used for bootstrapping on
 Linux distributions that do not provide a `python` command:
 
@@ -25,6 +37,11 @@ jring capabilities --simulate
 jring history --simulate --output history.jsonl
 jring input --simulate --map step=click:left
 ```
+
+After installation, `jring tui` opens the same dependency-free terminal menu and
+`jring-tui` is an equivalent console-script shortcut. It never scans, connects, or
+emits desktop input from the menu itself; hardware actions remain explicit commands
+with separate consent flags.
 
 `--simulate` uses the named `basic` profile everywhere: it has standard status data
 and does not advertise HID. To inspect a synthetic, metadata-only HID inventory, name

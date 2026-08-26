@@ -400,6 +400,51 @@ def _print_terminal_home() -> None:
     print("More commands: jring --help")
 
 
+def _run_tui() -> int:
+    """Run a small, dependency-free, safe-first terminal menu.
+
+    The menu only dispatches to existing commands.  It never selects a device,
+    starts a scan, opens a connection, or emits desktop input on its own.
+    """
+
+    print("JRING — SAFE TUI")
+    print("No ring selected. No Bluetooth, scan, network, or desktop-input action occurred.")
+    print()
+    print("s) Simulated status")
+    print("c) Simulated capabilities (including HID metadata)")
+    print("d) Check this computer (doctor)")
+    print("i) Explore input actions")
+    print("h) Show command-line quickstart")
+    print("q) Quit")
+    while True:
+        try:
+            choice = input("\nChoose an option [s/c/d/i/h/q]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return ExitCode.OK
+        if choice == "q":
+            print("Goodbye. No ring was contacted.")
+            return ExitCode.OK
+        if choice == "s":
+            main(["status", "--simulate"])
+        elif choice == "c":
+            main(["capabilities", "--simulate", "--simulate-profile", "hid"])
+        elif choice == "d":
+            main(["doctor"])
+        elif choice == "i":
+            main(["input-actions"])
+        elif choice == "h":
+            _print_terminal_home()
+        else:
+            print("Choose s, c, d, i, h, or q. Nothing was run.")
+
+
+def tui_main() -> int:
+    """Console-script entry point for ``jring-tui``."""
+
+    return int(_run_tui())
+
+
 def _print_completion(shell: str) -> None:
     if shell != "bash":
         raise ValueError("unsupported completion shell")
@@ -2419,6 +2464,9 @@ def build_parser() -> argparse.ArgumentParser:
         "input-actions", help="list local simulator events and allowlisted input actions"
     )
     _add_json_option(input_actions)
+    sub.add_parser(
+        "tui", help="open a safe, simulator-first terminal menu (no device selected)"
+    )
     completion = sub.add_parser(
         "completion", help="print an installed shell completion script"
     )
@@ -2742,6 +2790,7 @@ _OPERATIONS = {
     "protocol-coverage": "protocol_coverage",
     "non-health-capabilities": "non_health_capabilities",
     "input-actions": "input_actions",
+    "tui": "tui",
     "completion": "completion",
     "input": "input",
     "capabilities": "capabilities",
@@ -2779,7 +2828,7 @@ def _source_from_args(args: argparse.Namespace) -> str:
     if args.command in {"review-owner-evidence", "derive-owner-evidence", "review-observation"}:
         return "private_local"
     if args.command in {
-        "doctor", "input-actions", "protocol-coverage", "non-health-capabilities"
+        "doctor", "input-actions", "tui", "protocol-coverage", "non-health-capabilities"
     }:
         return "local"
     return "simulator" if getattr(args, "simulate", False) else "hardware"
@@ -3014,6 +3063,8 @@ def main(argv: list[str] | None = None) -> int:
     if not raw_argv:
         _print_terminal_home()
         return ExitCode.OK
+    if raw_argv == ["tui"]:
+        return _run_tui()
     if json_requested:
         rendered_error = StringIO()
         try:

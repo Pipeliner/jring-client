@@ -12,6 +12,27 @@ from jring.transport import FakeTransport
 from jring.uuids import FIRMWARE, HEART_RATE_MEASUREMENT
 
 
+def test_tui_is_a_safe_menu_and_quits_without_probing(monkeypatch, capsys):
+    answers = iter(["q"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    assert cli.main(["tui"]) == 0
+    output = capsys.readouterr().out
+    assert "JRING — SAFE TUI" in output
+    assert "No ring selected" in output
+    assert "s) Simulated status" in output
+    assert "q) Quit" in output
+    assert "No Bluetooth" in output
+
+
+def test_tui_simulated_status_action_is_available(monkeypatch, capsys):
+    answers = iter(["s", "q"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    assert cli.main(["tui"]) == 0
+    output = capsys.readouterr().out
+    assert "Simulator profile: basic" in output
+    assert "Battery: 84%" in output
+
+
 SYNTHETIC_ADDRESS = ":".join(("AA", "BB", "CC", "DD", "EE", "FF"))
 OTHER_SYNTHETIC_ADDRESS = ":".join(("11", "22", "33", "44", "55", "66"))
 SYNTHETIC_BLUEZ_PATH = "/org/" + "bluez/hci0/dev_AA_BB"

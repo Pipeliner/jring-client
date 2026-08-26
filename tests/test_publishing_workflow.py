@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "publish-pypi.yml"
 DOCUMENTATION = ROOT / "docs" / "PUBLISHING.md"
+README = ROOT / "README.md"
 
 
 def workflow_text() -> str:
@@ -127,3 +128,13 @@ def test_owner_runbook_names_every_external_gate_and_the_nonpublishing_path():
         "Only the PyPI owner",
     ):
         assert term in documentation
+
+
+def test_uvx_quickstart_and_tui_entrypoint_are_documented():
+    metadata = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    readme = README.read_text(encoding="utf-8")
+    install = (ROOT / "docs" / "INSTALL.md").read_text(encoding="utf-8")
+    assert 'jring-tui = "jring.cli:tui_main"' in metadata
+    for text in (readme, install):
+        assert "uvx --from jring-client jring tui" in text
+        assert "status --simulate" in text
