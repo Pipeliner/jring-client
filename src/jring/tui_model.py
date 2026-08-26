@@ -78,7 +78,10 @@ def reduce(state: TuiState, event: Event) -> TuiState:
             return replace(state, scan_generation=generation,
                            status="Refreshing scan… no connection has started.")
         if state.screen is Screen.DEVICES and key == "p":
-            return replace(state, screen=Screen.PICKER, focus_index=0, status="Choose a device to pair.")
+            generation = state.scan_generation + 1 if not state.candidates else state.scan_generation
+            return replace(state, screen=Screen.PICKER, focus_index=0, scan_generation=generation,
+                           status="Choose a device to pair." if state.candidates else "Scanning for devices to pair…",
+                           body="Waiting for nearby Bluetooth advertisements…" if not state.candidates else state.body)
         if state.screen is Screen.PICKER:
             if key in {"down", "j"} and state.candidates:
                 return replace(state, focus_index=min(state.focus_index + 1, len(state.candidates) - 1))
@@ -87,10 +90,11 @@ def reduce(state: TuiState, event: Event) -> TuiState:
             if key in {"enter", "return"} and state.candidates:
                 return replace(state, screen=Screen.PAIR_CONFIRM, status="Confirm pairing for the selected device.")
     elif event.kind == "scan_completed":
-        if state.screen is not Screen.SCANNING or event.generation != state.scan_generation:
+        if state.screen not in {Screen.SCANNING, Screen.PICKER} or event.generation != state.scan_generation:
             return state
         candidates = _sort_candidates(event.candidates)
-        return replace(state, screen=Screen.DEVICES, candidates=candidates, focus_index=0,
+        screen = Screen.PICKER if state.screen is Screen.PICKER else Screen.DEVICES
+        return replace(state, screen=screen, candidates=candidates, focus_index=0,
                        status="Scan complete." if candidates else "No nearby devices found; press r to retry.",
                        body="\n".join(f"{i}. {item.display_name or 'unnamed device'} [{item.alias}]" for i, item in enumerate(candidates, 1)))
     return state

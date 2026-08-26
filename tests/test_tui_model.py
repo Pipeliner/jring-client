@@ -29,6 +29,15 @@ def test_refresh_enters_scanning_and_completion_returns_sorted_devices():
     assert [item.display_name for item in state.candidates] == ["SR08 JRing", "Keyboard"]
 
 
+def test_pair_from_empty_devices_opens_picker_and_accepts_scan_result_in_place():
+    state = reduce(TuiState.initial(), Event.key("p"))
+    assert state.screen is Screen.PICKER
+    assert state.scan_generation == 1
+    state = reduce(state, Event.scan_completed(1, (candidate("SR08", likely=True),)))
+    assert state.screen is Screen.PICKER
+    assert state.candidates[0].display_name == "SR08"
+
+
 def test_stale_scan_result_cannot_replace_current_results():
     state = reduce(TuiState.initial(), Event.key("r"))
     state = reduce(state, Event.key("r"))
@@ -49,4 +58,3 @@ def test_render_model_has_accessible_screen_contract():
     assert set(("screen", "title", "purpose", "body", "focus_index", "status", "keys")) <= set(model)
     assert model["screen"] == "devices"
     assert "simulator" not in model["title"].lower()
-
