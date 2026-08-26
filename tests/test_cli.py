@@ -233,9 +233,9 @@ def test_capabilities_can_opt_into_value_free_observation_target_manifest(capsys
 
 
 def test_observation_target_manifest_requires_structured_output(capsys):
-    assert cli.main([
-        "capabilities", "--simulate", "--include-observation-targets",
-    ]) == 2
+    with pytest.raises(SystemExit) as raised:
+        cli.main(["capabilities", "--simulate", "--include-observation-targets"])
+    assert raised.value.code == 2
     assert "--include-observation-targets requires --json" in capsys.readouterr().err
 
 
