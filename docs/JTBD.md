@@ -477,3 +477,26 @@ The complete state, privacy, and accessibility contract is in
 [VENDOR_AUTHORIZATION_GATES.md](VENDOR_AUTHORIZATION_GATES.md). Production terminal
 verdicts remain unavailable until #49 and real reviewed owner evidence close the named
 scope and receipt blockers.
+
+### Know whether one exact runtime scope was reviewed
+
+When I consider a recovered operation on a selected ring, I need an exact reviewed
+scope decision rather than an operation-name allowlist, so an observation on a nearby
+firmware or another backend cannot silently enable a run.
+
+Desired outcomes:
+
+- Compare operation, model, exact point-build symbol, backend, and decision version
+  exactly; unknown, major-only, range, wildcard, stale-version, and fallback matches
+  fail closed.
+- Treat a checked-in decision as eligibility metadata only: selection, current
+  connection ownership, fresh consent, dispatch, repeat, and runtime authority remain
+  separate.
+- Keep canary results, publication review, synthetic gate examples, and private
+  evidence references out of runtime lookup and public inspection output.
+- Make the complete reviewed source change validate atomically, rejecting duplicate
+  scope keys, contradictory records, and replayed reviewed-evidence references.
+
+The current ledger deliberately has no rows. Issue #57 must first provide a
+privacy-safe exact build-scope attestation; therefore this boundary cannot claim that
+any ring or operation is supported today.

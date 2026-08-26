@@ -36,6 +36,7 @@ becoming live authority. Every later runtime consumes exact registered types.
 - [#49 Scope-keyed runtime eligibility and atomic evidence promotion](https://github.com/Pipeliner/jring-client/issues/49)
 - [#52 One session arbiter for transactions and events](https://github.com/Pipeliner/jring-client/issues/52)
 - [#55 Private owner protocol-observation workflow](https://github.com/Pipeliner/jring-client/issues/55)
+- [#57 Exact firmware-build scope attestation](https://github.com/Pipeliner/jring-client/issues/57)
 
 This milestone supplies exact endpoint ownership, operation-specific matching,
 generation safety, bounded cleanup, and private-to-public evidence promotion. Owner

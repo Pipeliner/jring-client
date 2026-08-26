@@ -658,6 +658,18 @@ classification. Its production approval ledger is empty until #49 and a gate-spe
 review receipt exist, so synthetic success or failure can preserve only ambiguous,
 offline, or timed-out explanations and all authority remains false.
 
+Runtime operation eligibility has its own closed relation in
+`vendor_runtime_scope_eligibility`. It is keyed by the exact operation, public model
+scope, exact firmware-build scope, backend scope, and decision version. Matching is
+byte-exact: it has no major-version, family, backend, wildcard, range, newest, or
+nearest-row fallback. The source-controlled ledger is rebuilt as one immutable value
+only after every row, full scope key, and reviewed-evidence reference validates; a
+duplicate key or reused reference rejects the whole candidate. The shipped ledger is
+currently empty. A #34 canary or its public compatibility row cannot enter this
+relation, and a lookup neither selects, connects, writes, repeats, nor grants consent.
+Issue #57 is the required exact model/point-build/backend attestation boundary before
+any positive source decision can be reviewed.
+
 - Import and simulator tests work without Bleak or hardware.
 - Parsers reject truncated, oversized, malformed, and bad-checksum simulator data.
 - Discovery alone cannot connect; guided selection requires explicit scan and
