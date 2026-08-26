@@ -142,9 +142,9 @@ not show traceback or raw BlueZ output.
 - Ctrl-C works at root, during scan, in picker, in editable fields, and on result.
 - Plain fallback exists only when curses cannot initialize and preserves labels,
   ordering, and safety language.
-- Importing or installing the package must not require curses: minimal Linux
-  Python builds without the module use the plain fallback and keep all CLI
-  commands available.
+- Supported release targets provide curses for the interactive `jring tui` path.
+  Importing or installing the package remains safe on minimal Python builds without
+  the module; those use the plain fallback and keep all CLI commands available.
 
 ## Acceptance/TDD matrix
 

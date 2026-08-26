@@ -233,23 +233,8 @@ python -m venv .venv
 Arch calls its current Python 3 interpreter `python`. `bluez-utils` provides
 `bluetoothctl`.
 
-### openSUSE and SLES 15
-
-For openSUSE Leap or SLES 15, select the official Python 3.11 module/packages available
-for the installed service pack. On releases exposing the `python311` package names:
-
-```sh
-sudo zypper install python311 python311-pip python311-devel gcc make linux-glibc-devel bluez
-python3.11 --version
-python3.11 -m venv .venv
-```
-
-SLES may require enabling its official Python module through the site's normal
-SUSEConnect/subscription process first. Do not substitute a community repository on a
-managed SLES host without administrator review. Tumbleweed users may use its current
-`python3`, `python3-pip`, and `python3-devel` packages if `python3 --version` is new
-enough. `linux-glibc-devel` supplies the user-space Linux input headers used to build
-evdev; `kernel-devel` is intended for building kernel modules and is not needed here.
+openSUSE and SLES are not supported release targets. Use one of the listed Debian,
+Ubuntu, Fedora, RHEL-compatible, Arch, or NixOS paths instead.
 
 ### NixOS
 

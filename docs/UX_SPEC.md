@@ -61,6 +61,11 @@ interactive widget; and does not parse a command, run diagnostics, construct a
 transport, scan, select a ring, access the network, or emit desktop input. This is a
 least-surprising terminal start screen, not a curses UI or a GUI.
 
+Given an interactive terminal, when a person runs `jring tui`, the event-driven curses
+renderer is the default presentation. It opens on the devices view and keeps scanning,
+pairing, confirmations, errors, and cancellation inside curses. Plain output is
+reserved for non-interactive streams or a terminal that cannot initialize curses.
+
 Given `jring --json` with no command, the command preserves the existing schema-1 JSON
 usage-error envelope and never prints the human home. Explicit commands and `--help`
 are unchanged.

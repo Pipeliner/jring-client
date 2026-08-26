@@ -13,12 +13,11 @@ def test_install_guide_covers_each_promised_linux_family():
         "Fedora",
         "RHEL, Rocky Linux, and AlmaLinux 9",
         "Arch Linux",
-        "openSUSE and SLES 15",
         "NixOS",
     ):
         assert family in INSTALL
 
-    for package_manager in ("apt", "dnf", "pacman", "zypper", "nix-shell"):
+    for package_manager in ("apt", "dnf", "pacman", "nix-shell"):
         assert package_manager in INSTALL
 
 
@@ -39,7 +38,6 @@ def test_each_hardware_layer_has_dependencies_and_a_passive_check():
         "python3-dev",
         "python3-devel",
         "linux-api-headers",
-        "linux-glibc-devel",
         "jring doctor",
         "jring status --simulate",
     ):
@@ -70,8 +68,6 @@ def test_compatibility_claims_separate_documentation_ci_and_hardware_evidence():
         "Fedora",
         "RHEL / Rocky / Alma 9",
         "Arch",
-        "openSUSE Leap 15.6",
-        "SLES 15",
         "NixOS",
     ):
         assert term in COMPATIBILITY
@@ -97,7 +93,6 @@ def test_native_distro_smoke_matrix_is_bounded_and_pinned():
         ("fedora", "fedora:44"),
         ("enterprise-linux-9", "rockylinux/rockylinux:9"),
         ("arch", "archlinux:base"),
-        ("opensuse", "opensuse/leap:15.6"),
     ):
         assert f"family: {family}" in workflow
         assert f"image: {image}" in workflow
@@ -129,7 +124,8 @@ def test_native_distro_smoke_is_simulator_only_and_checks_every_layer():
     assert "/dev/" not in workflow
 
 
-def test_native_distro_claims_keep_sles_and_nixos_documentation_only():
+def test_native_distro_claims_exclude_unsupported_suse_and_keep_nixos_documentation_only():
     assert "Native container smoke" in COMPATIBILITY
-    assert "SLES 15" in COMPATIBILITY and "documentation-only" in COMPATIBILITY
+    assert "openSUSE" not in COMPATIBILITY
+    assert "SLES 15" not in COMPATIBILITY
     assert "NixOS" in COMPATIBILITY and "documentation-only" in COMPATIBILITY

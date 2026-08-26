@@ -32,9 +32,6 @@ jobs:
           - family: arch
             image: archlinux:base
             python_command: python
-          - family: opensuse
-            image: opensuse/leap:15.6
-            python_command: python3.11
     env:
       JRING_HARDWARE_TEST: "0"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
@@ -64,11 +61,6 @@ jobs:
               pacman -Syu --noconfirm --needed \
                 git ca-certificates python python-pip base-devel linux-api-headers \
                 bluez bluez-utils
-              ;;
-            opensuse)
-              zypper --non-interactive install --no-recommends \
-                git ca-certificates python311 python311-pip python311-devel gcc make \
-                linux-glibc-devel bluez
               ;;
             *)
               echo "unsupported smoke family" >&2

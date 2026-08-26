@@ -15,7 +15,7 @@ levels:
 
 The routine test workflow uses a GitHub-hosted Ubuntu runner with Python 3.10 and 3.13.
 A separate bounded native-container workflow installs and tests Debian 13, Fedora 44,
-the current Rocky Linux 9 minor, Arch, and openSUSE Leap 15.6 userspace environments.
+the current Rocky Linux 9 minor, and Arch userspace environments.
 The repository's checks page, rather than this document, records whether a particular
 workflow run was green. No distro row is a real-ring compatibility claim. No owner
 hardware observations have been accepted.
@@ -27,15 +27,13 @@ hardware observations have been accepted.
 | Fedora | yes | Fedora 44 native container smoke | none |
 | RHEL / Rocky / Alma 9 | yes; select Python 3.11 | current Rocky Linux 9 native container smoke | none |
 | Arch | yes | rolling `base` native container smoke | none |
-| openSUSE Leap 15.6 | yes | native container smoke | none |
-| SLES 15 | yes; official Python module required | documentation-only; not CI-exercised | none |
 | NixOS | yes; nixpkgs attribute is revision-dependent | documentation-only; not CI-exercised | none |
 
 ### Interpreter choices
 
 `pyproject.toml` declares CPython 3.10 or newer. Python 3.10 and 3.13 are the explicit
 routine matrix choices. The native containers additionally exercise their packaged
-interpreters: Python 3.13 on Debian, Python 3.11 on Rocky Linux and openSUSE, Fedora's
+interpreters: Python 3.13 on Debian, Python 3.11 on Rocky Linux, Fedora's
 current Python, and Arch's rolling Python. Python 3.12 and later remain within the
 package declaration but must not be described as CI-verified unless a workflow actually
 selected that minor. Optional Bleak and evdev compatibility is additionally bounded by
@@ -53,9 +51,7 @@ JSON, simulated status and capabilities, and an input preview. It never requests
 active scan, address, selection, or input injection.
 
 These are native distro userspace/package-manager checks running on a GitHub-hosted
-Linux kernel. The Leap 15.6 image is only a practical openSUSE userspace proxy for the
-related SLES 15 package family; it does not exercise SLES repositories, subscriptions,
-support policy, or a booted SLES host. A container does not verify systemd services,
+Linux kernel. A container does not verify systemd services,
 the distro kernel, a Bluetooth adapter, BlueZ D-Bus access, udev policy, `/dev/uinput`,
 or a NixOS system rebuild. Faithful hosted SLES and NixOS jobs are therefore
 documentation-only until an appropriate bounded runner exists.
