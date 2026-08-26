@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import asyncio
 from concurrent.futures import Future, ThreadPoolExecutor
-import curses
+try:
+    import curses
+except ImportError:  # pragma: no cover - exercised by minimal non-curses Python builds
+    curses = None  # type: ignore[assignment]
 import os
 import re
 import time

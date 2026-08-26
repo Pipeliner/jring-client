@@ -1,4 +1,6 @@
-import curses
+import pytest
+
+curses = pytest.importorskip("curses")
 
 from jring.tui_runtime import TuiRuntime, _safe_error
 from jring.tui_model import Event, Screen

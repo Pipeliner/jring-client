@@ -620,7 +620,10 @@ def _run_plain_tui() -> int:
 
 
 def _run_curses_tui() -> int:
-    import curses
+    try:
+        import curses
+    except ImportError:
+        return _run_plain_tui()
     from .tui_runtime import TuiRuntime
     try:
         return curses.wrapper(TuiRuntime(_tui_command, _tui_store_selected_address).run)
